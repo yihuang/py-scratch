@@ -9,6 +9,7 @@ build/
 # Virtual env
 .venv/
 .venv.bak/
+/.envrc
 
 # IDE
 .vscode/

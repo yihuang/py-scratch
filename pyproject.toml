@@ -7,3 +7,32 @@ requires-python = ">=3.13"
 dependencies = [
     "pygame>=2.6.1",
 ]
+
+[project.optional-dependencies]
+svg = ["cairosvg>=2.9.0"]
+
+[project.scripts]
+scratch-vm = "scratch.vm.__main__:main"
+
+[tool.uv]
+package = true
+
+[dependency-groups]
+dev = [
+    "mypy>=2.1.0",
+    "pytest>=9.1.1",
+    "ruff>=0.15.20",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["F841"]
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.format]
+quote-style = "single"
+
+[tool.mypy]
+python_version = "3.13"
+strict = true

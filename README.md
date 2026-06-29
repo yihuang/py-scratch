@@ -1,83 +1,63 @@
 # Scratch VM — Python
 
-A reimplementation of the [Scratch 3.0](https://scratch.mit.edu) virtual machine in Python.  
-Runs Scratch projects using a cooperative generator-based scheduler and a Pygame renderer.
+Two things in one crate:
 
-```
-python3 -m scratch_vm
-```
-
-Press **Space** to start (green flag), **ESC** to quit.
-
-## Architecture
-
-```
-src/scratch_vm/
-├── __init__.py        Public API
-├── __main__.py        Module entry point
-├── demo.py            Demo project with 4 sprites
-├── types.py           Block, Input, Field, Costume, Sound
-├── target.py          Target (stage/sprite), Variable, ListVar
-├── thread.py          Thread, Frame, yield protocol
-├── runtime.py         Runtime scheduler & sequencer
-├── opcodes.py         80+ opcode handlers
-└── renderer.py        Pygame rendering
-```
-
-| Module | Role |
-|---|---|
-| `types.py` | Data model — blocks form linked lists via `next`/`parent`; inputs reference child blocks or literals |
-| `target.py` | Stage and sprite state — position, direction, costumes, variables, pen |
-| `thread.py` | Thread with stack frames — each frame holds a block's generator |
-| `runtime.py` | Scheduler — round-robin across threads; sequencer steps generators; `green_flag()`, `broadcast()` |
-| `opcodes.py` | Block implementations — each handler is a generator that yields to pause |
-| `renderer.py` | Pygame display — stage/sprite drawing, rotation, pen layer, keyboard input |
-
-## Execution Model
-
-Each opcode handler is a **Python generator**.  
-- Yielding `YIELD` → pause this thread; resume next frame
-- Yielding `wait_yield(secs)` → park until wall-clock time elapses
-- Yielding `report(value)` → reporter block returning a value
-- Non-generator handlers (instant blocks) execute synchronously
-
-The sequencer (`runtime._step_thread`) steps one generator per call. Control blocks like `repeat`/`forever` use `execute_substack()` to chain through sub-blocks, yielding control between iterations. Threads run cooperatively in round-robin order.
-
-## Opcodes
-
-Implemented categories (80+ handlers):
-
-- **Control** — wait, repeat, forever, if/else, wait until, repeat until, stop
-- **Events** — when flag clicked, when broadcast received, broadcast, broadcast and wait
-- **Motion** — move steps, go to xy, set/change x/y, turn, point, glide, bounce, x/y/direction reporters
-- **Looks** — switch costume, next costume, show/hide, go to front/back, set/change size, costume number/name
-- **Operators** — arithmetic, comparison, logic, random, join, letter of, length, contains, mod, round, math ops (sin, cos, sqrt, log, exp, …)
-- **Data** — set/change variable, variable reporter, add/delete/insert/replace/list ops, list length/contains reporters
-- **Sensing** — touching (bounding-box), key pressed, timer, reset timer
-- **Pen** — pen up/down, set color, change/set size, clear, stamp
-
-## Demo
-
-The demo creates 4 sprites:
-
-| Sprite | Behaviour |
-|---|---|
-| Ball | Bounces around the stage |
-| Square | Static (placeholder for mouse-follow) |
-| Triangle | Walks in a circle (turn + move) |
-| PenWriter | Draws with a pen while bouncing |
-
-## Running
+- **VM** — reimplementation of the [Scratch 3.0](https://scratch.mit.edu) virtual machine in Python. Loads `.sb3` files and runs them with a Pygame renderer.
+- **DSL** (TODO) — a Pythonic DSL that generates `.sb3` project files from code.
 
 ```bash
-uv run python3 -m scratch_vm
+uv run scratch-vm /path/to/project.sb3
 ```
 
-Or directly:
+No args → built-in demo (4 sprites: bouncing ball, orbiting triangle, pen drawer, square).
 
-```bash
-python3 src/scratch_vm/demo.py
+Press **Space** for green flag, **ESC** to quit.
+
+## Core Scheduler: Generator-Based Cooperative Multitasking
+
+Every opcode handler is a Python **generator**. The runtime advances threads by stepping one generator at a time, round-robin, 60 fps. No preemption, no OS threads, no async/await — plain `yield` is the control signal.
+
 ```
+handler → generator → yields → next thread → repeat
+```
+
+| Yield value | Meaning |
+|---|---|
+| `YIELD` (sentinel) | Pause this thread; resume next tick |
+| `wait_yield(secs)` | Park thread until wall-clock time elapses |
+| `report(value)` | Reporter block returns a value to its parent |
+| `return` (generator exit) | Thread completed |
+
+A thread is a stack of **Frames**, each wrapping one block's generator. The sequencer (`runtime._step_thread`) calls `next()` on the topmost frame. Control blocks like `repeat`/`forever` push child frames via `execute_substack()`, so nested loops become a linked walk through frame frames — no recursion, no stack overflow.
+
+Cooperative by design: no handler runs longer than one tick. A `wait` block literally suspends the generator, and `wait until` spins the condition check across ticks.
+
+**89 opcode handlers** implemented across Control, Events, Motion, Looks, Operators, Data, Sensing, and Pen.
+
+## DSL (TODO)
+
+The second half of the project — a Python DSL for building Scratch projects without dragging blocks in a browser.
+
+Think:
+
+```python
+project = Project(
+    Sprite("Cat", costumes=["cat-a.svg", "cat-b.svg"],
+        when_flag_clicked(
+            forever(
+                next_costume(),
+                wait(0.2),
+            )
+        ),
+        when_key_pressed("space",
+            say("Meow!", 2),
+        ),
+    ),
+)
+project.save("cat-project.sb3")
+```
+
+Not built yet. Contributions welcome.
 
 ## License
 

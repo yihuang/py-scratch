@@ -4,14 +4,14 @@ Renderer — pygame-based stage and sprite drawing.
 
 from __future__ import annotations
 
-import math
-import os
-from typing import TYPE_CHECKING
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any
 
 import pygame
 
 from .runtime import Runtime
 from .target import Target
+from .types import Costume
 
 if TYPE_CHECKING:
     pass
@@ -34,6 +34,55 @@ COLOR_BLACK = (0, 0, 0)
 COLOR_GREY = (200, 200, 200)
 COLOR_STAGE_BG = (220, 220, 220)
 
+# Keyboard mapping — Scratch key names → pygame key codes
+KEY_MAP: dict[str, int] = {
+    'space': pygame.K_SPACE,
+    'left arrow': pygame.K_LEFT,
+    'right arrow': pygame.K_RIGHT,
+    'up arrow': pygame.K_UP,
+    'down arrow': pygame.K_DOWN,
+    'enter': pygame.K_RETURN,
+    'a': pygame.K_a,
+    'b': pygame.K_b,
+    'c': pygame.K_c,
+    'd': pygame.K_d,
+    'e': pygame.K_e,
+    'f': pygame.K_f,
+    'g': pygame.K_g,
+    'h': pygame.K_h,
+    'i': pygame.K_i,
+    'j': pygame.K_j,
+    'k': pygame.K_k,
+    'l': pygame.K_l,
+    'm': pygame.K_m,
+    'n': pygame.K_n,
+    'o': pygame.K_o,
+    'p': pygame.K_p,
+    'q': pygame.K_q,
+    'r': pygame.K_r,
+    's': pygame.K_s,
+    't': pygame.K_t,
+    'u': pygame.K_u,
+    'v': pygame.K_v,
+    'w': pygame.K_w,
+    'x': pygame.K_x,
+    'y': pygame.K_y,
+    'z': pygame.K_z,
+    '0': pygame.K_0,
+    '1': pygame.K_1,
+    '2': pygame.K_2,
+    '3': pygame.K_3,
+    '4': pygame.K_4,
+    '5': pygame.K_5,
+    '6': pygame.K_6,
+    '7': pygame.K_7,
+    '8': pygame.K_8,
+    '9': pygame.K_9,
+}
+
+# Reverse: pygame key code → Scratch key name
+KEY_CODE_TO_NAME: dict[int, str] = {code: name for name, code in KEY_MAP.items()}
+
 
 def scratch_to_screen(x: float, y: float) -> tuple[float, float]:
     """Convert Scratch coordinates to screen coordinates.
@@ -48,24 +97,21 @@ def scratch_to_screen(x: float, y: float) -> tuple[float, float]:
 
 # ── Costume loading ──────────────────────────────────────────────────────
 
-def _load_costume_surface(costume) -> pygame.Surface | None:
-    """Try to load a costume's image data into a pygame Surface."""
-    from .types import Costume
-    if not isinstance(costume, Costume):
-        return None
-    if costume.surface is not None:
-        return costume.surface
 
-    # No image data loaded yet — create placeholder
+def _load_costume_surface(costume: Costume) -> pygame.Surface | None:
+    if costume.surface is not None:
+        surf = costume.surface
+        assert isinstance(surf, pygame.Surface)
+        return surf
     surf = pygame.Surface((50, 50), pygame.SRCALPHA)
-    surf.fill((0, 0, 255, 128))  # semi-transparent blue
-    # Draw a simple shape to identify the costume
+    surf.fill((0, 0, 255, 128))
     pygame.draw.rect(surf, (100, 100, 255), (5, 5, 40, 40), 2)
     costume.surface = surf
     return surf
 
 
 # ── Pen layer cache ──────────────────────────────────────────────────────
+
 
 class PenLayer:
     """Manages a persistent surface for pen strokes."""
@@ -80,24 +126,27 @@ class PenLayer:
     def clear(self) -> None:
         self.surface.fill((0, 0, 0, 0))
 
-    def draw_line(self, x1: float, y1: float, x2: float, y2: float,
-                  color: tuple[int, int, int], size: float) -> None:
+    def draw_line(
+        self, x1: float, y1: float, x2: float, y2: float, color: tuple[int, int, int], size: float
+    ) -> None:
         sx1, sy1 = scratch_to_screen(x1, y1)
         sx2, sy2 = scratch_to_screen(x2, y2)
         pygame.draw.line(
-            self.surface, color,
-            (sx1, sy1), (sx2, sy2),
+            self.surface,
+            color,
+            (sx1, sy1),
+            (sx2, sy2),
             max(1, int(size * STAGE_SCALE)),
         )
 
-    def draw_dot(self, x: float, y: float,
-                 color: tuple[int, int, int], size: float) -> None:
+    def draw_dot(self, x: float, y: float, color: tuple[int, int, int], size: float) -> None:
         sx, sy = scratch_to_screen(x, y)
         r = max(1, int(size * STAGE_SCALE / 2))
         pygame.draw.circle(self.surface, color, (int(sx), int(sy)), r)
 
-    def stamp(self, surface: pygame.Surface, x: float, y: float,
-              size: float, direction: float) -> None:
+    def stamp(
+        self, surface: pygame.Surface, x: float, y: float, size: float, direction: float
+    ) -> None:
         """Stamp a surface onto the pen layer."""
         sx, sy = scratch_to_screen(x, y)
         angle = -direction  # pygame angle convention
@@ -110,6 +159,7 @@ class PenLayer:
 
 
 # ── Renderer ─────────────────────────────────────────────────────────────
+
 
 class Renderer:
     """Pygame-based stage + sprite renderer.
@@ -131,42 +181,17 @@ class Renderer:
         self._running = False
         self._keys_down: set[int] = set()
 
-        # Keyboard state for sensing blocks
-        self._key_map: dict[str, int] = {
-            'space': pygame.K_SPACE,
-            'left arrow': pygame.K_LEFT,
-            'right arrow': pygame.K_RIGHT,
-            'up arrow': pygame.K_UP,
-            'down arrow': pygame.K_DOWN,
-            'enter': pygame.K_RETURN,
-            'a': pygame.K_a, 'b': pygame.K_b, 'c': pygame.K_c,
-            'd': pygame.K_d, 'e': pygame.K_e, 'f': pygame.K_f,
-            'g': pygame.K_g, 'h': pygame.K_h, 'i': pygame.K_i,
-            'j': pygame.K_j, 'k': pygame.K_k, 'l': pygame.K_l,
-            'm': pygame.K_m, 'n': pygame.K_n, 'o': pygame.K_o,
-            'p': pygame.K_p, 'q': pygame.K_q, 'r': pygame.K_r,
-            's': pygame.K_s, 't': pygame.K_t, 'u': pygame.K_u,
-            'v': pygame.K_v, 'w': pygame.K_w, 'x': pygame.K_x,
-            'y': pygame.K_y, 'z': pygame.K_z,
-            '0': pygame.K_0, '1': pygame.K_1, '2': pygame.K_2,
-            '3': pygame.K_3, '4': pygame.K_4, '5': pygame.K_5,
-            '6': pygame.K_6, '7': pygame.K_7, '8': pygame.K_8,
-            '9': pygame.K_9,
-        }
-
     # ── Keyboard state bridge ─────────────────────────────────────────
-
     def _sync_keyboard(self) -> None:
-        """Make key state accessible to opcode handlers."""
         pressed: dict[str, bool] = {}
-        for name, code in self._key_map.items():
+        for name, code in KEY_MAP.items():
             pressed[name] = code in self._keys_down
         self.runtime._keyboard = pressed
 
     # ── Main loop ─────────────────────────────────────────────────────
 
     def run(self) -> None:
-        """Run the game loop until quit."""
+        self.runtime.green_flag()
         self._running = True
         while self._running:
             self._handle_events()
@@ -174,24 +199,19 @@ class Renderer:
             self._update()
             self._draw()
             self.clock.tick(self._fps)
-
         pygame.quit()
 
     def _handle_events(self) -> None:
         for event in pygame.event.get():
             match event.type:
-                case pygame.QUIT:
-                    self._running = False
-
                 case pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        self._running = False
+                        break
                     self._keys_down.add(event.key)
-                    if event.key == pygame.K_SPACE:
-                        # Space = green flag
-                        self.runtime.green_flag()
-                        self.pen_layer.clear()
-
-                case pygame.KEYUP:
-                    self._keys_down.discard(event.key)
+                    name = KEY_CODE_TO_NAME.get(event.key)
+                    if name is not None:
+                        self.runtime.start_key_hat(name)
 
     def _update(self) -> None:
         """Step the runtime and update pen state."""
@@ -214,7 +234,11 @@ class Renderer:
                     break
             if target and target.costume and target.costume.surface:
                 self.pen_layer.stamp(
-                    target.costume.surface, sx, sy, sz, sd,
+                    target.costume.surface,
+                    sx,
+                    sy,
+                    sz,
+                    sd,
                 )
 
         # Step all threads
@@ -298,13 +322,14 @@ class Renderer:
         self.screen.blit(scaled, rect)
 
     def _draw_costume(self, target: Target, is_stage: bool = False) -> None:
-        """Draw a costume stretched to fill the stage."""
-        if not target.costume or target.costume.surface is None:
+        if target.costume is None:
+            return
+        if target.costume.surface is None:
             _load_costume_surface(target.costume)
-            if target.costume is None or target.costume.surface is None:
-                return
-
+        if target.costume.surface is None:
+            return
         base = target.costume.surface
+
         try:
             scaled = pygame.transform.scale(base, (WINDOW_W, WINDOW_H))
         except (ValueError, pygame.error):
@@ -319,7 +344,7 @@ class Renderer:
         lines = [
             f'Threads: {threads}',
             f'FPS: {fps}',
-            'Space = Green Flag, ESC = Quit',
+            'ESC = Quit',
         ]
         y = 5
         for line in lines:
@@ -332,20 +357,16 @@ class Renderer:
     @staticmethod
     def make_costume_surface(
         name: str,
-        draw_fn,
+        draw_fn: Callable[[pygame.Surface], Any],
         w: int = 80,
         h: int = 80,
-    ) -> 'Costume':
+    ) -> Costume:
         """Create a costume from a drawing function.
-
         ``draw_fn(surface)`` receives a pygame surface to draw on.
         """
-        from .types import Costume
         surf = pygame.Surface((w, h), pygame.SRCALPHA)
         draw_fn(surf)
-        # Add a border
         pygame.draw.rect(surf, (0, 0, 0, 255), surf.get_rect(), 2)
-
         cx, cy = w / 2, h / 2
         return Costume(
             name=name,
