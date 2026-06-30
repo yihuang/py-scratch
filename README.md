@@ -11,7 +11,7 @@ uv run scratch-vm /path/to/project.sb3
 
 No args → built-in demo (4 sprites: bouncing ball, orbiting triangle, pen drawer, square).
 
-Press **Space** for green flag, **ESC** to quit.
+Press **ESC** to quit.
 
 ## Core Scheduler: Generator-Based Cooperative Multitasking
 
