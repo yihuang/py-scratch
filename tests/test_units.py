@@ -3440,3 +3440,323 @@ class TestValueResolution:
         )
         val = rt.val(t, t.blocks['b'], 'VALUE')
         assert val == 42
+
+
+
+class TestSound:
+    """Sound opcode handlers — volume, tempo, effects, playback."""
+
+    def _make_rt(self) -> tuple[Runtime, Target]:
+        rt = Runtime()
+        rt._real_time = False
+        stage = Target(name='Stage', is_stage=True)
+        stage.tempo = 60.0
+        rt.add_target(stage)
+        rt.register_all(OPCODE_MAP)
+        t = Target(name='Sprite')
+        t.volume = 100.0
+        t.sound_effects = {'PITCH': 0.0, 'PAN': 0.0}
+        rt.add_target(t)
+        return rt, t
+
+    # ── Volume ────────────────────────────────────────────────────
+
+    def test_sound_volume_reporter(self) -> None:
+        rt, t = self._make_rt()
+        t.blocks['b'] = Block(id='b', opcode='sound_volume')
+        val = rt.evaluate(t, 'b')
+        assert val == 100.0
+
+    def test_sound_setvolumeto(self) -> None:
+        rt, t = self._make_rt()
+        t.blocks['b'] = Block(
+            id='b', opcode='sound_setvolumeto',
+            inputs={'VOLUME': Input(name='', value=75)}
+        )
+        rt.evaluate(t, 'b')  # run the handler
+        assert t.volume == 75.0
+
+    def test_sound_setvolumeto_clamp_high(self) -> None:
+        rt, t = self._make_rt()
+        t.blocks['b'] = Block(
+            id='b', opcode='sound_setvolumeto',
+            inputs={'VOLUME': Input(name='', value=150)}
+        )
+        rt.evaluate(t, 'b')
+        assert t.volume == 100.0
+
+    def test_sound_setvolumeto_clamp_low(self) -> None:
+        rt, t = self._make_rt()
+        t.blocks['b'] = Block(
+            id='b', opcode='sound_setvolumeto',
+            inputs={'VOLUME': Input(name='', value=-10)}
+        )
+        rt.evaluate(t, 'b')
+        assert t.volume == 0.0
+
+    def test_sound_changevolumeby(self) -> None:
+        rt, t = self._make_rt()
+        t.volume = 50.0
+        t.blocks['b'] = Block(
+            id='b', opcode='sound_changevolumeby',
+            inputs={'VOLUME': Input(name='', value=30)}
+        )
+        rt.evaluate(t, 'b')
+        assert t.volume == 80.0
+
+    def test_sound_changevolumeby_clamp_high(self) -> None:
+        rt, t = self._make_rt()
+        t.volume = 80.0
+        t.blocks['b'] = Block(
+            id='b', opcode='sound_changevolumeby',
+            inputs={'VOLUME': Input(name='', value=50)}
+        )
+        rt.evaluate(t, 'b')
+        assert t.volume == 100.0
+
+    def test_sound_changevolumeby_clamp_low(self) -> None:
+        rt, t = self._make_rt()
+        t.volume = 30.0
+        t.blocks['b'] = Block(
+            id='b', opcode='sound_changevolumeby',
+            inputs={'VOLUME': Input(name='', value=-50)}
+        )
+        rt.evaluate(t, 'b')
+        assert t.volume == 0.0
+
+    # ── Sound effects ─────────────────────────────────────────────
+
+    def test_sound_seteffectto_pitch(self) -> None:
+        rt, t = self._make_rt()
+        t.blocks['b'] = Block(
+            id='b', opcode='sound_seteffectto',
+            fields={'EFFECT': Field(name='EFFECT', value='PITCH')},
+            inputs={'VALUE': Input(name='', value=50)}
+        )
+        rt.evaluate(t, 'b')
+        assert t.sound_effects['PITCH'] == 50.0
+
+    def test_sound_seteffectto_pan(self) -> None:
+        rt, t = self._make_rt()
+        t.blocks['b'] = Block(
+            id='b', opcode='sound_seteffectto',
+            fields={'EFFECT': Field(name='EFFECT', value='PAN')},
+            inputs={'VALUE': Input(name='', value=-50)}
+        )
+        rt.evaluate(t, 'b')
+        assert t.sound_effects['PAN'] == -50.0
+
+    def test_sound_seteffectto_unknown_effect_ignored(self) -> None:
+        rt, t = self._make_rt()
+        t.blocks['b'] = Block(
+            id='b', opcode='sound_seteffectto',
+            fields={'EFFECT': Field(name='EFFECT', value='ECHO')},
+            inputs={'VALUE': Input(name='', value=50)}
+        )
+        rt.evaluate(t, 'b')
+        # Unknown effect is silently ignored
+        assert t.sound_effects['PITCH'] == 0.0
+        assert t.sound_effects['PAN'] == 0.0
+
+    def test_sound_changeeffectby_pitch(self) -> None:
+        rt, t = self._make_rt()
+        t.sound_effects['PITCH'] = 10.0
+        t.blocks['b'] = Block(
+            id='b', opcode='sound_changeeffectby',
+            fields={'EFFECT': Field(name='EFFECT', value='PITCH')},
+            inputs={'VALUE': Input(name='', value=20)}
+        )
+        rt.evaluate(t, 'b')
+        assert t.sound_effects['PITCH'] == 30.0
+
+    def test_sound_changeeffectby_pan_negative(self) -> None:
+        rt, t = self._make_rt()
+        t.sound_effects['PAN'] = 0.0
+        t.blocks['b'] = Block(
+            id='b', opcode='sound_changeeffectby',
+            fields={'EFFECT': Field(name='EFFECT', value='PAN')},
+            inputs={'VALUE': Input(name='', value=-25)}
+        )
+        rt.evaluate(t, 'b')
+        assert t.sound_effects['PAN'] == -25.0
+
+    def test_sound_cleareffects(self) -> None:
+        rt, t = self._make_rt()
+        t.sound_effects = {'PITCH': 50.0, 'PAN': -30.0}
+        t.blocks['b'] = Block(id='b', opcode='sound_cleareffects')
+        rt.evaluate(t, 'b')
+        assert t.sound_effects == {'PITCH': 0.0, 'PAN': 0.0}
+
+    # ── Tempo ─────────────────────────────────────────────────────
+
+    def test_sound_tempo_reporter(self) -> None:
+        rt, t = self._make_rt()
+        t.blocks['b'] = Block(id='b', opcode='sound_tempo')
+        val = rt.evaluate(t, 'b')
+        assert val == 60.0
+
+    def test_sound_settempo(self) -> None:
+        rt, t = self._make_rt()
+        t.blocks['b'] = Block(
+            id='b', opcode='sound_settempo',
+            inputs={'TEMPO': Input(name='', value=120)}
+        )
+        rt.evaluate(t, 'b')
+        assert rt.stage and rt.stage.tempo == 120.0
+
+    def test_sound_settempo_clamp_low(self) -> None:
+        rt, t = self._make_rt()
+        t.blocks['b'] = Block(
+            id='b', opcode='sound_settempo',
+            inputs={'TEMPO': Input(name='', value=5)}
+        )
+        rt.evaluate(t, 'b')
+        assert rt.stage and rt.stage.tempo == 20.0
+
+    def test_sound_settempo_clamp_high(self) -> None:
+        rt, t = self._make_rt()
+        t.blocks['b'] = Block(
+            id='b', opcode='sound_settempo',
+            inputs={'TEMPO': Input(name='', value=1000)}
+        )
+        rt.evaluate(t, 'b')
+        assert rt.stage and rt.stage.tempo == 500.0
+
+    def test_sound_changetempo(self) -> None:
+        rt, t = self._make_rt()
+        assert rt.stage is not None
+        rt.stage.tempo = 80.0
+        t.blocks['b'] = Block(
+            id='b', opcode='sound_changetempo',
+            inputs={'TEMPO': Input(name='', value=30)}
+        )
+        rt.evaluate(t, 'b')
+        assert rt.stage.tempo == 110.0
+
+    def test_sound_changetempo_clamp(self) -> None:
+        rt, t = self._make_rt()
+        assert rt.stage is not None
+        rt.stage.tempo = 10.0
+        t.blocks['b'] = Block(
+            id='b', opcode='sound_changetempo',
+            inputs={'TEMPO': Input(name='', value=-5)}
+        )
+        rt.evaluate(t, 'b')
+        assert rt.stage.tempo == 20.0
+
+    # ── Sound menu ───────────────────────────────────────────────
+
+    def test_sound_sounds_menu(self) -> None:
+        rt, t = self._make_rt()
+        t.blocks['b'] = Block(
+            id='b', opcode='sound_sounds_menu',
+            fields={'SOUND_MENU': Field(name='SOUND_MENU', value='Meow')}
+        )
+        val = rt.evaluate(t, 'b')
+        assert val == 'Meow'
+
+    # ── Playback (no-op without pygame.mixer) ────────────────────
+
+    def test_sound_play_no_crash(self) -> None:
+        """sound_play should not crash even without pygame.mixer."""
+        rt, t = self._make_rt()
+        t.blocks['b'] = Block(
+            id='b', opcode='sound_play',
+            inputs={'SOUND_MENU': Input(name='', value='Meow')}
+        )
+        # Should not raise
+        rt.evaluate(t, 'b')
+
+    def test_sound_playuntildone_no_crash(self) -> None:
+        """sound_playuntildone should not crash without pygame.mixer."""
+        rt, t = self._make_rt()
+        t.blocks['b'] = Block(
+            id='b', opcode='sound_playuntildone',
+            inputs={'SOUND_MENU': Input(name='', value='Meow')}
+        )
+        # Should not raise — generator runs to completion or yields YIELD
+        gen = rt.get_handler('sound_playuntildone')(rt, t, t.blocks['b'])
+        if gen:
+            list(gen)  # consume the generator
+
+    def test_sound_stopallsounds_no_crash(self) -> None:
+        rt, t = self._make_rt()
+        t.blocks['b'] = Block(id='b', opcode='sound_stopallsounds')
+        rt.evaluate(t, 'b')
+
+    # ── Sound lookup on Target ───────────────────────────────────
+
+    def test_find_sound_by_name(self) -> None:
+        from scratch.vm.types import Sound
+        t = Target(name='Sprite')
+        t.sounds.append(Sound(name='Meow', data=b'fake_wav'))
+        t.sounds.append(Sound(name='Bark', data=b'fake_wav2'))
+        assert t.find_sound('Meow') is t.sounds[0]
+        assert t.find_sound('Bark') is t.sounds[1]
+        assert t.find_sound('Moo') is None
+
+    # ── Clone preserves sound state ──────────────────────────────
+
+    def test_clone_preserves_sound_state(self) -> None:
+        t = Target(name='Sprite')
+        t.volume = 75.0
+        t.sound_effects = {'PITCH': 10.0, 'PAN': -20.0}
+        t.tempo = 120.0
+        clone = t.clone()
+        assert clone.volume == 75.0
+        assert clone.sound_effects == {'PITCH': 10.0, 'PAN': -20.0}
+        assert clone.tempo == 120.0
+        # Mutating clone should not affect original
+        clone.sound_effects['PITCH'] = 99.0
+        assert t.sound_effects['PITCH'] == 10.0
+
+    def test_sound_seteffectto_pitch_clamp(self) -> None:
+        rt, t = self._make_rt()
+        # Pitch clamped to -360..360
+        t.blocks['b'] = Block(
+            id='b', opcode='sound_seteffectto',
+            fields={'EFFECT': Field(name='EFFECT', value='PITCH')},
+            inputs={'VALUE': Input(name='', value=500)}
+        )
+        rt.evaluate(t, 'b')
+        assert t.sound_effects['PITCH'] == 360.0
+
+        t.sound_effects['PITCH'] = 0.0
+        t.blocks['b'] = Block(
+            id='b', opcode='sound_seteffectto',
+            fields={'EFFECT': Field(name='EFFECT', value='PITCH')},
+            inputs={'VALUE': Input(name='', value=-500)}
+        )
+        rt.evaluate(t, 'b')
+        assert t.sound_effects['PITCH'] == -360.0
+
+    def test_sound_seteffectto_pan_clamp(self) -> None:
+        rt, t = self._make_rt()
+        # Pan clamped to -100..100
+        t.blocks['b'] = Block(
+            id='b', opcode='sound_seteffectto',
+            fields={'EFFECT': Field(name='EFFECT', value='PAN')},
+            inputs={'VALUE': Input(name='', value=200)}
+        )
+        rt.evaluate(t, 'b')
+        assert t.sound_effects['PAN'] == 100.0
+
+        t.sound_effects['PAN'] = 0.0
+        t.blocks['b'] = Block(
+            id='b', opcode='sound_seteffectto',
+            fields={'EFFECT': Field(name='EFFECT', value='PAN')},
+            inputs={'VALUE': Input(name='', value=-200)}
+        )
+        rt.evaluate(t, 'b')
+        assert t.sound_effects['PAN'] == -100.0
+
+    def test_sound_changeeffectby_pitch_clamp(self) -> None:
+        rt, t = self._make_rt()
+        t.sound_effects['PITCH'] = 350.0
+        t.blocks['b'] = Block(
+            id='b', opcode='sound_changeeffectby',
+            fields={'EFFECT': Field(name='EFFECT', value='PITCH')},
+            inputs={'VALUE': Input(name='', value=20)}
+        )
+        rt.evaluate(t, 'b')
+        assert t.sound_effects['PITCH'] == 360.0

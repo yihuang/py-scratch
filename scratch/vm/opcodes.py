@@ -10,6 +10,7 @@ Each handler is a generator function ``(runtime, target, block) -> Generator``.
 from __future__ import annotations
 
 import math
+import pygame
 import random
 import time
 import json
@@ -19,7 +20,7 @@ from typing import Any
 from .runtime import Handler, Runtime
 from .target import Target
 from .thread import Report, Thread, Wait, YIELD
-from .types import Block, Input
+from .types import Block, Input, Sound
 
 # ── Helpers ──────────────────────────────────────────────────────────────
 
@@ -1467,6 +1468,126 @@ def sensing_userid(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
 
 
 # ═══════════════════════════════════════════════════════════════════════
+#  SOUND
+# ═══════════════════════════════════════════════════════════════════════
+
+
+def _find_sound(tgt: Target, name: str) -> Sound | None:
+    """Find a sound on the target by name."""
+    return tgt.find_sound(name)
+
+
+def _ensure_sound_loaded(sound: Sound) -> bool:
+    """Ensure the pygame.mixer.Sound is created from raw data."""
+    if sound.sound is not None:
+        return True
+    if not sound.data:
+        return False
+    try:
+        sound.sound = pygame.mixer.Sound(buffer=sound.data)
+        return True
+    except Exception:
+        return False
+
+
+def sound_sounds_menu(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+    """Menu block: sound name dropdown."""
+    name = _field_val(block.fields.get('SOUND_MENU')) if block.fields else ''
+    yield Report(name)
+
+
+def sound_play(rt: Runtime, tgt: Target, block: Block) -> None:
+    """Play a sound (fire-and-forget)."""
+    name = _str(rt.val(tgt, block, 'SOUND_MENU'))
+    sound_obj = _find_sound(tgt, name)
+    if sound_obj is None or not _ensure_sound_loaded(sound_obj):
+        return
+    channel = sound_obj.sound.play()
+    if channel:
+        channel.set_volume(max(0.0, min(1.0, tgt.volume / 100.0)))
+
+
+def sound_playuntildone(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+    """Play a sound and wait until it finishes."""
+    name = _str(rt.val(tgt, block, 'SOUND_MENU'))
+    sound_obj = _find_sound(tgt, name)
+    if sound_obj is None or not _ensure_sound_loaded(sound_obj):
+        return
+    channel = sound_obj.sound.play()
+    if channel:
+        channel.set_volume(max(0.0, min(1.0, tgt.volume / 100.0)))
+        while channel.get_busy():
+            yield YIELD
+
+
+def sound_stopallsounds(rt: Runtime, tgt: Target, block: Block) -> None:
+    """Stop all currently playing sounds."""
+    if pygame.mixer.get_init():
+        pygame.mixer.stop()
+
+
+def sound_setvolumeto(rt: Runtime, tgt: Target, block: Block) -> None:
+    v = max(0, min(100, rt.num(tgt, block, 'VOLUME')))
+    tgt.volume = v
+
+
+def sound_changevolumeby(rt: Runtime, tgt: Target, block: Block) -> None:
+    delta = rt.num(tgt, block, 'VOLUME')
+    tgt.volume = max(0.0, min(100.0, tgt.volume + delta))
+
+
+def sound_volume(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+    """Reporter: current volume."""
+    yield Report(tgt.volume)
+
+
+def _clamp_effect(effect: str, value: float) -> float:
+    """Clamp a sound effect value."""
+    if effect == 'PITCH':
+        return max(-360.0, min(360.0, value))
+    if effect == 'PAN':
+        return max(-100.0, min(100.0, value))
+    return value
+
+
+def sound_seteffectto(rt: Runtime, tgt: Target, block: Block) -> None:
+    effect = _field_val(block.fields.get('EFFECT')) if block.fields else ''
+    value = rt.num(tgt, block, 'VALUE')
+    if effect in ('PITCH', 'PAN'):
+        tgt.sound_effects[effect] = _clamp_effect(effect, value)
+
+
+def sound_changeeffectby(rt: Runtime, tgt: Target, block: Block) -> None:
+    effect = _field_val(block.fields.get('EFFECT')) if block.fields else ''
+    delta = rt.num(tgt, block, 'VALUE')
+    if effect in ('PITCH', 'PAN'):
+        tgt.sound_effects[effect] = _clamp_effect(effect, tgt.sound_effects.get(effect, 0.0) + delta)
+
+
+def sound_cleareffects(rt: Runtime, tgt: Target, block: Block) -> None:
+    tgt.sound_effects = {'PITCH': 0.0, 'PAN': 0.0}
+
+
+def sound_settempo(rt: Runtime, tgt: Target, block: Block) -> None:
+    bpm = max(20.0, min(500.0, rt.num(tgt, block, 'TEMPO')))
+    stage = rt.stage
+    if stage:
+        stage.tempo = bpm
+
+
+def sound_changetempo(rt: Runtime, tgt: Target, block: Block) -> None:
+    delta = rt.num(tgt, block, 'TEMPO')
+    stage = rt.stage
+    if stage:
+        stage.tempo = max(20.0, min(500.0, stage.tempo + delta))
+
+
+def sound_tempo(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+    """Reporter: current tempo."""
+    stage = rt.stage
+    yield Report(stage.tempo if stage else 60.0)
+
+# ═══════════════════════════════════════════════════════════════════════
 #  PEN
 # ═══════════════════════════════════════════════════════════════════════
 
@@ -1745,6 +1866,20 @@ OPCODE_MAP: dict[str, Handler] = {
     'sensing_online': sensing_online,
     'sensing_username': sensing_username,
     'sensing_userid': sensing_userid,
+    # Sound
+    'sound_sounds_menu': sound_sounds_menu,
+    'sound_play': sound_play,
+    'sound_playuntildone': sound_playuntildone,
+    'sound_stopallsounds': sound_stopallsounds,
+    'sound_setvolumeto': sound_setvolumeto,
+    'sound_changevolumeby': sound_changevolumeby,
+    'sound_volume': sound_volume,
+    'sound_seteffectto': sound_seteffectto,
+    'sound_changeeffectby': sound_changeeffectby,
+    'sound_cleareffects': sound_cleareffects,
+    'sound_settempo': sound_settempo,
+    'sound_changetempo': sound_changetempo,
+    'sound_tempo': sound_tempo,
     # Pen
     'pen_penDown': pen_pen_down,
     'pen_penUp': pen_pen_up,

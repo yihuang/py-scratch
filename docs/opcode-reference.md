@@ -267,7 +267,54 @@ Constants: `LIST_INVALID = 'INVALID'`, `LIST_ALL = 'ALL'`.
 
 ## Sound
 
-Omitted — no Sound category implemented in py-scratch yet. Spec available in reference agent output `agent://Sound`.
+### `sound_play`
+- **BlockType**: command
+- **Inputs**: `[SOUND_MENU: input_value]` (shadow: `sound_sounds_menu`)
+- **Semantics**: Starts playing the selected sound. Fire-and-forget (no promise). Immediately continues to next block. Sound resolved by name first (exact match), then by 1-indexed numeric index via `wrapClamp`. Silently no-ops if no matching sound.
+
+### `sound_playuntildone`
+- **Inputs**: `[SOUND_MENU: input_value]` (shadow: `sound_sounds_menu`)
+- **Semantics**: Plays selected sound and waits until it finishes. Registers `soundId` in `waitingSounds` for the target so `STOP_FOR_TARGET` can cancel it. Returns the promise from `soundBank.playSound()`.
+
+### `sound_stopallsounds`
+- **BlockType**: command, no inputs.
+- **Semantics**: Stops all sounds on all targets via `soundBank.stopAllSounds()`. Clears all `waitingSounds` sets. Also registered on `PROJECT_STOP_ALL` event.
+
+### `sound_seteffectto`
+- **Inputs**: `[VALUE: number]` (shadow: `math_number`, default 100)
+- **Fields**: `[EFFECT: dropdown]` — options: `"pitch"`, `"pan"`
+- **Semantics**: Sets `soundState.effects[effect] = value`. Clamps pitch to -360..360, pan to -100..100. Syncs to soundBank. Returns `Promise.resolve()` (yields until next tick). Unknown effect names silently ignored.
+
+### `sound_changeeffectby`
+- **Inputs**: `[VALUE: number]` (shadow: `math_number`, default 10)
+- **Fields**: `[EFFECT: dropdown]` — `"pitch"`, `"pan"`
+- **Semantics**: Adds value to `soundState.effects[effect]`, clamps, syncs. Returns `Promise.resolve()`.
+
+### `sound_cleareffects`
+- **BlockType**: command, no inputs.
+- **Semantics**: Resets all sound state effects to 0. Syncs to soundBank. Also registered on `PROJECT_STOP_ALL` and `PROJECT_START` events.
+
+### `sound_setvolumeto`
+- **Inputs**: `[VOLUME: number]` (shadow: `math_number`, default 100)
+- **Semantics**: Sets `target.volume = clamp(value, 0, 100)`. Syncs effects. Returns `Promise.resolve()`.
+
+### `sound_changevolumeby`
+- **Inputs**: `[VOLUME: number]` (shadow: `math_number`, default -10)
+- **Semantics**: Sets `target.volume = clamp(target.volume + value, 0, 100)`. Returns `Promise.resolve()`.
+
+### `sound_volume`
+- **BlockType**: reporter, no inputs.
+- **Monitored**: yes, sprite-specific (`${targetId}_volume`).
+- **Returns**: `util.target.volume` (number 0-100).
+
+### Menu blocks
+- `sound_sounds_menu` — field `[SOUND_MENU: dropdown]`, dynamic from sprite's sound names plus `"record..."`.
+- `sound_beats_menu` — field `[BEATS: dropdown]`, passthrough reporter.
+- `sound_effects_menu` — field `[EFFECT: dropdown]`, passthrough reporter for pitch/pan.
+
+### Constants
+- `EFFECT_RANGE`: pitch -360..360, pan -100..100.
+- `DEFAULT_SOUND_STATE`: `{effects: {pitch: 0, pan: 0}}`.
 
 ---
 

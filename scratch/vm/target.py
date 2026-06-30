@@ -124,6 +124,14 @@ class Target:
     say_text: str | None = None
     say_until: float | None = None  # tick count when the bubble should disappear
 
+    # ── Sound effects ─────────────────────────────────────────────────
+    sound_effects: dict[str, float] = field(
+        default_factory=lambda: {'PITCH': 0.0, 'PAN': 0.0}
+    )
+
+    # ── Tempo (Music extension, stored on stage) ──────────────────────
+    tempo: float = 60.0
+
     # ── Effects ───────────────────────────────────────────────────────
     effects: dict[str, float] = field(
         default_factory=lambda: {
@@ -221,6 +229,15 @@ class Target:
         cy = self.costume.rotation_center_y
         return (-cx, -cy, w - cx, h - cy)
 
+    # ── Sound helpers ───────────────────────────────────────────────
+
+    def find_sound(self, name: str) -> Sound | None:
+        """Find a sound by name on this target."""
+        for s in self.sounds:
+            if s.name == name:
+                return s
+        return None
+
     def clone(self) -> Target:
         """Return a shallow clone for sprite cloning."""
         t = Target(
@@ -240,6 +257,8 @@ class Target:
             visible=self.visible,
             volume=self.volume,
             layer_order=self.layer_order,
+            sound_effects=dict(self.sound_effects),
+            tempo=self.tempo,
             effects=dict(self.effects),
             say_text=self.say_text,
             say_until=self.say_until,

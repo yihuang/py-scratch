@@ -346,6 +346,10 @@ def _load_sound_data(sound: Sound, zf: zipfile.ZipFile, asset_dir: str | Path | 
     sound.data = data
     if not pygame.mixer.get_init():
         return
+    try:
+        sound.sound = pygame.mixer.Sound(buffer=data)
+    except pygame.error:
+        pass  # Unsupported format — skip
 
 
 # ═══════════════════════════════════════════════════════════════════════
