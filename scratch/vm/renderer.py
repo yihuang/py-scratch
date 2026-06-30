@@ -180,6 +180,9 @@ class Renderer:
         self._fps = 60
         self._running = False
         self._keys_down: set[int] = set()
+        self._mouse_x: float = 0.0
+        self._mouse_y: float = 0.0
+        self._mouse_down: bool = False
 
     # ── Keyboard state bridge ─────────────────────────────────────────
     def _sync_keyboard(self) -> None:
@@ -187,6 +190,13 @@ class Renderer:
         for name, code in KEY_MAP.items():
             pressed[name] = code in self._keys_down
         self.runtime._keyboard = pressed
+
+    # ── Mouse state bridge ────────────────────────────────────────────
+
+    def _sync_mouse(self) -> None:
+        self.runtime._mouse_x = self._mouse_x
+        self.runtime._mouse_y = self._mouse_y
+        self.runtime._mouse_down = self._mouse_down
 
     # ── Main loop ─────────────────────────────────────────────────────
 
@@ -196,6 +206,7 @@ class Renderer:
         while self._running:
             self._handle_events()
             self._sync_keyboard()
+            self._sync_mouse()
             self._update()
             self._draw()
             self.clock.tick(self._fps)
@@ -212,6 +223,18 @@ class Renderer:
                     name = KEY_CODE_TO_NAME.get(event.key)
                     if name is not None:
                         self.runtime.start_key_hat(name)
+                case pygame.MOUSEMOTION:
+                    px, py = event.pos
+                    self._mouse_x = px / STAGE_SCALE - STAGE_W / 2
+                    self._mouse_y = -(py / STAGE_SCALE) + STAGE_H / 2
+                case pygame.MOUSEBUTTONDOWN:
+                    px, py = event.pos
+                    self._mouse_x = px / STAGE_SCALE - STAGE_W / 2
+                    self._mouse_y = -(py / STAGE_SCALE) + STAGE_H / 2
+                    self._mouse_down = True
+                    self.runtime.start_click_hat(self._mouse_x, self._mouse_y)
+                case pygame.MOUSEBUTTONUP:
+                    self._mouse_down = False
 
     def _update(self) -> None:
         """Step the runtime and update pen state."""

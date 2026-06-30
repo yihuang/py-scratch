@@ -78,6 +78,9 @@ class Runtime:
         self._real_time: bool = True
         self._time = time
         self._clones: list[Target] = []
+        self._mouse_x: float = 0.0
+        self._mouse_y: float = 0.0
+        self._mouse_down: bool = False
 
     # ── Registration ──────────────────────────────────────────────────
 
@@ -276,6 +279,38 @@ class Runtime:
             thread = Thread(target=target, top_block=nxt or bid)
             thread.start()
             self.threads.append(thread)
+
+    def start_click_hat(self, scratch_x: float, scratch_y: float) -> None:
+        """Start click hats for the sprite (or stage) at *(scratch_x, scratch_y)*."""
+        # Hit-test sprites in reverse layer order (topmost first)
+        sprites = sorted(self.sprite_targets(), key=lambda t: t.layer_order, reverse=True)
+        for tgt in sprites:
+            if not tgt.visible:
+                continue
+            # Simple radius check: bounding circle based on costume size
+            radius = 30.0  # default placeholder radius
+            if tgt.costume and tgt.costume.surface:
+                w, h = tgt.costume.surface.get_size()
+                radius = (math.sqrt(w * w + h * h) / 2) * (tgt.size / 100.0)
+            dx = scratch_x - tgt.x
+            dy = scratch_y - tgt.y
+            if dx * dx + dy * dy <= radius * radius:
+                for _, bid in self._hat_index.get('event_whenthisspriteclicked', []):
+                    if bid in tgt.blocks:
+                        nxt = tgt.blocks[bid].next
+                        thread = Thread(target=tgt, top_block=nxt or bid)
+                        thread.start()
+                        self.threads.append(thread)
+                return
+        # No sprite hit — stage click
+        stage = self.stage
+        if stage is not None:
+            for _, bid in self._hat_index.get('event_whenstageclicked', []):
+                if bid in stage.blocks:
+                    nxt = stage.blocks[bid].next
+                    thread = Thread(target=stage, top_block=nxt or bid)
+                    thread.start()
+                    self.threads.append(thread)
 
     # ── Scheduler ─────────────────────────────────────────────────────
 

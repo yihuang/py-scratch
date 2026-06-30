@@ -12,6 +12,7 @@ from __future__ import annotations
 import math
 import random
 import time
+import json
 from collections.abc import Generator
 from typing import Any
 
@@ -267,9 +268,9 @@ def event_whenbroadcastreceived(rt: Runtime, tgt: Target, block: Block) -> None:
     pass
 
 
-def event_whenkeypressed(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
-    """Hat — triggered by key press."""
-    yield from ()
+def event_whenkeypressed(rt: Runtime, tgt: Target, block: Block) -> None:
+    """Hat — triggered by key press. Threads started by ``start_key_hat``."""
+    pass
 
 
 def event_whenthisspriteclicked(rt: Runtime, tgt: Target, block: Block) -> None:
@@ -1241,13 +1242,10 @@ def sensing_of(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
 
 
 def sensing_mousex(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
-    """No mouse tracking yet."""
-    yield Report(0)
-
+    yield Report(rt._mouse_x)
 
 def sensing_mousey(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
-    yield Report(0)
-
+    yield Report(rt._mouse_y)
 
 def sensing_setdragmode(rt: Runtime, tgt: Target, block: Block) -> None:
     drag = block.fields.get('DRAG_MODE')
@@ -1256,8 +1254,7 @@ def sensing_setdragmode(rt: Runtime, tgt: Target, block: Block) -> None:
 
 
 def sensing_mousedown(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
-    yield Report(False)
-
+    yield Report(rt._mouse_down)
 
 def sensing_current(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
     lt = time.localtime()
@@ -1370,11 +1367,8 @@ def procedures_definition(rt: Runtime, tgt: Target, block: Block) -> None:
     """Custom block definition — hat. The body runs normally via next block."""
     pass
 
-
 def procedures_call(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
     """Custom block call — looks up the prototype and runs its body."""
-    # Simplified: find the definition in the target's blocks by proccode
-    # and jump to its body.
     mutation = getattr(block, 'mutation', None) or getattr(block, '_mutation', None)
     if mutation is None:
         return
@@ -1391,20 +1385,42 @@ def procedures_call(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
                     b_mut.get('proccode') if isinstance(b_mut, dict) else None
                 )
                 if b_proc == proccode:
+                    # Resolve argument values into the current frame's saved dict
+                    frame = rt.current_thread.peek_frame()
+                    if frame is not None:
+                        try:
+                            arg_ids = json.loads(mutation.argumentids)
+                            arg_names = json.loads(b_mut.argumentnames)
+                            for arg_id, arg_name in zip(arg_ids, arg_names):
+                                frame.saved[arg_name] = rt.val(tgt, block, arg_id)
+                        except (json.JSONDecodeError, AttributeError, TypeError):
+                            pass
                     yield from rt.execute_substack(tgt, b.next)
                     return
-    return
-    yield
 
 
 def argument_reporter_string_number(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
     """Return the value of a custom block argument (string or number)."""
-    yield Report(0)  # placeholder
+    arg_name = _field_val(block.fields.get('VALUE')) if block.fields.get('VALUE') else ''
+    if arg_name:
+        frame = rt.current_thread.peek_frame()
+        if frame is not None and arg_name in frame.saved:
+            yield Report(frame.saved[arg_name])
+            return
+    yield Report(0)
 
 
 def argument_reporter_boolean(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
     """Return the value of a custom block argument (boolean)."""
-    yield Report(False)  # placeholder
+    arg_name = _field_val(block.fields.get('VALUE')) if block.fields.get('VALUE') else ''
+    if arg_name:
+        frame = rt.current_thread.peek_frame()
+        if frame is not None and arg_name in frame.saved:
+            yield Report(frame.saved[arg_name])
+            return
+    yield Report(False)
+
+
 
 
 # ═══════════════════════════════════════════════════════════════════════
