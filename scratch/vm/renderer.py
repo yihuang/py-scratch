@@ -384,7 +384,7 @@ class Renderer:
         lines = self._wrap_text(font, text)
 
         # Measure longest line (in screen pixels at scale)
-        max_line_w = max(font.size(l)[0] for l in lines)
+        max_line_w = max(font.size(line)[0] for line in lines)
 
         # Bubble dimensions in Scratch coords
         max_line_w_scratch = max_line_w // scale
@@ -447,7 +447,7 @@ class Renderer:
         R = BubbleStyle.CORNER_RADIUS * s
         P = BubbleStyle.PADDING * s
         SW = BubbleStyle.STROKE_WIDTH * s
-        TH = BubbleStyle.TAIL_HEIGHT * s
+        BubbleStyle.TAIL_HEIGHT * s
         pw = padded_w * s
         ph = padded_h * s
 
@@ -465,14 +465,13 @@ class Renderer:
         points.append((pw, ph))
         points.append((pw - R, ph))
         # Bottom edge
-        r_right = pw - R
+        pw - R
         # Tail position: right side, above the corner
         tail_x = pw
         tail_y = ph
 
         # Mirror for points_left
         if points_left:
-            import math
             for i, (px, py) in enumerate(points):
                 points[i] = (pw - px, py)
             tail_x = 0

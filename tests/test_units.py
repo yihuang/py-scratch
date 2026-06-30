@@ -6,11 +6,14 @@ from scratch.vm.runtime import _input_raw
 from itertools import count
 from typing import Any
 
+import datetime
+import math
 import pytest
+import pygame
 
 from scratch.vm import BroadcastMsg, ListVar, Runtime, Target, Variable, make_block
 from scratch.vm.opcodes import OPCODE_MAP
-from scratch.vm.types import Block, Costume, Field, Input
+from scratch.vm.types import Block, Costume, Field, Input, Sound
 
 # ═══════════════════════════════════════════════════════════════════════
 #  Helpers
@@ -483,7 +486,9 @@ class TestControl:
         rt.step()
         assert len(rt.threads) == 1
         # Manually set the variable to satisfy the wait
-        t.lookup_variable('ready').value = 1
+        var = t.lookup_variable('ready')
+        assert var is not None
+        var.value = 1
         # Next step: wait_until sees ready=1 → exits → advances to set_ready
         rt.step()
         assert len(rt.threads) == 1  # still has set_ready to run
@@ -1152,7 +1157,6 @@ class TestMotion:
         rt.green_flag()
         for _ in range(10):
             rt.step()
-        import math
         expected = 90 - math.degrees(math.atan2(50.0, 100.0))
         assert t.direction == expected
 
@@ -1288,7 +1292,6 @@ class TestMotion:
 
     def test_ifonedgebounce(self) -> None:
         """Bounce off edge: sprite at x=240 with a 10px-wide costume bounces to x=235."""
-        import pygame  # fmt: skip
         t = _stack('motion_gotoxy', 'motion_ifonedgebounce')
         _set(t, 'b0', inputs={'X': 240, 'Y': 0})
         # Add a 10×10 costume so bounds are -235..235
@@ -1817,10 +1820,8 @@ class TestLooks:
 
 
 class TestOperators:
-
-    # ── Helper ──────────────────────────────────────────────────────
-    def _eval(self, opcode: str, inputs: dict | None = None,
-              fields: dict | None = None) -> Any:
+    def _eval(self, opcode: str, inputs: dict[str, Any] | None = None,
+              fields: dict[str, Any] | None = None) -> Any:
         """Build a target with one reporter block and evaluate it."""
         t = _make_tgt()
         bid = _id()
@@ -2512,8 +2513,8 @@ class TestSensing:
     def _eval(
         self,
         opcode: str,
-        inputs: dict | None = None,
-        fields: dict | None = None,
+        inputs: dict[str, Any] | None = None,
+        fields: dict[str, Any] | None = None,
     ) -> Any:
         """Build a target with one reporter block and evaluate it."""
         t = _make_tgt()
@@ -2526,8 +2527,8 @@ class TestSensing:
     def _eval_with(
         self,
         opcode: str,
-        inputs: dict | None = None,
-        fields: dict | None = None,
+        inputs: dict[str, Any] | None = None,
+        fields: dict[str, Any] | None = None,
         *,
         setup: Any = None,
         get_rt: bool = False,
@@ -2949,7 +2950,6 @@ class TestSensing:
         assert 1 <= v <= 7
         # Sunday check: June 30, 2026 is a Tuesday → dayofweek should be 3
         # (Monday=2, Tuesday=3, Wednesday=4, Thursday=5, Friday=6, Saturday=7, Sunday=1)
-        import datetime
         # Verify our calculation matches Python's weekday convention
         # tm_wday: 0=Monday, 6=Sunday
         # Scratch: 1=Sunday, 7=Saturday
@@ -3674,10 +3674,8 @@ class TestSound:
             id='b', opcode='sound_playuntildone',
             inputs={'SOUND_MENU': Input(name='', value='Meow')}
         )
-        # Should not raise — generator runs to completion or yields YIELD
-        gen = rt.get_handler('sound_playuntildone')(rt, t, t.blocks['b'])
-        if gen:
-            list(gen)  # consume the generator
+        # evaluate runs generator to completion internally
+        rt.evaluate(t, 'b')
 
     def test_sound_stopallsounds_no_crash(self) -> None:
         rt, t = self._make_rt()
@@ -3687,7 +3685,6 @@ class TestSound:
     # ── Sound lookup on Target ───────────────────────────────────
 
     def test_find_sound_by_name(self) -> None:
-        from scratch.vm.types import Sound
         t = Target(name='Sprite')
         t.sounds.append(Sound(name='Meow', data=b'fake_wav'))
         t.sounds.append(Sound(name='Bark', data=b'fake_wav2'))
