@@ -3250,7 +3250,6 @@ class TestValueResolution:
     def test_literal_int(self) -> None:
         rt, t = self._make_rt()
         assert rt.resolve_input(t, 42) == 42
-        assert rt.resolve_input(t, Input(name='', value=42)) == 42
 
     def test_literal_float(self) -> None:
         rt, t = self._make_rt()
@@ -3277,17 +3276,19 @@ class TestValueResolution:
     # ── Input wrapper (unwrapping) ──────────────────────────────────
 
     def test_input_wrapper_literal(self) -> None:
+        """Test that _input_raw strips the Input wrapper before resolve_input."""
         rt, t = self._make_rt()
-        inp = Input(name='', value=99)
-        assert rt.resolve_input(t, inp) == 99
+        t.blocks['b'] = Block(id='b', opcode='data_setvariableto',
+            inputs={'VALUE': Input(name='', value=99)})
+        value = Runtime._input_raw(t.blocks['b'], 'VALUE')
+        assert rt.resolve_input(t, value) == 99
 
     def test_input_wrapper_shadow(self) -> None:
         rt, t = self._make_rt()
-        inp = Input(name='', value=77, shadow=True)
-        assert rt.resolve_input(t, inp) == 77
-
-    # ── Inlined primitives (type codes 4-13) ────────────────────────
-
+        t.blocks['b'] = Block(id='b', opcode='data_setvariableto',
+            inputs={'VALUE': Input(name='', value=77, shadow=True)})
+        value = Runtime._input_raw(t.blocks['b'], 'VALUE')
+        assert rt.resolve_input(t, value) == 77
     def test_primitive_4_math_number(self) -> None:
         rt, t = self._make_rt()
         # [4, value] = math_number
@@ -3400,11 +3401,8 @@ class TestValueResolution:
 
     def test_block_reference_via_input(self) -> None:
         rt, t = self._make_rt()
-        inp = Input(name='', value='reporter')
-        value = rt.resolve_input(t, inp)
-        assert value == 42
-
-    # ── num / truthy / val accessors ─────────────────────────────────
+        # resolve_input works on raw values; caller strips Input
+        value = rt.resolve_input(t, 'reporter')
 
     def test_num_accessor(self) -> None:
         rt, t = self._make_rt()

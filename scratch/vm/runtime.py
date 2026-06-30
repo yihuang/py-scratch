@@ -181,16 +181,12 @@ class Runtime:
                 pass
         return None
 
-    def resolve_input(self, target: Target, inp: Input | Any) -> Any:
-        """Resolve a block input to a concrete value.
+    def resolve_input(self, target: Target, value: Any) -> Any:
+        """Resolve a raw value (literal, block reference, or inlined primitive) to a concrete value.
 
-        Accepts an ``Input`` object or any plain value.
+        The caller is responsible for stripping the ``Input`` wrapper first
+        via ``_input_raw``.
         """
-        if isinstance(inp, Input):
-            value = inp.value
-        else:
-            value = inp
-
         if isinstance(value, str) and value in target.blocks:
             return self.evaluate(target, value)
 

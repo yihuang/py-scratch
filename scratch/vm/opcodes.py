@@ -328,11 +328,11 @@ def event_broadcast(rt: Runtime, tgt: Target, block: Block) -> None:
 
 
 def event_broadcastandwait(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
-    msg = _str(
-        rt.resolve_input(
-            tgt, block.fields.get('BROADCAST_INPUT') or block.inputs.get('BROADCAST_INPUT')
-        )
-    )
+    fld = block.fields.get('BROADCAST_INPUT')
+    if fld is not None:
+        msg = _str(_field_val(fld))
+    else:
+        msg = _str(rt.val(tgt, block, 'BROADCAST_INPUT'))
     started = rt.broadcast(msg)
     # Yield until all started threads are done
     while any(th for th in started if th.status != 'done' and th in rt.threads):
@@ -1290,8 +1290,11 @@ def sensing_touchingobject(rt: Runtime, tgt: Target, block: Block) -> Generator[
     obj = block.fields.get('TOUCHINGOBJECTMENU')
     if obj is None:
         obj_input = block.inputs.get('TOUCHINGOBJECTMENU')
-        if obj_input:
-            obj_name = _str(rt.resolve_input(tgt, obj_input))
+        if obj_input is not None:
+            if isinstance(obj_input, Input):
+                obj_name = _str(rt.resolve_input(tgt, obj_input.value))
+            else:
+                obj_name = _str(rt.resolve_input(tgt, obj_input))
         else:
             obj_name = '_mouse_'
     else:
