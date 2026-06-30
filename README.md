@@ -36,28 +36,25 @@ Cooperative by design: no handler runs longer than one tick. A `wait` block lite
 
 ## DSL (TODO)
 
-The second half of the project — a Python DSL for building Scratch projects without dragging blocks in a browser.
+The second half — build Scratch projects in pure Python.
 
-Think:
+Method chain style:
 
 ```python
-project = Project(
-    Sprite("Cat", costumes=["cat-a.svg", "cat-b.svg"],
-        when_flag_clicked(
-            forever(
-                next_costume(),
-                wait(0.2),
-            )
-        ),
-        when_key_pressed("space",
-            say("Meow!", 2),
-        ),
-    ),
-)
-project.save("cat-project.sb3")
+project = Project()
+
+cat = project.add_sprite('Cat', costumes=['cat-a.svg', 'cat-b.svg'])
+block = when_flag_clicked().forever(next_costume().wait(0.2))
+cat.add_script(block)
+
+block = when_key_pressed('space').say('Meow!', 2)
+cat.add_script(block)
+
+project.run()
+# project.save('cat-project.sb3')
 ```
 
-Not built yet. Contributions welcome.
+Not built yet.
 
 ## License
 
