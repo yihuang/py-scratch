@@ -1,9 +1,9 @@
 """Unit tests — scheduler, thread lifecycle, and every opcode category."""
 
 from __future__ import annotations
+from scratch.vm.runtime import _input_raw
 
 from itertools import count
-from math import isclose
 from typing import Any
 
 import pytest
@@ -748,7 +748,7 @@ class TestEvent:
     def test_broadcast_starts_hat(self) -> None:
         t1 = Target(name='A', is_stage=False)
         t1.blocks['h'] = make_block('event_whenflagclicked', 'h', top_level=True, next_='b')
-        t1.blocks['b'] = make_block('event_broadcast', 'b', fields={'BROADCAST_INPUT': 'msg'})
+        t1.blocks['b'] = make_block('event_broadcast', 'b', inputs={'BROADCAST_INPUT': 'msg'})
         t1._rebuild_hat_cache()
 
         t2 = Target(name='B', is_stage=False)
@@ -799,7 +799,7 @@ class TestEvent:
         t1 = Target(name='A', is_stage=False)
         t1.broadcasts['bcast1'] = BroadcastMsg(name='my message')
         t1.blocks['h1'] = make_block('event_whenflagclicked', 'h1', top_level=True, next_='b')
-        t1.blocks['b'] = make_block('event_broadcast', 'b', fields={'BROADCAST_INPUT': 'bcast1'})
+        t1.blocks['b'] = make_block('event_broadcast', 'b', inputs={'BROADCAST_INPUT': 'bcast1'})
         t1._rebuild_hat_cache()
 
         t2 = Target(name='B', is_stage=False)
@@ -2989,7 +2989,6 @@ class TestSensing:
     # ═════════════════════════════════════════════════════════════════
     def test_dayssince2000(self) -> None:
         """sensing_dayssince2000 returns positive days since 2000-01-01."""
-        from datetime import datetime, timezone, timedelta
         v = self._eval('sensing_dayssince2000')
         assert isinstance(v, float)
         assert v > 0.0
@@ -3280,14 +3279,14 @@ class TestValueResolution:
         rt, t = self._make_rt()
         t.blocks['b'] = Block(id='b', opcode='data_setvariableto',
             inputs={'VALUE': Input(name='', value=99)})
-        value = Runtime._input_raw(t.blocks['b'], 'VALUE')
+        value = _input_raw(t.blocks['b'], 'VALUE')
         assert rt.resolve_input(t, value) == 99
 
     def test_input_wrapper_shadow(self) -> None:
         rt, t = self._make_rt()
         t.blocks['b'] = Block(id='b', opcode='data_setvariableto',
             inputs={'VALUE': Input(name='', value=77, shadow=True)})
-        value = Runtime._input_raw(t.blocks['b'], 'VALUE')
+        value = _input_raw(t.blocks['b'], 'VALUE')
         assert rt.resolve_input(t, value) == 77
     def test_primitive_4_math_number(self) -> None:
         rt, t = self._make_rt()

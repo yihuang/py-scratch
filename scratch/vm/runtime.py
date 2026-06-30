@@ -56,6 +56,29 @@ class Clock:
         self._tick = 0
 
 
+def _unwrap_shadow(value: Any) -> Any:
+    """If *value* is a shadow pair ``[block_id, literal]``, return the literal.
+    Otherwise return *value* unchanged."""
+    if (
+        isinstance(value, (list, tuple))
+        and len(value) == 2
+        and isinstance(value[1], (int, float, str, bool))
+    ):
+        return value[1]
+    return value
+
+
+def _input_raw(block: Block, name: str) -> Any:
+    """Unwrap a block input to its raw value (literal or block-id string).
+
+    Returns ``None`` if *name* is not present.
+    """
+    inp = block.inputs.get(name)
+    if inp is None:
+        return None
+    return inp.value if isinstance(inp, Input) else inp
+
+
 # ── Runtime ──────────────────────────────────────────────────────────────
 
 
@@ -88,6 +111,7 @@ class Runtime:
         """All alive threads: runnable + waiting.  Read-only view for external consumers."""
         waiting = [t for _, _, t in self._wait_queue]
         return self._runnable_queue + waiting
+
     # ── Registration ──────────────────────────────────────────────────
 
     def register(self, opcode: str) -> Callable[[Handler], Handler]:
@@ -215,13 +239,7 @@ class Runtime:
             return ref
 
         # Shadow pair: [block_id, literal] — use the literal.
-        if (
-            isinstance(value, (list, tuple))
-            and len(value) == 2
-            and isinstance(value[1], (int, float, str, bool))
-        ):
-            return value[1]
-        return value
+        return _unwrap_shadow(value)
 
     def resolve_bool(self, target: Target, inp: Input | Any) -> bool:
         """Resolve a boolean-typed input."""
@@ -239,7 +257,7 @@ class Runtime:
 
     def num(self, target: Target, block: Block, name: str) -> float:
         """Resolve a named numeric input from *block*."""
-        return self.resolve_num(target, self._input_raw(block, name))
+        return self.resolve_num(target, _input_raw(block, name))
 
     def num_int(self, target: Target, block: Block, name: str) -> int:
         """Resolve a named numeric input and round to nearest int (Scratch-style round-half-up)."""
@@ -247,22 +265,11 @@ class Runtime:
 
     def truthy(self, target: Target, block: Block, name: str) -> bool:
         """Resolve a named boolean input from *block*."""
-        return self.resolve_bool(target, self._input_raw(block, name))
+        return self.resolve_bool(target, _input_raw(block, name))
 
     def val(self, target: Target, block: Block, name: str) -> Any:
         """Resolve a named arbitrary input from *block*."""
-        return self.resolve_input(target, self._input_raw(block, name))
-
-    @staticmethod
-    def _input_raw(block: Block, name: str) -> Any:
-        """Unwrap a block input to its raw value (literal or block-id string).
-
-        Returns ``None`` if *name* is not present.
-        """
-        inp = block.inputs.get(name)
-        if inp is None:
-            return None
-        return inp.value if isinstance(inp, Input) else inp
+        return self.resolve_input(target, _input_raw(block, name))
 
     # ── Thread lifecycle ──────────────────────────────────────────────
 

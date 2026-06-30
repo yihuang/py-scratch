@@ -323,19 +323,13 @@ def event_whengreaterthan(rt: Runtime, tgt: Target, block: Block) -> Generator[A
 
 
 def event_broadcast(rt: Runtime, tgt: Target, block: Block) -> None:
-    msg = block.fields.get('BROADCAST_INPUT') or block.inputs.get('BROADCAST_INPUT')
-    rt.broadcast(_field_val(msg))
+    rt.broadcast(rt.val(tgt, block, 'BROADCAST_INPUT'))
 
 
 def event_broadcastandwait(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
-    fld = block.fields.get('BROADCAST_INPUT')
-    if fld is not None:
-        msg = _str(_field_val(fld))
-    else:
-        msg = _str(rt.val(tgt, block, 'BROADCAST_INPUT'))
-    started = rt.broadcast(msg)
+    started = rt.broadcast(rt.val(tgt, block, 'BROADCAST_INPUT'))
     # Yield until all started threads are done
-    while any(th for th in started if th.status != 'done' and th in rt.threads):
+    while any(th for th in started if not th.is_done()):
         yield YIELD
 
 
