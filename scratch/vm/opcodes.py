@@ -422,12 +422,11 @@ def motion_pointtowards(rt: Runtime, tgt: Target, block: Block) -> None:
 
 
 def motion_turnright(rt: Runtime, tgt: Target, block: Block) -> None:
-    tgt.direction -= rt.num(tgt, block, 'DEGREES')
+    tgt.direction += rt.num(tgt, block, 'DEGREES')
 
 
 def motion_turnleft(rt: Runtime, tgt: Target, block: Block) -> None:
-    tgt.direction += rt.num(tgt, block, 'DEGREES')
-
+    tgt.direction -= rt.num(tgt, block, 'DEGREES')
 
 def motion_ifonedgebounce(rt: Runtime, tgt: Target, block: Block) -> None:
     if not tgt.costume or tgt.costume.surface is None:

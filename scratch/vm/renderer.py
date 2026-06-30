@@ -325,19 +325,18 @@ class Renderer:
             scaled = base
 
         # Apply rotation
-        angle = -sprite.direction  # pygame: + is CW, Scratch: + is CCW
+        # Scratch: 0=up, 90=right. Costumes are designed facing right.
+        # pygame.transform.rotate rotates counter-clockwise.
+        angle = 90 - sprite.direction
         if angle != 0:
             if sprite.rotation_style == 'left-right':
-                # Flip horizontally if facing left
-                if sprite.direction < 0 or sprite.direction > 180:
+                # Flip horizontally when sprite faces left (direction outside [-90, 90])
+                if sprite.direction > 90 or sprite.direction < -90:
                     scaled = pygame.transform.flip(scaled, True, False)
             elif sprite.rotation_style == "don't rotate":
                 pass  # no rotation
             else:  # 'all around'
-                try:
-                    scaled = pygame.transform.rotate(scaled, angle)
-                except Exception:
-                    pass
+                scaled = pygame.transform.rotate(scaled, angle)
 
         # Position
         sx, sy = scratch_to_screen(sprite.x, sprite.y)

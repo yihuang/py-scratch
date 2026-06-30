@@ -1007,7 +1007,7 @@ class TestMotion:
         _set(t, 'b1', inputs={'DEGREES': 90})
         t._rebuild_hat_cache()
         rt = _run(t)
-        assert t.direction == 135  # 90 - 45 + 90 = 135
+        assert t.direction == 45.0  # 90 + 45 - 90 = 45
 
     def test_change_xy(self) -> None:
         t = _stack('motion_changexby', 'motion_changeyby')
@@ -1091,18 +1091,18 @@ class TestMotion:
     # ── turnright / turnleft ───────────────────────────────────────────
 
     def test_turnright_only(self) -> None:
-        """Turn right 45°: direction decreases by 45 from 90 → 45."""
+        """Turn right 45°: direction increases by 45 from 90 → 135."""
         t = _stack('motion_turnright')
         _set(t, 'b0', inputs={'DEGREES': 45})
         rt = _run(t)
-        assert t.direction == 45.0
+        assert t.direction == 135.0
 
     def test_turnleft_only(self) -> None:
-        """Turn left 45°: direction increases by 45 from 90 → 135."""
+        """Turn left 45°: direction decreases by 45 from 90 → 45."""
         t = _stack('motion_turnleft')
         _set(t, 'b0', inputs={'DEGREES': 45})
         rt = _run(t)
-        assert t.direction == 135.0
+        assert t.direction == 45.0
 
     def test_turn_negative_degrees(self) -> None:
         """Turning by negative degrees goes the opposite way."""
@@ -1111,7 +1111,7 @@ class TestMotion:
         _set(t, 'b1', inputs={'DEGREES': -15})
         t._rebuild_hat_cache()
         rt = _run(t)
-        assert t.direction == 105.0  # 90 - (-30) + (-15) = 90 + 30 - 15 = 105
+        assert t.direction == 75.0  # 90 + (-30) - (-15) = 75
 
     # ── point in direction ─────────────────────────────────────────────
 
