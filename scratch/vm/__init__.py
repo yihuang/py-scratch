@@ -11,11 +11,12 @@ Layers:
 """
 
 from .runtime import Runtime
-from .target import ListVar, Target, Variable
+from .target import BroadcastMsg, ListVar, Target, Variable
 from .thread import Thread
 from .types import Block, Costume, Field, Input, make_block
 
 __all__ = [
+    'BroadcastMsg',
     'Block',
     'Costume',
     'Field',

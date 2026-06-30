@@ -195,7 +195,10 @@ class Target:
     def _rebuild_hat_cache(self) -> None:
         cache: dict[str, list[str]] = {}
         for bid, block in self.blocks.items():
-            if block.top_level and block.opcode.startswith('event_'):
+            if block.top_level and (
+                block.opcode.startswith('event_')
+                or block.opcode == 'control_start_as_clone'
+            ):
                 cache.setdefault(block.opcode, []).append(bid)
         self._hat_cache = cache
 

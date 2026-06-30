@@ -114,7 +114,10 @@ class Runtime:
 
     def _index_target_hats(self, target: Target) -> None:
         for bid, block in target.blocks.items():
-            if block.top_level and block.opcode.startswith('event_'):
+            if block.top_level and (
+                block.opcode.startswith('event_')
+                or block.opcode == 'control_start_as_clone'
+            ):
                 self._hat_index.setdefault(block.opcode, []).append((target, bid))
 
     def sprite_targets(self) -> list[Target]:
@@ -224,8 +227,11 @@ class Runtime:
         return bool(v)
 
     def resolve_num(self, target: Target, inp: Input | Any) -> float:
-        """Resolve a numeric input."""
-        return float(self.resolve_input(target, inp) or 0)
+        """Resolve a numeric input — non-numeric values coerce to 0."""
+        try:
+            return float(self.resolve_input(target, inp) or 0)
+        except (ValueError, TypeError):
+            return 0.0
 
     def num(self, target: Target, block: Block, name: str) -> float:
         """Resolve a named numeric input from *block*."""

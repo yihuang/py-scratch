@@ -660,12 +660,13 @@ def looks_setstretchto(rt: Runtime, tgt: Target, block: Block) -> None:
 
 
 def looks_goforwardbackwardlayers(rt: Runtime, tgt: Target, block: Block) -> None:
+    if tgt.is_stage:
+        return
     num = rt.num_int(tgt, block, 'NUM')
     direction = block.fields.get('FORWARD_BACKWARD')
     if direction and direction.value == 'backward':
         num = -num
     tgt.layer_order += num
-
 
 def looks_setsizeto(rt: Runtime, tgt: Target, block: Block) -> None:
     tgt.size = rt.num(tgt, block, 'SIZE')
@@ -683,9 +684,20 @@ def looks_costumenumbername(rt: Runtime, tgt: Target, block: Block) -> Generator
         yield Report(tgt.current_costume_name)
 
 def looks_costume(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
-    """Alias: costume number/name reporter."""
-    yield from looks_costumenumbername(rt, tgt, block)
+    """Menu block: costume dropdown for ``looks_switchcostumeto``.
+    Returns the selected costume name from the ``COSTUME`` field.
+    """
+    name = _field_val(block.fields.get('COSTUME'))
+    yield Report(name)
 
+
+
+def looks_backdrops(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+    """Menu block: backdrop dropdown for ``looks_switchbackdropto``.
+    Returns the selected backdrop name from the ``BACKDROP`` field.
+    """
+    name = _field_val(block.fields.get('BACKDROP'))
+    yield Report(name)
 
 
 def looks_backdropnumbername(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
@@ -1062,7 +1074,7 @@ def _to_list_index(value: Any, length: int) -> int | str | None:
         if v == 'all':
             return 'ALL'
         if v == 'last':
-            return length
+            return length if length > 0 else None
         if v in ('random', 'any'):
             return random.randint(1, max(1, length))
     try:
@@ -1284,7 +1296,7 @@ def sensing_touchingobject(rt: Runtime, tgt: Target, block: Block) -> Generator[
         else:
             obj_name = '_mouse_'
     else:
-        obj_name = obj.value
+        obj_name = _field_val(obj)
     yield Report(_touching_object_check(rt, tgt, obj_name))
 
 
@@ -1294,7 +1306,13 @@ def sensing_touchingcolor(rt: Runtime, tgt: Target, block: Block) -> Generator[A
 
 def sensing_keypressed(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
     key_name = _field_val(block.fields.get('KEY_OPTION'))
-    pressed = rt._keyboard.get(key_name.lower(), False) if hasattr(rt, '_keyboard') else False
+    if not hasattr(rt, '_keyboard'):
+        yield Report(False)
+        return
+    if key_name == 'any':
+        yield Report(any(rt._keyboard.values()))
+        return
+    pressed = rt._keyboard.get(key_name.lower(), False)
     yield Report(pressed)
 
 
@@ -1314,7 +1332,8 @@ def sensing_askandwait(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]
 
 
 def sensing_answer(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
-    yield Report(getattr(rt, '_answer', ''))
+    ans = getattr(rt, '_answer', None)
+    yield Report('' if ans is None else ans)
 
 
 def sensing_resettimer(rt: Runtime, tgt: Target, block: Block) -> None:
@@ -1364,16 +1383,18 @@ def sensing_of(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
             yield Report(obj.y)
         case 'direction':
             yield Report(obj.direction)
-        case 'costume #' | 'costume' | 'costume name':
+        case 'costume #' | 'costume':
             yield Report(obj.costume_index + 1)
+        case 'costume name':
+            yield Report(obj.current_costume_name)
         case 'size':
             yield Report(obj.size)
         case 'volume':
             yield Report(obj.volume)
         case 'backdrop name':
-            yield Report(obj.current_costume_name if rt.stage else '')
+            yield Report(obj.current_costume_name if obj.is_stage else '')
         case 'backdrop #' | 'background #':
-            yield Report((obj.costume_index + 1) if rt.stage else 0)
+            yield Report((obj.costume_index + 1) if obj.is_stage else 0)
         case _:
             var = obj.lookup_variable(prop_name)
             yield Report(var.value if var else 0)
@@ -1743,5 +1764,5 @@ OPCODE_MAP: dict[str, Handler] = {
     'argument_reporter_string_number': argument_reporter_string_number,
     'argument_reporter_boolean': argument_reporter_boolean,
     'procedures_prototype': procedures_definition,
-    'looks_backdrops': looks_costume,
+    'looks_backdrops': looks_backdrops,
 }
