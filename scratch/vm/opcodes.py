@@ -523,6 +523,7 @@ def _set_costume(tgt: Target, requested: Any) -> None:
     - Whitespace → no-op
     - Negative wrap, over-large wrap.
     """
+
     n = len(tgt.costumes)
     if n == 0:
         return
@@ -530,7 +531,6 @@ def _set_costume(tgt: Target, requested: Any) -> None:
         # True → first, False → last
         idx = 0 if requested else n - 1
         tgt.costume_index = idx
-        tgt.current_costume = idx
         return
     if isinstance(requested, (int, float)):
         # Numbers → treat as 1-based index
@@ -540,7 +540,6 @@ def _set_costume(tgt: Target, requested: Any) -> None:
             idx = int(requested) - 1
         idx %= n
         tgt.costume_index = idx
-        tgt.current_costume = idx
         return
     # String
     s = _str(requested)
@@ -550,15 +549,10 @@ def _set_costume(tgt: Target, requested: Any) -> None:
     for i, c in enumerate(tgt.costumes):
         if c.name == s:
             tgt.costume_index = i
-            tgt.current_costume = i
             return
     if s == 'next costume':
-        tgt.costume_index = (tgt.costume_index + 1) % n
-        tgt.current_costume = tgt.costume_index
         return
     if s == 'previous costume':
-        tgt.costume_index = (tgt.costume_index - 1) % n
-        tgt.current_costume = tgt.costume_index
         return
     # Try numeric parse
     try:
@@ -569,12 +563,12 @@ def _set_costume(tgt: Target, requested: Any) -> None:
             idx = int(parsed) - 1
         idx %= n
         tgt.costume_index = idx
-        tgt.current_costume = idx
     except (ValueError, TypeError):
         pass
 
 
 def looks_switchcostumeto(rt: Runtime, tgt: Target, block: Block) -> None:
+
     val = rt.val(tgt, block, 'COSTUME')
     _set_costume(tgt, val)
 
@@ -667,22 +661,18 @@ def looks_switchbackdropto(rt: Runtime, tgt: Target, block: Block) -> None:
     for i, c in enumerate(rt.stage.costumes):
         if c.name == s:
             rt.stage.costume_index = i
-            rt.stage.current_costume = i
             return
     if s == 'next backdrop':
         rt.stage.costume_index = (rt.stage.costume_index + 1) % n
-        rt.stage.current_costume = rt.stage.costume_index
         return
     if s == 'previous backdrop':
         rt.stage.costume_index = (rt.stage.costume_index - 1) % n
-        rt.stage.current_costume = rt.stage.costume_index
         return
     if s == 'random backdrop' and n > 1:
         idx = rt.stage.costume_index
         while idx == rt.stage.costume_index:
             idx = random.randint(0, n - 1)
         rt.stage.costume_index = idx
-        rt.stage.current_costume = idx
         return
     # Fall through to _set_costume for number/other string parsing
     _set_costume(rt.stage, val)
@@ -746,7 +736,6 @@ def looks_nextbackdrop(rt: Runtime, tgt: Target, block: Block) -> None:
         n = len(rt.stage.costumes)
         if n > 0:
             rt.stage.costume_index = (rt.stage.costume_index + 1) % n
-            rt.stage.current_costume = rt.stage.costume_index
 
 
 def looks_changeeffectby(rt: Runtime, tgt: Target, block: Block) -> None:
@@ -1498,6 +1487,7 @@ OPCODE_MAP: dict[str, Handler] = {
     'looks_setsizeto': looks_setsizeto,
     'looks_changesizeby': looks_changesizeby,
     'looks_costumenumbername': looks_costumenumbername,
+    'looks_costume': looks_costumenumbername,
     'looks_backdropnumbername': looks_backdropnumbername,
     'looks_switchbackdropto': looks_switchbackdropto,
     'looks_switchbackdroptoandwait': looks_switchbackdropto,

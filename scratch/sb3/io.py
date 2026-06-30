@@ -77,11 +77,10 @@ def _parse_target(data: dict[str, Any]) -> Target:
         visible=data.get('visible', True),
         volume=data.get('volume', 100),
         layer_order=data.get('layerOrder', 0),
-        current_costume=data.get('currentCostume', 0),
+        costume_index=data.get('currentCostume', 0),
         rotation_style=data.get('rotationStyle', 'all around'),
         draggable=data.get('draggable', False),
     )
-    target.costume_index = target.current_costume
 
     # Variables  {id: [name, value]}
     for var_id, var_data in data.get('variables', {}).items():
@@ -156,14 +155,19 @@ def _parse_input(data: list[Any]) -> Input:
         [1, literal]           — shadow with literal value
         [2, block_id]          — reference to another block
         [3, value, block_id]   — obsolete shadow+block pair (value is
-                                 the shadow's default)
+                                 the shadow's default; block_id is the
+                                 actual reporter block reference)
     """
     shadow_flag = data[0] if len(data) > 0 else 0
-    value = data[1] if len(data) > 1 else None
     is_shadow = shadow_flag in (1, 3)
 
-    name = ''  # Inputs in this context don't have internal names
-    inp = Input(name=name, value=value, shadow=is_shadow)
+    if shadow_flag == 3 and len(data) >= 3:
+        # [3, literal, block_id] — use the block reference as the value
+        value = data[2]
+    else:
+        value = data[1] if len(data) > 1 else None
+
+    inp = Input(name='', value=value, shadow=is_shadow)
     return inp
 
 
@@ -398,8 +402,7 @@ def _serialize_target(target: Target) -> dict[str, Any]:
         'lists': lists,
         'broadcasts': {},
         'blocks': blocks,
-        'comments': {},
-        'currentCostume': target.current_costume,
+        'currentCostume': target.costume_index,
         'costumes': [_serialize_costume(c) for c in target.costumes],
         'sounds': [_serialize_sound(s) for s in target.sounds],
         'volume': target.volume,

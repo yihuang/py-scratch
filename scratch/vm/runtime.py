@@ -159,12 +159,9 @@ class Runtime:
         within one frame.  That matches Scratch's behaviour because
         reporters never wait.
         """
-        block = target.blocks.get(block_id)
-        if block is None:
-            return None
+        block = target.blocks[block_id]
         handler = self.get_handler(block.opcode)
-        if handler is None:
-            return None
+        assert handler is not None
         gen = handler(self, target, block)
         if gen is not None:
             try:
@@ -191,6 +188,23 @@ class Runtime:
 
         if isinstance(value, str) and value in target.blocks:
             return self.evaluate(target, value)
+
+        # Scratch variable/list reference: [type_code, name_or_id]
+        if isinstance(value, (list, tuple)) and len(value) == 2 and isinstance(value[0], int):
+            type_code, ref = value
+            if type_code == 5:  # Variable reference
+                var = target.lookup_variable(ref) or (
+                    self.stage and self.stage.lookup_variable(ref)
+                )
+                return var.value if var else 0
+            if type_code == 12:  # List reference
+                lst = target.lookup_list(ref) or (
+                    self.stage and self.stage.lookup_list(ref)
+                )
+                return lst.contents if lst else []
+            # Other reference types (4=broadcast, etc.) — return the name
+            return ref
+
         # Shadow pair: [block_id, literal] — use the literal.
         if (
             isinstance(value, (list, tuple))
@@ -213,7 +227,7 @@ class Runtime:
 
     def num(self, target: Target, block: Block, name: str) -> float:
         """Resolve a named numeric input from *block*."""
-        return self.resolve_num(target, self._input_raw(block, name))
+        return self.resolve_num(target, block.inputs.get(name))
 
     def num_int(self, target: Target, block: Block, name: str) -> int:
         """Resolve a named numeric input and round to nearest int."""
@@ -221,22 +235,11 @@ class Runtime:
 
     def bool(self, target: Target, block: Block, name: str) -> bool:
         """Resolve a named boolean input from *block*."""
-        return self.resolve_bool(target, self._input_raw(block, name))
+        return self.resolve_bool(target, block.inputs.get(name))
 
     def val(self, target: Target, block: Block, name: str) -> Any:
         """Resolve a named arbitrary input from *block*."""
-        return self.resolve_input(target, self._input_raw(block, name))
-
-    @staticmethod
-    def _input_raw(block: Block, name: str) -> Any:
-        """Unwrap a block input to its raw value (literal or block-id string).
-
-        Returns ``None`` if *name* is not present (matching Scratch's default of 0).
-        """
-        inp = block.inputs.get(name)
-        if inp is None:
-            return None
-        return inp.value if isinstance(inp, Input) else inp
+        return self.resolve_input(target, block.inputs.get(name))
 
     # ── Thread lifecycle ──────────────────────────────────────────────
 

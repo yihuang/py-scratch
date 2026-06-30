@@ -152,7 +152,6 @@ class Target:
 
     # ── Scratch JSON properties (carried for completeness) ────────────
     comments: dict[str, Any] = field(default_factory=dict)
-    current_costume: int = 0
 
     # Pre-computed: all blocks that are top-level hat blocks, keyed by opcode
     _hat_cache: dict[str, list[str]] | None = None

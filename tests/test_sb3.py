@@ -163,7 +163,7 @@ class TestRoundTrip:
         assert cat.y == -50
         assert cat.direction == 45
         assert cat.size == 80
-        assert cat.current_costume == 1
+        assert cat.costume_index == 1
 
     def test_json_round_trip(self) -> None:
         project = _make_project_json()
