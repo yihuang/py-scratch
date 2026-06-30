@@ -15,10 +15,12 @@ from collections.abc import Callable, Generator
 from typing import Any
 from .target import Target
 from .thread import (
-    YIELD,
+    Report,
     Thread,
     ThreadStatus,
-    is_wait,
+    Wait,
+    YIELD,
+    YieldPass,
 )
 from .types import Block, Input
 
@@ -166,7 +168,7 @@ class Runtime:
                 while True:
                     val = next(gen)
                     # Reporters only yield REPORT(value); we collect it.
-                    if isinstance(val, _Report):
+                    if isinstance(val, Report):
                         return val.value
                     # Ignore YIELD/WAIT — should not happen in reporters,
                     # but handle gracefully.
@@ -205,6 +207,33 @@ class Runtime:
     def resolve_num(self, target: Target, inp: Input | Any) -> float:
         """Resolve a numeric input."""
         return float(self.resolve_input(target, inp) or 0)
+
+    def num(self, target: Target, block: Block, name: str) -> float:
+        """Resolve a named numeric input from *block*."""
+        return self.resolve_num(target, self._input_raw(block, name))
+
+    def num_int(self, target: Target, block: Block, name: str) -> int:
+        """Resolve a named numeric input and round to nearest int."""
+        return round(self.num(target, block, name))
+
+    def bool(self, target: Target, block: Block, name: str) -> bool:
+        """Resolve a named boolean input from *block*."""
+        return self.resolve_bool(target, self._input_raw(block, name))
+
+    def val(self, target: Target, block: Block, name: str) -> Any:
+        """Resolve a named arbitrary input from *block*."""
+        return self.resolve_input(target, self._input_raw(block, name))
+
+    @staticmethod
+    def _input_raw(block: Block, name: str) -> Any:
+        """Unwrap a block input to its raw value (literal or block-id string).
+
+        Returns ``None`` if *name* is not present (matching Scratch's default of 0).
+        """
+        inp = block.inputs.get(name)
+        if inp is None:
+            return None
+        return inp.value if isinstance(inp, Input) else inp
 
     # ── Thread lifecycle ──────────────────────────────────────────────
 
@@ -319,24 +348,26 @@ class Runtime:
             self._advance_to_next(thread)
             self.current_thread = None
             return
-        if isinstance(yielded, _Report):
-            result = yielded.value
-            thread.pop_frame()
-            parent = thread.peek_frame()
-            if parent is not None:
-                parent.saved['_result'] = result
-            self.current_thread = None
-            return
-        wait_secs = is_wait(yielded)
-        if wait_secs is not None and wait_secs > 0:
-            self._schedule_wake(thread, wait_secs)
-            self.current_thread = None
-            return
-        if yielded is YIELD:
-            self.current_thread = None
-            return
-        self._advance_to_next(thread)
-        self.current_thread = None
+        match yielded:
+            case Report(value=result):
+                thread.pop_frame()
+                parent = thread.peek_frame()
+                if parent is not None:
+                    parent.saved['_result'] = result
+                self.current_thread = None
+                return
+            case Wait(seconds=secs):
+                self._schedule_wake(thread, secs)
+                self.current_thread = None
+                return
+            case YieldPass():
+                self.current_thread = None
+                return
+            case _:
+                raise RuntimeError(
+                    f"Unknown yield {yielded!r} from {block.opcode!r} "
+                    f"(block {block.id!r})"
+                )
 
     def _advance_to_next(self, thread: Thread) -> None:
         """Move the thread's current frame to the next block in the chain.
@@ -419,21 +450,3 @@ class Runtime:
                 yield YIELD
 
 
-# ── Reporter-yield wrapper ─────────────────────────────────────────────
-
-
-class _Report:
-    """Wrapper around a reporter return value, yielded from generators."""
-
-    __slots__ = ('value',)
-
-    def __init__(self, value: Any) -> None:
-        self.value = value
-
-    def __repr__(self) -> str:
-        return f'Report({self.value!r})'
-
-
-def report(value: Any) -> _Report:
-    """Yield this from a reporter handler to return a value."""
-    return _Report(value)

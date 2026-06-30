@@ -21,26 +21,28 @@ if TYPE_CHECKING:
 
 # ── Yield protocol constants ────────────────────────────────────────────
 
-# A block handler is a generator that yields one of these values.
-# YIELD — yield control; reschedule next tick.
-# DONE — the thread has finished executing.
-
-YIELD = object()
-DONE = object()
-
-WAIT_PREFIX = '__WAIT__'  # yield f'__WAIT__:{seconds}' to pause
+# A block handler is a generator that yields one of these values:
+#   YieldPass() — yield control; reschedule next tick.
+#   Wait(secs)  — pause thread for secs.
+#   Report(val) — reporter block returning a value to its parent.
 
 
-def wait_yield(seconds: float) -> str:
-    """Yield value for a timed pause."""
-    return f'{WAIT_PREFIX}{seconds}'
+class YieldPass:
+    """Yield control; reschedule next tick."""
 
 
-def is_wait(yielded: Any) -> float | None:
-    """If ``yielded`` is a wait signal, return the duration in seconds."""
-    if isinstance(yielded, str) and yielded.startswith(WAIT_PREFIX):
-        return float(yielded.removeprefix(WAIT_PREFIX))
-    return None
+YIELD = YieldPass()
+
+@dataclass(frozen=True)
+class Wait:
+    """Pause thread for ``seconds``."""
+    seconds: float
+
+
+@dataclass(frozen=True)
+class Report:
+    """Reporter block returning a ``value`` to the parent frame."""
+    value: Any
 
 
 # ── Status ──────────────────────────────────────────────────────────────
