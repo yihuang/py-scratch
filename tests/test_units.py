@@ -594,4 +594,7 @@ class TestMixed:
         for _ in range(5):
             rt.step()
             assert rt.threads[0].status == 'waiting'
-        rt.step()  # tick 7 → wake → b2 runs (instant) → done
+        rt.step()  # tick 7 → wake → resume b1 → StopIteration → advance to b2
+        assert t.x == 20.0  # b2 hasn't run yet; _step_thread only advances
+        rt.step()  # b2 runs (instant) → done
+        assert t.x == 30.0
