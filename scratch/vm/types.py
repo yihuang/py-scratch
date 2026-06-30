@@ -134,6 +134,7 @@ def make_block(
     next_: str | None = None,
     parent: str | None = None,
     top_level: bool = False,
+    mutation: Mutation | None = None,
 ) -> Block:
     """Construct a Block from simplified arguments.
 
@@ -164,4 +165,5 @@ def make_block(
         next=next_,
         parent=parent,
         top_level=top_level,
+        mutation=mutation,
     )

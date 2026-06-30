@@ -81,6 +81,7 @@ class Runtime:
         self._mouse_x: float = 0.0
         self._mouse_y: float = 0.0
         self._mouse_down: bool = False
+        self._edge_hat_values: dict[str, bool] = {}
 
     # ── Registration ──────────────────────────────────────────────────
 
@@ -139,6 +140,7 @@ class Runtime:
         # Start all hat scripts on the clone
         for opcode in ['event_whenflagclicked', 'event_whenthisspriteclicked']:
             self.start_hat_for_opcode(opcode, target=clone)
+        self.start_hat_for_opcode('control_start_as_clone', target=clone)
         return clone
 
     def remove_clone(self, clone: Target) -> None:
@@ -230,16 +232,27 @@ class Runtime:
         return self.resolve_num(target, block.inputs.get(name))
 
     def num_int(self, target: Target, block: Block, name: str) -> int:
-        """Resolve a named numeric input and round to nearest int."""
-        return round(self.num(target, block, name))
+        """Resolve a named numeric input and round to nearest int (Scratch-style round-half-up)."""
+        return int(self.num(target, block, name) + 0.5)
 
-    def bool(self, target: Target, block: Block, name: str) -> bool:
+    def truthy(self, target: Target, block: Block, name: str) -> bool:
         """Resolve a named boolean input from *block*."""
-        return self.resolve_bool(target, block.inputs.get(name))
+        return self.resolve_bool(target, self._input_raw(block, name))
 
     def val(self, target: Target, block: Block, name: str) -> Any:
         """Resolve a named arbitrary input from *block*."""
-        return self.resolve_input(target, block.inputs.get(name))
+        return self.resolve_input(target, self._input_raw(block, name))
+
+    @staticmethod
+    def _input_raw(block: Block, name: str) -> Any:
+        """Unwrap a block input to its raw value (literal or block-id string).
+
+        Returns ``None`` if *name* is not present.
+        """
+        inp = block.inputs.get(name)
+        if inp is None:
+            return None
+        return inp.value if isinstance(inp, Input) else inp
 
     # ── Thread lifecycle ──────────────────────────────────────────────
 
@@ -275,8 +288,9 @@ class Runtime:
             if block is None:
                 continue
             fld = block.fields.get('KEY_OPTION')
-            val = str(getattr(fld, 'value', fld or ''))
-            if val.lower() != key_name.lower():
+            hat_key = str(getattr(fld, 'value', fld or ''))
+            # Wildcard 'any' matches any key press
+            if hat_key.lower() != 'any' and hat_key.lower() != key_name.lower():
                 continue
             nxt = block.next
             thread = Thread(target=target, top_block=nxt or bid)
@@ -314,6 +328,17 @@ class Runtime:
                     thread = Thread(target=stage, top_block=nxt or bid)
                     thread.start()
                     self.threads.append(thread)
+
+    def _check_edge_hat(self, opcode: str, target: Target, block: Block, current_value: bool) -> bool:
+        """Check false→true edge activation for edge-activated hats.
+
+        Returns True only when *current_value* is True and the previous
+        stored value for this hat instance was False.
+        """
+        key = f'{opcode}:{id(target)}:{block.id}'
+        prev = self._edge_hat_values.get(key, False)
+        self._edge_hat_values[key] = current_value
+        return current_value and not prev
 
     # ── Scheduler ─────────────────────────────────────────────────────
 
@@ -443,8 +468,18 @@ class Runtime:
             if block is None:
                 continue
             fld = block.fields.get('BROADCAST_OPTION')
-            val = str(getattr(fld, 'value', fld or ''))
-            if val != message:
+            hat_val = str(getattr(fld, 'value', fld or ''))
+            # Match: try broadcast id/name lookup, fall back to direct string comparison
+            matched = False
+            if hat_val == message:
+                matched = True
+            else:
+                for bcast_id, bcast_msg in target.broadcasts.items():
+                    if hat_val == bcast_id or hat_val == bcast_msg.name:
+                        if message == bcast_id or message == bcast_msg.name:
+                            matched = True
+                        break
+            if not matched:
                 continue
             nxt = block.next
             thread = Thread(target=target, top_block=nxt or bid)
@@ -455,11 +490,14 @@ class Runtime:
 
     # ── Sub-stack execution helper ────────────────────────────────────
 
-    def execute_substack(self, target: Target, block_id: str | None) -> Generator[Any]:
+    def execute_substack(self, target: Target, block_id: str | None, yield_between: bool = True) -> Generator[Any]:
         """Generator: step through a linked list of blocks.
 
         Control blocks (repeat, if, etc.) should ``yield from`` this
         to execute their substack input.
+
+        Set *yield_between* to False to run all blocks atomically without
+        yielding control between consecutive blocks.
         """
         bid = block_id
         while bid:
@@ -474,7 +512,7 @@ class Runtime:
             if gen is None or not hasattr(gen, '__next__'):
                 # Instant block (no yield) — done immediately
                 bid = block.next
-                if bid:
+                if bid and yield_between:
                     yield YIELD
                 continue
             try:
@@ -484,7 +522,7 @@ class Runtime:
             except StopIteration:
                 pass
             bid = block.next
-            if bid:
+            if bid and yield_between:
                 yield YIELD
 
 

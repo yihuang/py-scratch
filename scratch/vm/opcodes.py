@@ -18,7 +18,7 @@ from typing import Any
 
 from .runtime import Handler, Runtime
 from .target import Target
-from .thread import Report, Wait, YIELD
+from .thread import Report, Thread, Wait, YIELD
 from .types import Block, Input
 
 # ── Helpers ──────────────────────────────────────────────────────────────
@@ -80,16 +80,18 @@ def _scratch_compare(v1: Any, v2: Any) -> int:
 
     Mirrors ``Cast.compare()`` in scratch-vm:
     - If both values are numeric, compare as numbers.
-    - If either converts to NaN (or whitespace), compare case-insensitively as strings.
+    - If either converts to NaN (or is None / whitespace), compare case-insensitively as strings.
     - Infinity special-cases handled.
     """
-    n1 = _num(v1)
-    n2 = _num(v2)
-    # Whitespace-only strings → treat as NaN
-    if n1 == 0 and isinstance(v1, str) and v1.strip() == '':
+    # None or whitespace-only strings → treat as NaN (scratch-vm Cast.isWhiteSpace)
+    if v1 is None or (isinstance(v1, str) and v1.strip() == ''):
         n1 = float('nan')
-    if n2 == 0 and isinstance(v2, str) and v2.strip() == '':
+    else:
+        n1 = _num(v1)
+    if v2 is None or (isinstance(v2, str) and v2.strip() == ''):
         n2 = float('nan')
+    else:
+        n2 = _num(v2)
     if math.isnan(n1) or math.isnan(n2):
         s1 = str(v1).lower()
         s2 = str(v2).lower()
@@ -140,14 +142,14 @@ def control_forever(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
 
 
 def control_if(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
-    cond = rt.bool(tgt, block, 'CONDITION')
+    cond = rt.truthy(tgt, block, 'CONDITION')
     sub_id = _substack_val(block.inputs.get('SUBSTACK'))
     if cond and sub_id:
         yield from rt.execute_substack(tgt, sub_id)
 
 
 def control_if_else(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
-    cond = rt.bool(tgt, block, 'CONDITION')
+    cond = rt.truthy(tgt, block, 'CONDITION')
     if cond:
         sub_id = _substack_val(block.inputs.get('SUBSTACK'))
         if sub_id:
@@ -159,20 +161,20 @@ def control_if_else(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
 
 
 def control_wait_until(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
-    while not rt.bool(tgt, block, 'CONDITION'):
+    while not rt.truthy(tgt, block, 'CONDITION'):
         yield YIELD
 
 
 def control_repeat_until(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
     substack = block.inputs.get('SUBSTACK')
-    while not rt.bool(tgt, block, 'CONDITION'):
+    while not rt.truthy(tgt, block, 'CONDITION'):
         if substack and substack.value:
             yield from rt.execute_substack(tgt, substack.value)
         yield YIELD
 
 
 def control_stop(rt: Runtime, tgt: Target, block: Block) -> None:
-    """Stop behaviour: stop all | this script | other scripts in sprite."""
+    """Stop behaviour: stop all | this script | other scripts in sprite | other scripts in stage."""
     option = block.fields.get('STOP_OPTION')
     choice = option.value if option else 'all'
     _cur = rt.current_thread
@@ -186,11 +188,15 @@ def control_stop(rt: Runtime, tgt: Target, block: Block) -> None:
         for th in list(rt.threads):
             if th.target is tgt and th is not _cur:
                 th.status = 'done'
+    elif choice == 'other scripts in stage':
+        for th in list(rt.threads):
+            if th.target.is_stage and th is not _cur:
+                th.status = 'done'
 
 
 def control_while(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
     substack = block.inputs.get('SUBSTACK')
-    while rt.bool(tgt, block, 'CONDITION'):
+    while rt.truthy(tgt, block, 'CONDITION'):
         if substack and substack.value:
             yield from rt.execute_substack(tgt, substack.value)
         yield YIELD
@@ -242,11 +248,15 @@ def control_delete_this_clone(rt: Runtime, tgt: Target, block: Block) -> None:
     rt.remove_clone(tgt)
 
 
+def control_start_as_clone(rt: Runtime, tgt: Target, block: Block) -> None:
+    """Hat — fires when a clone is created. Threads started by clone_target."""
+
+
 def control_all_at_once(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
     """Run the substack without yielding between blocks (all at once)."""
     sub_id = _substack_val(block.inputs.get('SUBSTACK'))
     if sub_id:
-        yield from rt.execute_substack(tgt, sub_id)
+        yield from rt.execute_substack(tgt, sub_id, yield_between=False)
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -295,10 +305,8 @@ def event_whentouchingobject(rt: Runtime, tgt: Target, block: Block) -> Generato
     if obj_name == '':
         yield Report(False)
         return
-    # _touching_object_check is defined later in this file;
-    # at call time it's resolved.
-    yield Report(_touching_object_check(rt, tgt, obj_name))
-
+    touching = _touching_object_check(rt, tgt, obj_name)
+    yield Report(rt._check_edge_hat('event_whentouchingobject', tgt, block, touching))
 
 def event_whengreaterthan(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
     """Edge-activated hat — returns True when timer/loudness > VALUE."""
@@ -306,11 +314,12 @@ def event_whengreaterthan(rt: Runtime, tgt: Target, block: Block) -> Generator[A
     opt = _field_val(option) if option else ''
     value = rt.num(tgt, block, 'VALUE')
     if opt == 'timer':
-        yield Report(rt.clock.now() > value)
+        result = rt.clock.now() > value
     elif opt == 'loudness':
-        yield Report(False)  # no microphone
+        result = False  # no microphone
     else:
-        yield Report(False)
+        result = False
+    yield Report(rt._check_edge_hat('event_whengreaterthan', tgt, block, result))
 
 
 def event_broadcast(rt: Runtime, tgt: Target, block: Block) -> None:
@@ -344,7 +353,7 @@ def motion_movesteps(rt: Runtime, tgt: Target, block: Block) -> None:
 def _target_xy(rt: Runtime, target_name: str) -> tuple[float, float] | None:
     """Resolve a target name to (x, y) for go-to / point-towards."""
     if target_name == '_mouse_':
-        return (0.0, 0.0)
+        return (rt._mouse_x, rt._mouse_y)
     if target_name == '_random_':
         return (round(random.uniform(-240.0, 240.0)), round(random.uniform(-180.0, 180.0)))
     t = rt.get_target_by_name(target_name)
@@ -444,6 +453,15 @@ def motion_ifonedgebounce(rt: Runtime, tgt: Target, block: Block) -> None:
         bounced = True
     if bounced:
         tgt.direction = 180 - tgt.direction
+    # keepInFence: clamp position to fence bounds unconditionally
+    if tgt.x < left:
+        tgt.x = left
+    elif tgt.x > right:
+        tgt.x = right
+    if tgt.y < bottom:
+        tgt.y = bottom
+    elif tgt.y > top:
+        tgt.y = top
 
 
 def motion_setrotationstyle(rt: Runtime, tgt: Target, block: Block) -> None:
@@ -453,21 +471,48 @@ def motion_setrotationstyle(rt: Runtime, tgt: Target, block: Block) -> None:
 
 
 def motion_xposition(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
-    yield Report(tgt.x)
+    val = tgt.x
+    if abs(val - round(val)) < 1e-9:
+        val = round(val)
+    yield Report(val)
 
 
 def motion_yposition(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
-    yield Report(tgt.y)
+    val = tgt.y
+    if abs(val - round(val)) < 1e-9:
+        val = round(val)
+    yield Report(val)
 
 
 def motion_direction(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
     yield Report(tgt.direction)
 
 
-def motion_glideto(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+def motion_glidesecstoxy(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
     secs = rt.num(tgt, block, 'SECS')
     x = rt.num(tgt, block, 'X')
     y = rt.num(tgt, block, 'Y')
+    if secs <= 0:
+        tgt.set_xy(x, y)
+        return
+    start_x, start_y = tgt.x, tgt.y
+    frames = rt.clock.frames_for(secs)
+    frame = 0
+    while frame < frames:
+        frac = frame / frames
+        tgt.set_xy(start_x + frac * (x - start_x), start_y + frac * (y - start_y))
+        frame += 1
+        yield YIELD
+    tgt.set_xy(x, y)
+
+
+def motion_glideto(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+    secs = rt.num(tgt, block, 'SECS')
+    target_name = _str(block.fields.get('TO'))
+    xy = _target_xy(rt, target_name)
+    if xy is None:
+        return
+    x, y = xy
     if secs <= 0:
         tgt.set_xy(x, y)
         return
@@ -543,7 +588,7 @@ def _set_costume(tgt: Target, requested: Any) -> None:
         return
     # String
     s = _str(requested)
-    if s in ('', ' ', '  ', '   ', '    '):
+    if s.strip() == '':
         return  # whitespace → no-op
     # Try name match first
     for i, c in enumerate(tgt.costumes):
@@ -637,6 +682,11 @@ def looks_costumenumbername(rt: Runtime, tgt: Target, block: Block) -> Generator
     else:
         yield Report(tgt.current_costume_name)
 
+def looks_costume(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+    """Alias: costume number/name reporter."""
+    yield from looks_costumenumbername(rt, tgt, block)
+
+
 
 def looks_backdropnumbername(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
     numname = block.fields.get('NUMBER_NAME')
@@ -648,34 +698,58 @@ def looks_backdropnumbername(rt: Runtime, tgt: Target, block: Block) -> Generato
     yield Report(tgt.current_costume_name)
 
 
+def _set_backdrop(rt: Runtime, val: Any) -> list[Thread]:
+    """Switch backdrop on the stage and trigger ``event_whenbackdropswitchesto`` hats.
+    
+    Returns the list of threads started by the hat.
+    """
+    stage = rt.stage
+    if stage is None:
+        return []
+    s = _str(val)
+    n = len(stage.costumes)
+    if n == 0:
+        return []
+    old_idx = stage.costume_index
+    # Try name match
+    for i, c in enumerate(stage.costumes):
+        if c.name == s:
+            stage.costume_index = i
+            break
+    else:
+        if s == 'next backdrop':
+            stage.costume_index = (stage.costume_index + 1) % n
+        elif s == 'previous backdrop':
+            stage.costume_index = (stage.costume_index - 1) % n
+        elif s == 'random backdrop' and n > 1:
+            idx = stage.costume_index
+            while idx == stage.costume_index:
+                idx = random.randint(0, n - 1)
+            stage.costume_index = idx
+        else:
+            # Fall through to _set_costume for number/other string parsing
+            _set_costume(stage, val)
+    if stage.costume_index != old_idx:
+        return rt.start_hat('event_whenbackdropswitchesto')
+    return []
+    
+    
 def looks_switchbackdropto(rt: Runtime, tgt: Target, block: Block) -> None:
     """Switch backdrop (on the stage, not the sprite)."""
     if rt.stage is None:
         return
     val = rt.val(tgt, block, 'BACKDROP')
-    s = _str(val)
-    n = len(rt.stage.costumes)
-    if n == 0:
+    _set_backdrop(rt, val)
+    
+    
+def looks_switchbackdroptoandwait(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+    """Switch backdrop and wait for all ``event_whenbackdropswitchesto`` handlers to finish."""
+    if rt.stage is None:
         return
-    # Try name match
-    for i, c in enumerate(rt.stage.costumes):
-        if c.name == s:
-            rt.stage.costume_index = i
-            return
-    if s == 'next backdrop':
-        rt.stage.costume_index = (rt.stage.costume_index + 1) % n
-        return
-    if s == 'previous backdrop':
-        rt.stage.costume_index = (rt.stage.costume_index - 1) % n
-        return
-    if s == 'random backdrop' and n > 1:
-        idx = rt.stage.costume_index
-        while idx == rt.stage.costume_index:
-            idx = random.randint(0, n - 1)
-        rt.stage.costume_index = idx
-        return
-    # Fall through to _set_costume for number/other string parsing
-    _set_costume(rt.stage, val)
+    val = rt.val(tgt, block, 'BACKDROP')
+    started = _set_backdrop(rt, val)
+    while any(th for th in started if th.status != 'done' and th in rt.threads):
+        yield YIELD
 
 
 def _format_bubble_text(text: Any) -> str:
@@ -736,19 +810,28 @@ def looks_nextbackdrop(rt: Runtime, tgt: Target, block: Block) -> None:
         n = len(rt.stage.costumes)
         if n > 0:
             rt.stage.costume_index = (rt.stage.costume_index + 1) % n
-
-
+    
+    
 def looks_changeeffectby(rt: Runtime, tgt: Target, block: Block) -> None:
     effect = _field_val(block.fields.get('EFFECT')) if block.fields.get('EFFECT') else ''
     change = rt.num(tgt, block, 'CHANGE')
     if effect:
-        tgt.effects[effect] = tgt.effects.get(effect, 0) + change
+        val = tgt.effects.get(effect, 0) + change
+        if effect == 'ghost':
+            val = max(0, min(100, val))
+        elif effect == 'brightness':
+            val = max(-100, min(100, val))
+        tgt.effects[effect] = val
 
 
 def looks_seteffectto(rt: Runtime, tgt: Target, block: Block) -> None:
     effect = _field_val(block.fields.get('EFFECT')) if block.fields.get('EFFECT') else ''
     value = rt.num(tgt, block, 'VALUE')
     if effect:
+        if effect == 'ghost':
+            value = max(0, min(100, value))
+        elif effect == 'brightness':
+            value = max(-100, min(100, value))
         tgt.effects[effect] = value
 
 
@@ -811,19 +894,19 @@ def operator_gt(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
 
 
 def operator_and(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
-    a = rt.bool(tgt, block, 'OPERAND1')
-    b = rt.bool(tgt, block, 'OPERAND2')
+    a = rt.truthy(tgt, block, 'OPERAND1')
+    b = rt.truthy(tgt, block, 'OPERAND2')
     yield Report(a and b)
 
 
 def operator_or(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
-    a = rt.bool(tgt, block, 'OPERAND1')
-    b = rt.bool(tgt, block, 'OPERAND2')
+    a = rt.truthy(tgt, block, 'OPERAND1')
+    b = rt.truthy(tgt, block, 'OPERAND2')
     yield Report(a or b)
 
 
 def operator_not(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
-    a = rt.bool(tgt, block, 'OPERAND')
+    a = rt.truthy(tgt, block, 'OPERAND')
     yield Report(not a)
 
 
@@ -836,7 +919,7 @@ def operator_random(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
     if lo == lo_int and hi == hi_int:
         yield Report(random.randint(lo_int, hi_int))
     else:
-        yield Report(random.uniform(lo, hi))
+        yield Report(lo + (hi - lo) * random.random())
 
 
 def operator_join(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
@@ -892,9 +975,9 @@ def operator_mathop(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
         case 'sqrt':
             r = math.sqrt(n) if n >= 0 else float('nan')
         case 'sin':
-            r = math.sin(math.radians(n))
+            r = round(math.sin(math.radians(n)), 10)
         case 'cos':
-            r = math.cos(math.radians(n))
+            r = round(math.cos(math.radians(n)), 10)
         case 'tan':
             r = math.tan(math.radians(n)) if n % 180 != 90 else float('inf')
         case 'asin':
@@ -907,9 +990,9 @@ def operator_mathop(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
             r = math.log(n) if n > 0 else float('-inf')
         case 'log':
             r = math.log10(n) if n > 0 else float('-inf')
-        case 'e^':
+        case 'e ^':
             r = math.exp(n)
-        case '10^':
+        case '10 ^':
             r = math.pow(10, n)
         case _:
             r = 0
@@ -963,6 +1046,34 @@ def data_variable(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
     yield Report(0)
 
 
+LIST_ITEM_LIMIT = 200000
+
+
+def _to_list_index(value: Any, length: int) -> int | str | None:
+    """Convert a Scratch list index value to a usable index.
+
+    Returns:
+      'ALL'  — for the 'all' special value
+      int    — a 1-based index clamped to 1..length, or None if invalid
+      None   — invalid/unusable
+    """
+    if isinstance(value, str):
+        v = value.lower()
+        if v == 'all':
+            return 'ALL'
+        if v == 'last':
+            return length
+        if v in ('random', 'any'):
+            return random.randint(1, max(1, length))
+    try:
+        idx = int(round(float(value)))
+    except (ValueError, TypeError):
+        return None
+    if 1 <= idx <= length:
+        return idx
+    return None
+ 
+ 
 # ═══════════════════════════════════════════════════════════════════════
 #  DATA — Lists
 # ═══════════════════════════════════════════════════════════════════════
@@ -975,43 +1086,73 @@ def data_addtolist(rt: Runtime, tgt: Target, block: Block) -> None:
         lst = tgt.lookup_list(list_name)
         if lst is None and rt.stage:
             lst = rt.stage.lookup_list(list_name)
-        if lst:
+        if lst and len(lst.contents) < LIST_ITEM_LIMIT:
             lst.contents.append(item)
 
 
 def data_deleteoflist(rt: Runtime, tgt: Target, block: Block) -> None:
     list_name = _field_val(block.fields.get('LIST'))
-    idx = rt.num_int(tgt, block, 'INDEX')
-    if list_name:
-        lst = tgt.lookup_list(list_name)
-        if lst is None and rt.stage:
-            lst = rt.stage.lookup_list(list_name)
-        if lst and 1 <= idx <= len(lst.contents):
-            del lst.contents[idx - 1]
-
-
-def data_insertatlist(rt: Runtime, tgt: Target, block: Block) -> None:
-    list_name = _field_val(block.fields.get('LIST'))
-    item = rt.val(tgt, block, 'ITEM')
-    idx = rt.num_int(tgt, block, 'INDEX')
+    value = rt.val(tgt, block, 'INDEX')
     if list_name:
         lst = tgt.lookup_list(list_name)
         if lst is None and rt.stage:
             lst = rt.stage.lookup_list(list_name)
         if lst:
-            lst.contents.insert(max(0, idx - 1), item)
+            idx = _to_list_index(value, len(lst.contents))
+            if idx == 'ALL':
+                lst.contents.clear()
+            elif isinstance(idx, int):
+                del lst.contents[idx - 1]
+
+
+def data_insertatlist(rt: Runtime, tgt: Target, block: Block) -> None:
+    list_name = _field_val(block.fields.get('LIST'))
+    item = rt.val(tgt, block, 'ITEM')
+    idx_val = rt.val(tgt, block, 'INDEX')
+    if list_name:
+        lst = tgt.lookup_list(list_name)
+        if lst is None and rt.stage:
+            lst = rt.stage.lookup_list(list_name)
+        if lst:
+            length = len(lst.contents)
+            # Pop last if at limit before inserting
+            if length >= LIST_ITEM_LIMIT:
+                lst.contents.pop()
+                length = len(lst.contents)
+            # Determine 0-based insertion position
+            if isinstance(idx_val, str):
+                v = idx_val.lower()
+                if v == 'last':
+                    pos = length  # insert at end
+                elif v in ('random', 'any'):
+                    pos = random.randint(0, length)
+                else:
+                    idx = _to_list_index(idx_val, length)
+                    if isinstance(idx, int):
+                        pos = min(idx - 1, length)
+                    else:
+                        return
+            else:
+                idx = _to_list_index(idx_val, length)
+                if isinstance(idx, int):
+                    pos = min(idx - 1, length)
+                else:
+                    return
+            lst.contents.insert(max(0, pos), item)
 
 
 def data_replaceitemoflist(rt: Runtime, tgt: Target, block: Block) -> None:
     list_name = _field_val(block.fields.get('LIST'))
     item = rt.val(tgt, block, 'ITEM')
-    idx = rt.num_int(tgt, block, 'INDEX')
+    value = rt.val(tgt, block, 'INDEX')
     if list_name:
         lst = tgt.lookup_list(list_name)
         if lst is None and rt.stage:
             lst = rt.stage.lookup_list(list_name)
-        if lst and 1 <= idx <= len(lst.contents):
-            lst.contents[idx - 1] = item
+        if lst:
+            idx = _to_list_index(value, len(lst.contents))
+            if isinstance(idx, int):
+                lst.contents[idx - 1] = item
 
 
 def data_deletealloflist(rt: Runtime, tgt: Target, block: Block) -> None:
@@ -1026,13 +1167,15 @@ def data_deletealloflist(rt: Runtime, tgt: Target, block: Block) -> None:
 
 def data_itemoflist(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
     list_name = _field_val(block.fields.get('LIST'))
-    idx = rt.num_int(tgt, block, 'INDEX')
+    value = rt.val(tgt, block, 'INDEX')
     if list_name:
         lst = tgt.lookup_list(list_name)
         if lst is None and rt.stage:
             lst = rt.stage.lookup_list(list_name)
-        if lst and 1 <= idx <= len(lst.contents):
-            yield Report(lst.contents[idx - 1])
+        if lst:
+            idx = _to_list_index(value, len(lst.contents))
+            if isinstance(idx, int):
+                yield Report(lst.contents[idx - 1])
     yield Report('')
 
 
@@ -1082,7 +1225,11 @@ def data_listcontents(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
         if lst is None and rt.stage:
             lst = rt.stage.lookup_list(list_name)
         if lst:
-            yield Report(' '.join(str(x) for x in lst.contents))
+            items = lst.contents
+            if all(len(str(x)) == 1 for x in items):
+                yield Report(''.join(str(x) for x in items))
+            else:
+                yield Report(' '.join(str(x) for x in items))
     yield Report('')
 
 
@@ -1188,7 +1335,9 @@ def sensing_distanceto(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]
     dest = block.fields.get('DISTANCETOMENU')
     dest_name = _field_val(dest) if dest else '_mouse_'
     if dest_name == '_mouse_':
-        yield Report(200)  # arbitrary large distance
+        dx = tgt.x - rt._mouse_x
+        dy = tgt.y - rt._mouse_y
+        yield Report(math.sqrt(dx * dx + dy * dy))
         return
     other = rt.get_target_by_name(dest_name)
     if other:
@@ -1196,7 +1345,7 @@ def sensing_distanceto(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]
         dy = tgt.y - other.y
         yield Report(math.sqrt(dx * dx + dy * dy))
     else:
-        yield Report(float('inf'))
+        yield Report(10000.0)
 
 
 def sensing_of(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
@@ -1209,13 +1358,13 @@ def sensing_of(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
         obj = tgt
     prop_name = _str(prop) if not isinstance(prop, str) else prop
     match prop_name:
-        case 'x':
+        case 'x' | 'x position':
             yield Report(obj.x)
-        case 'y':
+        case 'y' | 'y position':
             yield Report(obj.y)
         case 'direction':
             yield Report(obj.direction)
-        case 'costume #' | 'costume':
+        case 'costume #' | 'costume' | 'costume name':
             yield Report(obj.costume_index + 1)
         case 'size':
             yield Report(obj.size)
@@ -1223,7 +1372,7 @@ def sensing_of(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
             yield Report(obj.volume)
         case 'backdrop name':
             yield Report(obj.current_costume_name if rt.stage else '')
-        case 'backdrop #':
+        case 'backdrop #' | 'background #':
             yield Report((obj.costume_index + 1) if rt.stage else 0)
         case _:
             var = obj.lookup_variable(prop_name)
@@ -1257,7 +1406,7 @@ def sensing_current(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
         case 'DATE':
             yield Report(lt.tm_mday)
         case 'DAYOFWEEK':
-            yield Report(lt.tm_wday + 1)
+            yield Report((lt.tm_wday + 1) % 7 + 1)
         case 'HOUR':
             yield Report(lt.tm_hour)
         case 'MINUTE':
@@ -1266,6 +1415,18 @@ def sensing_current(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
             yield Report(lt.tm_sec)
         case _:
             yield Report(0)
+
+
+def sensing_dayssince2000(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+    """Days since 2000-01-01 (Scratch-compatible)."""
+    epoch = time.mktime((2000, 1, 1, 0, 0, 0, 0, 0, 0))
+    # Adjust for timezone offset (mktime assumes local time, so epoch includes DST/UTC offset)
+    now = time.time()
+    is_dst = time.localtime(now).tm_isdst
+    offset = time.timezone
+    if is_dst > 0:
+        offset -= 3600
+    yield Report((now - epoch + offset) / 86400)
 
 
 def sensing_loudness(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
@@ -1374,15 +1535,22 @@ def procedures_call(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
                     b_mut.get('proccode') if isinstance(b_mut, dict) else None
                 )
                 if b_proc == proccode:
-                    # Resolve argument values into the current frame's saved dict
-                    frame = rt.current_thread.peek_frame()
+                    frame = rt.current_thread.peek_frame() if rt.current_thread else None
                     if frame is not None:
                         try:
                             arg_ids = json.loads(mutation.argumentids)
                             arg_names = json.loads(b_mut.argumentnames)
-                            for arg_id, arg_name in zip(arg_ids, arg_names):
-                                frame.saved[arg_name] = rt.val(tgt, block, arg_id)
-                        except (json.JSONDecodeError, AttributeError, TypeError):
+                            try:
+                                arg_defaults = json.loads(b_mut.argumentdefaults)
+                            except (json.JSONDecodeError, AttributeError, TypeError):
+                                arg_defaults = []
+                            for i, (arg_id, arg_name) in enumerate(zip(arg_ids, arg_names)):
+                                if arg_id in block.inputs:
+                                    frame.saved[arg_name] = rt.val(tgt, block, arg_id)
+                                else:
+                                    default = arg_defaults[i] if i < len(arg_defaults) else ''
+                                    frame.saved[arg_name] = default
+                        except (json.JSONDecodeError, AttributeError, TypeError, KeyError):
                             pass
                     yield from rt.execute_substack(tgt, b.next)
                     return
@@ -1392,7 +1560,7 @@ def argument_reporter_string_number(rt: Runtime, tgt: Target, block: Block) -> G
     """Return the value of a custom block argument (string or number)."""
     arg_name = _field_val(block.fields.get('VALUE')) if block.fields.get('VALUE') else ''
     if arg_name:
-        frame = rt.current_thread.peek_frame()
+        frame = rt.current_thread.peek_frame() if rt.current_thread else None
         if frame is not None and arg_name in frame.saved:
             yield Report(frame.saved[arg_name])
             return
@@ -1403,11 +1571,11 @@ def argument_reporter_boolean(rt: Runtime, tgt: Target, block: Block) -> Generat
     """Return the value of a custom block argument (boolean)."""
     arg_name = _field_val(block.fields.get('VALUE')) if block.fields.get('VALUE') else ''
     if arg_name:
-        frame = rt.current_thread.peek_frame()
+        frame = rt.current_thread.peek_frame() if rt.current_thread else None
         if frame is not None and arg_name in frame.saved:
             yield Report(frame.saved[arg_name])
             return
-    yield Report(False)
+    yield Report(0)
 
 
 
@@ -1431,7 +1599,7 @@ OPCODE_MAP: dict[str, Handler] = {
     'control_incr_counter': control_incr_counter,
     'control_clear_counter': control_clear_counter,
     'control_create_clone_of': control_create_clone_of,
-    'control_delete_this_clone': control_delete_this_clone,
+    'control_start_as_clone': control_start_as_clone,
     'control_all_at_once': control_all_at_once,
     'control_stop': control_stop,
     # Events
@@ -1466,7 +1634,7 @@ OPCODE_MAP: dict[str, Handler] = {
     'motion_yposition': motion_yposition,
     'motion_direction': motion_direction,
     'motion_glideto': motion_glideto,
-    'motion_glidesecstoxy': motion_glideto,
+    'motion_glidesecstoxy': motion_glidesecstoxy,
     'motion_glideto_menu': motion_glideto_menu,
     'motion_scroll_right': motion_scroll_right,
     'motion_scroll_up': motion_scroll_up,
@@ -1487,10 +1655,10 @@ OPCODE_MAP: dict[str, Handler] = {
     'looks_setsizeto': looks_setsizeto,
     'looks_changesizeby': looks_changesizeby,
     'looks_costumenumbername': looks_costumenumbername,
-    'looks_costume': looks_costumenumbername,
+    'looks_costume': looks_costume,
     'looks_backdropnumbername': looks_backdropnumbername,
     'looks_switchbackdropto': looks_switchbackdropto,
-    'looks_switchbackdroptoandwait': looks_switchbackdropto,
+    'looks_switchbackdroptoandwait': looks_switchbackdroptoandwait,
     'looks_say': looks_say,
     'looks_sayforsecs': looks_sayforsecs,
     'looks_think': looks_think,
@@ -1550,6 +1718,7 @@ OPCODE_MAP: dict[str, Handler] = {
     'sensing_mousedown': sensing_mousedown,
     'sensing_keypressed': sensing_keypressed,
     'sensing_current': sensing_current,
+    'sensing_dayssince2000': sensing_dayssince2000,
     'sensing_loudness': sensing_loudness,
     'sensing_loud': sensing_loud,
     'sensing_askandwait': sensing_askandwait,
@@ -1573,4 +1742,6 @@ OPCODE_MAP: dict[str, Handler] = {
     'procedures_call': procedures_call,
     'argument_reporter_string_number': argument_reporter_string_number,
     'argument_reporter_boolean': argument_reporter_boolean,
+    'procedures_prototype': procedures_definition,
+    'looks_backdrops': looks_costume,
 }

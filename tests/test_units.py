@@ -381,7 +381,7 @@ class TestMotion:
         assert t.x == 42
 
     def test_glide_smoke(self) -> None:
-        t = _stack('motion_glideto')
+        t = _stack('motion_glidesecstoxy')
         _set(t, 'b0', inputs={'SECS': 0.1, 'X': 100, 'Y': 0})
         rt = _rt(t)
         rt.green_flag()

@@ -19,7 +19,7 @@ import pygame
 
 from ..vm.runtime import Runtime
 from ..vm.target import BroadcastMsg, ListVar, Target, Variable
-from ..vm.types import Block, Costume, Field, Input, Sound
+from ..vm.types import Block, Costume, Field, Input, Mutation, Sound
 
 logger = logging.getLogger(__name__)
 
@@ -145,6 +145,7 @@ def _parse_block(block_id: str, data: dict[str, Any]) -> Block:
         top_level=data.get('topLevel', False),
         x=data.get('x'),
         y=data.get('y'),
+        mutation=_parse_mutation(data.get('mutation')),
     )
 
 
@@ -169,6 +170,21 @@ def _parse_input(data: list[Any]) -> Input:
 
     inp = Input(name='', value=value, shadow=is_shadow)
     return inp
+
+
+def _parse_mutation(data: dict[str, Any] | None) -> Mutation | None:
+    """Parse the mutation dict from a block, or ``None`` if absent."""
+    if not data or not isinstance(data, dict):
+        return None
+    return Mutation(
+        tag_name=data.get('tagName', 'mutation'),
+        children=data.get('children', []),
+        proccode=data.get('proccode', ''),
+        argumentids=data.get('argumentids', '[]'),
+        argumentnames=data.get('argumentnames', '[]'),
+        argumentdefaults=data.get('argumentdefaults', '[]'),
+        warp=data.get('warp', 'false'),
+    )
 
 
 def _parse_field(data: list[Any]) -> Field:
