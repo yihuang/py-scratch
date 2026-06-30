@@ -16,6 +16,7 @@ import pygame
 from scratch.sb3 import load_assets, load_project
 from scratch.vm.opcodes import OPCODE_MAP
 from scratch.vm.renderer import Renderer
+from scratch.vm.demo import main as demo_main
 
 
 def main() -> None:
@@ -39,9 +40,6 @@ def main() -> None:
         renderer = Renderer(rt, title=f'Scratch VM — {path.name}')
         renderer.run()
     else:
-        # Fall back to the built-in demo
-        from .demo import main as demo_main
-
         demo_main()
 
 

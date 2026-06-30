@@ -71,6 +71,7 @@ def _op(
 def _rt(main: Target | list[Target]) -> Runtime:
     """Build a Runtime with a stage and one or more sprites, register opcodes."""
     rt = Runtime()
+    rt._real_time = False  # deterministic tick-based mode for tests
     rt.add_target(Target(name='Stage', is_stage=True))
     if isinstance(main, list):
         for t in main:
@@ -200,7 +201,7 @@ class TestControl:
         t._rebuild_hat_cache()
         rt = _run(t, steps=30)
         assert len(rt.threads) == 0
-        assert t.y == 15.0  # 3 × 5 steps, direction 90
+        assert t.x == 15.0  # 3 × 5 steps, direction 90 → +x
 
     def test_repeat_zero_times(self) -> None:
         t = _make_tgt()
@@ -223,7 +224,7 @@ class TestControl:
         for _ in range(5):
             rt.step()
         assert len(rt.threads) == 1
-        assert abs(t.y) > 0
+        assert t.x > 0
 
     def test_if_true(self) -> None:
         t = _stack('control_if')
@@ -234,7 +235,7 @@ class TestControl:
         t._rebuild_hat_cache()
         rt = _run(t, steps=10)
         assert len(rt.threads) == 0
-        assert t.y == 10.0
+        assert t.x == 10.0
 
     def test_if_false(self) -> None:
         t = _stack('control_if')
@@ -261,7 +262,7 @@ class TestControl:
         t._rebuild_hat_cache()
         rt = _run(t, steps=10)
         assert len(rt.threads) == 0
-        assert t.y == 10.0
+        assert t.x == 10.0
 
     def test_if_else_false_branch(self) -> None:
         t = _stack('control_if_else')
@@ -275,7 +276,7 @@ class TestControl:
         t._rebuild_hat_cache()
         rt = _run(t, steps=10)
         assert len(rt.threads) == 0
-        assert t.y == 5.0
+        assert t.x == 5.0
 
     def test_repeat_until_true(self) -> None:
         t = _stack('control_repeat_until')
@@ -317,7 +318,7 @@ class TestEvent:
         for _ in range(10):
             rt.step()
         assert len(rt.threads) == 0
-        assert t2.y == 5.0
+        assert t2.x == 5.0
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -331,7 +332,7 @@ class TestMotion:
         _set(t, 'b0', inputs={'STEPS': 10})
         rt = _run(t)
         assert len(rt.threads) == 0
-        assert t.y == 10.0  # direction 90 = positive y
+        assert t.x == 10.0  # direction 90 = positive x
 
     def test_gotoxy(self) -> None:
         t = _stack('motion_gotoxy')
@@ -563,7 +564,7 @@ class TestPen:
         _set(t, 'b1', inputs={'STEPS': 10})
         rt = _run(t)
         assert t.pen_down is True
-        assert t.y == 10.0
+        assert t.x == 10.0
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -581,12 +582,12 @@ class TestMixed:
         t.y = 0.0
         rt = _rt(t)
         rt.green_flag()
-        rt.step()  # b0 runs → y=20, advances to b1
-        assert t.y == 20.0
+        rt.step()  # b0 runs → x=20, advances to b1
+        assert t.x == 20.0
         # b1 runs: control_wait enters WAITING at tick ceil(0.1*60)=6
         # b1 runs: control_wait enters WAITING at tick 1 + ceil(0.1*60) = 7
         rt.step()
-        assert t.y == 20.0
+        assert t.x == 20.0
         assert rt.threads[0].status == 'waiting'
         for _ in range(5):
             rt.step()

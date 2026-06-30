@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Any
+import uuid
 
 # ── Block Inputs & Fields ────────────────────────────────────────────────
 
@@ -139,7 +140,6 @@ def make_block(
     Inputs are given as ``{name: value}`` — literals or sub-block ids.
     Fields as ``{name: value}`` (plain values, not Field objects).
     """
-    import uuid
 
     bid = block_id or str(uuid.uuid4())[:8]
     parsed_inputs = {}

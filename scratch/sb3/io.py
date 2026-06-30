@@ -70,9 +70,9 @@ def _parse_target(data: dict[str, Any]) -> Target:
     target = Target(
         name=data.get('name', 'Sprite'),
         is_stage=data.get('isStage', False),
-        x=data.get('x', 0),
-        y=data.get('y', 0),
-        direction=data.get('direction', 90),
+        _x=data.get('x', 0),
+        _y=data.get('y', 0),
+        _direction=data.get('direction', 90),
         size=data.get('size', 100),
         visible=data.get('visible', True),
         volume=data.get('volume', 100),
@@ -288,7 +288,7 @@ def _load_bitmap(costume: Costume, data: bytes) -> None:
 def _rasterise_svg(costume: Costume, data: bytes) -> None:
     costume.data = data
     try:
-        import cairosvg  # type: ignore[import-untyped]
+        import cairosvg  # noqa: PLC0415  — optional dep
 
         png_data = cairosvg.svg2png(bytestring=data, scale=1)
         buf = io.BytesIO(png_data)

@@ -82,11 +82,39 @@ class Target:
     sounds: list[Sound] = field(default_factory=list)
 
     # ── Motion (sprites only) ─────────────────────────────────────────
-    x: float = 0.0
-    y: float = 0.0
-    direction: float = 90.0  # Scratch degrees; 90 = right
+    _x: float = 0.0
+    _y: float = 0.0
+    _direction: float = 90.0  # Scratch degrees; 90 = right
     size: float = 100.0  # percent
     rotation_style: str = 'all around'  # 'all around' | 'left-right' | 'don\'t rotate'
+
+    @property
+    def x(self) -> float:
+        return self._x
+
+    @x.setter
+    def x(self, val: float) -> None:
+        self._x = round(val)
+
+    @property
+    def y(self) -> float:
+        return self._y
+
+    @y.setter
+    def y(self, val: float) -> None:
+        self._y = round(val)
+
+    @property
+    def direction(self) -> float:
+        return self._direction
+
+    @direction.setter
+    def direction(self, val: float) -> None:
+        self._direction = val
+
+    def set_xy(self, x: float, y: float) -> None:
+        self.x = x
+        self.y = y
 
     # ── Looks ─────────────────────────────────────────────────────────
     visible: bool = True

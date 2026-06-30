@@ -7,6 +7,8 @@ Manages threads, processes the scheduler loop, and dispatches opcode handlers.
 from __future__ import annotations
 
 import heapq
+import time
+import math
 import types
 from collections.abc import Callable, Generator
 from typing import Any
@@ -45,8 +47,6 @@ class Clock:
 
     def frames_for(self, seconds: float) -> int:
         """Number of ticks needed to cover ``seconds``."""
-        import math
-
         return max(1, math.ceil(seconds * self.FPS))
 
     def reset(self) -> None:
@@ -69,6 +69,10 @@ class Runtime:
         self._wait_queue: list[tuple[float, int, Thread]] = []
         self._wait_seq = 0
         self._hat_index: dict[str, list[tuple[Target, str]]] = {}
+        self.current_thread: Thread | None = None
+        self._for_each_counter: float = 0
+        self._real_time: bool = True
+        self._time = time
 
     # ── Registration ──────────────────────────────────────────────────
 
@@ -106,6 +110,13 @@ class Runtime:
 
     def sprite_targets(self) -> list[Target]:
         return [t for t in self.targets if not t.is_stage]
+
+    def get_target_by_name(self, name: str) -> Target | None:
+        """Find a target (sprite or stage) by name."""
+        for t in self.targets:
+            if t.name == name:
+                return t
+        return None
 
     # ── Input evaluation ──────────────────────────────────────────────
 
@@ -213,12 +224,18 @@ class Runtime:
     # ── Scheduler ─────────────────────────────────────────────────────
 
     def step(self) -> None:
-        tick = self.clock._tick
-
-        while self._wait_queue and self._wait_queue[0][0] <= tick:
-            _, _, thread = heapq.heappop(self._wait_queue)
-            if thread.status == ThreadStatus.WAITING:
-                thread.status = ThreadStatus.RUNNING
+        if self._real_time:
+            now = self._time.monotonic()
+            while self._wait_queue and self._wait_queue[0][0] <= now:
+                _, _, thread = heapq.heappop(self._wait_queue)
+                if thread.status == ThreadStatus.WAITING:
+                    thread.status = ThreadStatus.RUNNING
+        else:
+            tick = self.clock._tick
+            while self._wait_queue and self._wait_queue[0][0] <= tick:
+                _, _, thread = heapq.heappop(self._wait_queue)
+                if thread.status == ThreadStatus.WAITING:
+                    thread.status = ThreadStatus.RUNNING
 
         for thread in list(self.threads):
             if thread.is_done():
@@ -232,38 +249,48 @@ class Runtime:
 
     def _schedule_wake(self, thread: Thread, delay: float) -> None:
         thread.status = ThreadStatus.WAITING
-        wake_tick = self.clock._tick + self.clock.frames_for(delay)
+        if self._real_time and delay > 0:
+            wake_at = self._time.monotonic() + delay
+        else:
+            wake_at = self.clock._tick + self.clock.frames_for(delay)
         seq = self._wait_seq
         self._wait_seq += 1
-        heapq.heappush(self._wait_queue, (wake_tick, seq, thread))
+        heapq.heappush(self._wait_queue, (wake_at, seq, thread))
 
     def _step_thread(self, thread: Thread) -> None:
         """Advance one thread by one 'instruction'."""
+        self.current_thread = thread
         frame = thread.peek_frame()
         if frame is None:
             thread.status = ThreadStatus.DONE
+            self.current_thread = None
             return
         block = thread.target.blocks.get(frame.block_id)
         if block is None:
             thread.pop_frame()
+            self.current_thread = None
             return
         handler = self.get_handler(block.opcode)
         if handler is None:
             self._advance_to_next(thread)
+            self.current_thread = None
             return
         if frame.gen is None:
             gen_or_val = handler(self, thread.target, block)
             if gen_or_val is None or not hasattr(gen_or_val, '__next__'):
                 self._advance_to_next(thread)
+                self.current_thread = None
                 return
             if not isinstance(gen_or_val, types.GeneratorType):
                 self._advance_to_next(thread)
+                self.current_thread = None
                 return
             frame.gen = gen_or_val
         try:
             yielded = next(frame.gen)
         except StopIteration:
             self._advance_to_next(thread)
+            self.current_thread = None
             return
         if isinstance(yielded, _Report):
             result = yielded.value
@@ -271,14 +298,18 @@ class Runtime:
             parent = thread.peek_frame()
             if parent is not None:
                 parent.saved['_result'] = result
+            self.current_thread = None
             return
         wait_secs = is_wait(yielded)
         if wait_secs is not None and wait_secs > 0:
             self._schedule_wake(thread, wait_secs)
+            self.current_thread = None
             return
         if yielded is YIELD:
+            self.current_thread = None
             return
         self._advance_to_next(thread)
+        self.current_thread = None
 
     def _advance_to_next(self, thread: Thread) -> None:
         """Move the thread's current frame to the next block in the chain.
@@ -309,7 +340,8 @@ class Runtime:
         self._wait_queue.clear()
         self.start_hat('event_whenflagclicked')
 
-    def broadcast(self, message: str) -> None:
+    def broadcast(self, message: str) -> list[Thread]:
+        started: list[Thread] = []
         for target, bid in self._hat_index.get('event_whenbroadcastreceived', []):
             block = target.blocks.get(bid)
             if block is None:
@@ -322,6 +354,8 @@ class Runtime:
             thread = Thread(target=target, top_block=nxt or bid)
             thread.start()
             self.threads.append(thread)
+            started.append(thread)
+        return started
 
     # ── Sub-stack execution helper ────────────────────────────────────
 

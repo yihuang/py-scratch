@@ -12,6 +12,8 @@ from typing import Any
 
 from scratch.sb3.io import load_assets, load_project, save_project
 from scratch.vm.opcodes import OPCODE_MAP
+import tempfile
+from scratch.sb3.io import _build_project_json
 
 # ── Helpers ──────────────────────────────────────────────────────────────
 
@@ -169,7 +171,6 @@ class TestRoundTrip:
         sb3 = _build_sb3(project, blue_png)
         rt = load_project(sb3)
         assert len(rt.targets) == 2
-        from scratch.sb3.io import _build_project_json
 
         out = _build_project_json(rt)
         t1 = project['targets'][1]
@@ -303,7 +304,6 @@ class TestRoundTrip:
 
     def test_file_path_round_trip(self) -> None:
         """Save and load via real file path."""
-        import tempfile
 
         project = _make_project_json()
         blue_png = _make_1x1_png(0, 0, 255)

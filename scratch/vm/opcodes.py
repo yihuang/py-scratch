@@ -23,7 +23,17 @@ from .types import Block, Input
 
 
 def _num(inp: Any) -> float:
-    """Coerce to number; Scratch treats non-numeric as 0."""
+    """Coerce to number; Scratch treats non-numeric as 0.
+
+    Scratch's ``Number()`` is case-sensitive: ``Number('Infinity')`` → Infinity,
+    but ``Number('INFINITY')`` → NaN → 0.  Python's ``float()`` is
+    case-*in*sensitive, so we gate on the exact string.
+    """
+    if isinstance(inp, str):
+        if inp == 'Infinity':
+            return float('inf')
+        if inp == '-Infinity':
+            return float('-inf')
     try:
         return float(inp)
     except (ValueError, TypeError):
@@ -32,7 +42,6 @@ def _num(inp: Any) -> float:
 
 def _str(inp: Any) -> str:
     if isinstance(inp, float):
-        # Avoid '-0.0' and trailing zeros
         if inp == -0.0:
             inp = 0.0
         s = f'{inp:g}'
@@ -47,7 +56,6 @@ def _bool(inp: Any) -> bool:
 
 
 def _field_val(field: Any) -> str:
-    """Extract the string value from a block field, whether Field or raw."""
     if field is None:
         return ''
     if hasattr(field, 'value'):
@@ -65,6 +73,43 @@ def _substack_val(inp: Any) -> str | None:
     return str(v) if v else None
 
 
+def _scratch_compare(v1: Any, v2: Any) -> int:
+    """Scratch comparison: returns -1 / 0 / 1.
+
+    Mirrors ``Cast.compare()`` in scratch-vm:
+    - If both values are numeric, compare as numbers.
+    - If either converts to NaN (or whitespace), compare case-insensitively as strings.
+    - Infinity special-cases handled.
+    """
+    n1 = _num(v1)
+    n2 = _num(v2)
+    # Whitespace-only strings → treat as NaN
+    if n1 == 0 and isinstance(v1, str) and v1.strip() == '':
+        n1 = float('nan')
+    if n2 == 0 and isinstance(v2, str) and v2.strip() == '':
+        n2 = float('nan')
+    if math.isnan(n1) or math.isnan(n2):
+        s1 = str(v1).lower()
+        s2 = str(v2).lower()
+        if s1 < s2:
+            return -1
+        if s1 > s2:
+            return 1
+        return 0
+
+    # Both are numbers — special-case Infinity comparisons
+    if n1 == float('inf') and n2 == float('inf'):
+        return 0
+    if n1 == float('-inf') and n2 == float('-inf'):
+        return 0
+
+    if n1 < n2:
+        return -1
+    if n1 > n2:
+        return 1
+    return 0
+
+
 # ═══════════════════════════════════════════════════════════════════════
 #  CONTROL
 # ═══════════════════════════════════════════════════════════════════════
@@ -76,7 +121,7 @@ def control_wait(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
 
 
 def control_repeat(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
-    count = int(rt.resolve_num(tgt, block.inputs.get('TIMES')))
+    count = round(rt.resolve_num(tgt, block.inputs.get('TIMES')))
     sub_id = _substack_val(block.inputs.get('SUBSTACK'))
     for _ in range(count):
         if sub_id:
@@ -130,18 +175,54 @@ def control_stop(rt: Runtime, tgt: Target, block: Block) -> None:
     """Stop behaviour: stop all | this script | other scripts in sprite."""
     option = block.fields.get('STOP_OPTION')
     choice = option.value if option else 'all'
+    _cur = rt.current_thread
     if choice == 'all':
-        # Kill every thread
         for th in list(rt.threads):
             th.status = 'done'
     elif choice == 'this script':
-        # Signal done for THIS thread — the sequencer will handle it
-        return
+        if _cur is not None:
+            _cur.status = 'done'
     elif choice == 'other scripts in sprite':
-        # Kill all threads on this target except the current one
         for th in list(rt.threads):
-            if th.target is tgt:
+            if th.target is tgt and th is not _cur:
                 th.status = 'done'
+
+
+def control_while(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+    substack = block.inputs.get('SUBSTACK')
+    while rt.resolve_bool(tgt, block.inputs.get('CONDITION')):
+        if substack and substack.value:
+            yield from rt.execute_substack(tgt, substack.value)
+        yield YIELD
+
+
+def control_for_each(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+    var_field = block.fields.get('VARIABLE')
+    var_name = _field_val(var_field) if var_field else ''
+    var = tgt.lookup_variable(var_name) if var_name else None
+    if var is None:
+        return
+    from_val = round(rt.resolve_num(tgt, block.inputs.get('FROM')))
+    to_val = round(rt.resolve_num(tgt, block.inputs.get('TO')))
+    step = 1 if from_val <= to_val else -1
+    for i in range(from_val, to_val + step, step):
+        var.value = i
+        sub_id = _substack_val(block.inputs.get('SUBSTACK'))
+        if sub_id:
+            yield from rt.execute_substack(tgt, sub_id)
+        yield YIELD
+
+
+def control_get_counter(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+    yield report(rt._for_each_counter)
+
+
+def control_incr_counter(rt: Runtime, tgt: Target, block: Block) -> None:
+    rt._for_each_counter += 1
+
+
+def control_clear_counter(rt: Runtime, tgt: Target, block: Block) -> None:
+    rt._for_each_counter = 0
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -150,28 +231,58 @@ def control_stop(rt: Runtime, tgt: Target, block: Block) -> None:
 
 
 def event_whenflagclicked(rt: Runtime, tgt: Target, block: Block) -> None:
-    """Hat — the scheduler starts the next block directly, so this
-    never actually runs as a handler."""
+    """Hat — the scheduler starts the next block directly."""
     pass
 
 
-def event_whenbroadcastreceived(
-    rt: Runtime,
-    tgt: Target,
-    block: Block,
-) -> None:
-    """Hat — same as flag clicked."""
+def event_whenbroadcastreceived(rt: Runtime, tgt: Target, block: Block) -> None:
+    """Hat — triggered by broadcast."""
     pass
 
 
-def event_whenkeypressed(
-    rt: Runtime,
-    tgt: Target,
-    block: Block,
-) -> Generator[Any]:
-    """Hat — triggered by key press. Does nothing here; the renderer
-    dispatches ``start_hat`` when a key is pressed."""
+def event_whenkeypressed(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+    """Hat — triggered by key press."""
     yield from ()
+
+
+def event_whenthisspriteclicked(rt: Runtime, tgt: Target, block: Block) -> None:
+    """Hat — triggered by sprite click."""
+    pass
+
+
+def event_whenstageclicked(rt: Runtime, tgt: Target, block: Block) -> None:
+    """Hat — triggered by stage click."""
+    pass
+
+
+def event_whenbackdropswitchesto(rt: Runtime, tgt: Target, block: Block) -> None:
+    """Hat — triggered by backdrop switch."""
+    pass
+
+
+def event_whentouchingobject(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+    """Edge-activated hat — returns True when touching the specified object."""
+    obj = block.fields.get('TOUCHINGOBJECTMENU')
+    obj_name = _field_val(obj) if obj else ''
+    if obj_name == '':
+        yield report(False)
+        return
+    # _touching_object_check is defined later in this file;
+    # at call time it's resolved.
+    yield report(_touching_object_check(rt, tgt, obj_name))
+
+
+def event_whengreaterthan(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+    """Edge-activated hat — returns True when timer/loudness > VALUE."""
+    option = block.fields.get('WHENGREATERTHANMENU')
+    opt = _field_val(option) if option else ''
+    value = rt.resolve_num(tgt, block.inputs.get('VALUE'))
+    if opt == 'timer':
+        yield report(rt.clock.now() > value)
+    elif opt == 'loudness':
+        yield report(False)  # no microphone
+    else:
+        yield report(False)
 
 
 def event_broadcast(rt: Runtime, tgt: Target, block: Block) -> None:
@@ -180,24 +291,15 @@ def event_broadcast(rt: Runtime, tgt: Target, block: Block) -> None:
 
 
 def event_broadcastandwait(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
-    msg = rt.resolve_input(
-        tgt, block.fields.get('BROADCAST_INPUT') or block.inputs.get('BROADCAST_INPUT')
+    msg = _str(
+        rt.resolve_input(
+            tgt, block.fields.get('BROADCAST_INPUT') or block.inputs.get('BROADCAST_INPUT')
+        )
     )
-    msg_str = _str(msg)
-    existing = [
-        t
-        for t in rt.threads
-        if t.target is tgt and t.status != 'done' and getattr(t, '_broadcast_msg', None) == msg_str
-    ]
-    if existing:
-        return
-    rt.broadcast(msg_str)
-    new_threads = [
-        t for t in rt.threads if t not in getattr(rt, '_prev_threads', []) and t.status != 'done'
-    ]
-    if new_threads:
-        for _ in range(10):
-            yield YIELD
+    started = rt.broadcast(msg)
+    # Yield until all started threads are done
+    while any(th for th in started if th.status != 'done' and th in rt.threads):
+        yield YIELD
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -207,14 +309,33 @@ def event_broadcastandwait(rt: Runtime, tgt: Target, block: Block) -> Generator[
 
 def motion_movesteps(rt: Runtime, tgt: Target, block: Block) -> None:
     steps = rt.resolve_num(tgt, block.inputs.get('STEPS'))
-    rad = math.radians(tgt.direction)
-    tgt.x += steps * math.cos(rad)
-    tgt.y += steps * math.sin(rad)
+    rad = math.radians(90 - tgt.direction)
+    tgt.set_xy(tgt.x + steps * math.cos(rad), tgt.y + steps * math.sin(rad))
+
+
+def _target_xy(rt: Runtime, target_name: str) -> tuple[float, float] | None:
+    """Resolve a target name to (x, y) for go-to / point-towards."""
+    if target_name == '_mouse_':
+        return (0.0, 0.0)
+    if target_name == '_random_':
+        return (round(random.uniform(-240.0, 240.0)), round(random.uniform(-180.0, 180.0)))
+    t = rt.get_target_by_name(target_name)
+    if t is not None:
+        return (t.x, t.y)
+    return None
+
+
+def motion_goto(rt: Runtime, tgt: Target, block: Block) -> None:
+    target_name = _str(block.fields.get('TO'))
+    xy = _target_xy(rt, target_name)
+    if xy is not None:
+        tgt.set_xy(xy[0], xy[1])
 
 
 def motion_gotoxy(rt: Runtime, tgt: Target, block: Block) -> None:
-    tgt.x = rt.resolve_num(tgt, block.inputs.get('X'))
-    tgt.y = rt.resolve_num(tgt, block.inputs.get('Y'))
+    tgt.set_xy(
+        rt.resolve_num(tgt, block.inputs.get('X')), rt.resolve_num(tgt, block.inputs.get('Y'))
+    )
 
 
 def motion_gox(rt: Runtime, tgt: Target, block: Block) -> None:
@@ -234,11 +355,11 @@ def motion_sety(rt: Runtime, tgt: Target, block: Block) -> None:
 
 
 def motion_changexby(rt: Runtime, tgt: Target, block: Block) -> None:
-    tgt.x += rt.resolve_num(tgt, block.inputs.get('DX'))
+    tgt.x = tgt.x + rt.resolve_num(tgt, block.inputs.get('DX'))
 
 
 def motion_changeyby(rt: Runtime, tgt: Target, block: Block) -> None:
-    tgt.y += rt.resolve_num(tgt, block.inputs.get('DY'))
+    tgt.y = tgt.y + rt.resolve_num(tgt, block.inputs.get('DY'))
 
 
 def motion_setdirection(rt: Runtime, tgt: Target, block: Block) -> None:
@@ -247,6 +368,20 @@ def motion_setdirection(rt: Runtime, tgt: Target, block: Block) -> None:
 
 def motion_pointindirection(rt: Runtime, tgt: Target, block: Block) -> None:
     tgt.direction = rt.resolve_num(tgt, block.inputs.get('DIRECTION'))
+
+
+def motion_pointtowards(rt: Runtime, tgt: Target, block: Block) -> None:
+    target_name = _str(block.fields.get('TOWARDS'))
+    if target_name == '_random_':
+        tgt.direction = round(random.uniform(-180, 180))
+        return
+    xy = _target_xy(rt, target_name)
+    if xy is None:
+        return
+    dx = xy[0] - tgt.x
+    dy = xy[1] - tgt.y
+    direction = 90 - math.degrees(math.atan2(dy, dx))
+    tgt.direction = direction
 
 
 def motion_turnright(rt: Runtime, tgt: Target, block: Block) -> None:
@@ -262,12 +397,10 @@ def motion_ifonedgebounce(rt: Runtime, tgt: Target, block: Block) -> None:
         return
     surf = tgt.costume.surface
     w, h = surf.get_width(), surf.get_height()
-    # Stage bounds in Scratch coords: -240 to 240 x, -180 to 180 y
     left = -240 + w / 2
     right = 240 - w / 2
     top = 180 - h / 2
     bottom = -180 + h / 2
-
     bounced = False
     if tgt.x > right:
         tgt.x = right
@@ -275,16 +408,14 @@ def motion_ifonedgebounce(rt: Runtime, tgt: Target, block: Block) -> None:
     elif tgt.x < left:
         tgt.x = left
         bounced = True
-
     if tgt.y > top:
         tgt.y = top
         bounced = True
     elif tgt.y < bottom:
         tgt.y = bottom
         bounced = True
-
     if bounced:
-        tgt.direction = 180 - tgt.direction  # reflect
+        tgt.direction = 180 - tgt.direction
 
 
 def motion_setrotationstyle(rt: Runtime, tgt: Target, block: Block) -> None:
@@ -307,19 +438,24 @@ def motion_direction(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
 
 def motion_glideto(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
     secs = rt.resolve_num(tgt, block.inputs.get('SECS'))
-    dx = rt.resolve_num(tgt, block.inputs.get('X')) - tgt.x
-    dy = rt.resolve_num(tgt, block.inputs.get('Y')) - tgt.y
-    steps = 30 * secs  # approximate 30 fps
-    if steps <= 0:
+    x = rt.resolve_num(tgt, block.inputs.get('X'))
+    y = rt.resolve_num(tgt, block.inputs.get('Y'))
+    if secs <= 0:
+        tgt.set_xy(x, y)
         return
-    for _ in range(int(steps)):
-        tgt.x += dx / steps
-        tgt.y += dy / steps
+    start_x, start_y = tgt.x, tgt.y
+    frames = rt.clock.frames_for(secs)
+    frame = 0
+    while frame < frames:
+        frac = frame / frames
+        tgt.set_xy(start_x + frac * (x - start_x), start_y + frac * (y - start_y))
+        frame += 1
         yield YIELD
+    tgt.set_xy(x, y)
 
 
 def motion_glideto_menu(rt: Runtime, tgt: Target, block: Block) -> None:
-    """Reporter for glide destination — returns field value."""
+    pass
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -327,25 +463,75 @@ def motion_glideto_menu(rt: Runtime, tgt: Target, block: Block) -> None:
 # ═══════════════════════════════════════════════════════════════════════
 
 
-def looks_switchcostumeto(rt: Runtime, tgt: Target, block: Block) -> None:
-    name = _str(rt.resolve_input(tgt, block.inputs.get('COSTUME')))
+def _set_costume(tgt: Target, requested: Any) -> None:
+    """Scratch-compatible costume/backdrop selection.
+
+    Mirrors official ``_setCostume``:
+    - Numbers → 1-based index (always)
+    - Strings → try name match, then 'next costume'/'previous costume', then number parse
+    - NaN/Infinity/True → first costume
+    - False/0 → last costume
+    - Whitespace → no-op
+    - Negative wrap, over-large wrap.
+    """
+    n = len(tgt.costumes)
+    if n == 0:
+        return
+    if isinstance(requested, bool):
+        # True → first, False → last
+        idx = 0 if requested else n - 1
+        tgt.costume_index = idx
+        tgt.current_costume = idx
+        return
+    if isinstance(requested, (int, float)):
+        # Numbers → treat as 1-based index
+        if math.isnan(requested) or math.isinf(requested):
+            idx = 0
+        else:
+            idx = int(requested) - 1
+        idx %= n
+        tgt.costume_index = idx
+        tgt.current_costume = idx
+        return
+    # String
+    s = _str(requested)
+    if s in ('', ' ', '  ', '   ', '    '):
+        return  # whitespace → no-op
+    # Try name match first
     for i, c in enumerate(tgt.costumes):
-        if c.name == name:
+        if c.name == s:
             tgt.costume_index = i
             tgt.current_costume = i
             return
-    # Try numeric index
-    idx = int(rt.resolve_num(tgt, block.inputs.get('COSTUME')))
-    if 1 <= idx <= len(tgt.costumes):
-        tgt.costume_index = idx - 1
-        tgt.current_costume = idx - 1
+    if s == 'next costume':
+        tgt.costume_index = (tgt.costume_index + 1) % n
+        tgt.current_costume = tgt.costume_index
+        return
+    if s == 'previous costume':
+        tgt.costume_index = (tgt.costume_index - 1) % n
+        tgt.current_costume = tgt.costume_index
+        return
+    # Try numeric parse
+    try:
+        parsed = float(s)
+        if math.isnan(parsed) or math.isinf(parsed):
+            idx = 0
+        else:
+            idx = int(parsed) - 1
+        idx %= n
+        tgt.costume_index = idx
+        tgt.current_costume = idx
+    except (ValueError, TypeError):
+        pass
+
+
+def looks_switchcostumeto(rt: Runtime, tgt: Target, block: Block) -> None:
+    val = rt.resolve_input(tgt, block.inputs.get('COSTUME'))
+    _set_costume(tgt, val)
 
 
 def looks_nextcostume(rt: Runtime, tgt: Target, block: Block) -> None:
-    n = len(tgt.costumes)
-    if n > 0:
-        tgt.costume_index = (tgt.costume_index + 1) % n
-        tgt.current_costume = tgt.costume_index
+    _set_costume(tgt, tgt.costume_index + 2)  # +2 because _set_costume is 1-based
 
 
 def looks_show(rt: Runtime, tgt: Target, block: Block) -> None:
@@ -396,27 +582,66 @@ def looks_backdropnumbername(rt: Runtime, tgt: Target, block: Block) -> Generato
 
 
 def looks_switchbackdropto(rt: Runtime, tgt: Target, block: Block) -> None:
-    name = _str(rt.resolve_input(tgt, block.inputs.get('BACKDROP')))
-    for i, c in enumerate(tgt.costumes):
-        if c.name == name:
-            tgt.costume_index = i
-            tgt.current_costume = i
+    """Switch backdrop (on the stage, not the sprite)."""
+    if rt.stage is None:
+        return
+    val = rt.resolve_input(tgt, block.inputs.get('BACKDROP'))
+    s = _str(val)
+    n = len(rt.stage.costumes)
+    if n == 0:
+        return
+    # Try name match
+    for i, c in enumerate(rt.stage.costumes):
+        if c.name == s:
+            rt.stage.costume_index = i
+            rt.stage.current_costume = i
             return
-    idx = int(rt.resolve_num(tgt, block.inputs.get('BACKDROP')))
-    if 1 <= idx <= len(tgt.costumes):
-        tgt.costume_index = idx - 1
-        tgt.current_costume = idx - 1
+    if s == 'next backdrop':
+        rt.stage.costume_index = (rt.stage.costume_index + 1) % n
+        rt.stage.current_costume = rt.stage.costume_index
+        return
+    if s == 'previous backdrop':
+        rt.stage.costume_index = (rt.stage.costume_index - 1) % n
+        rt.stage.current_costume = rt.stage.costume_index
+        return
+    if s == 'random backdrop' and n > 1:
+        idx = rt.stage.costume_index
+        while idx == rt.stage.costume_index:
+            idx = random.randint(0, n - 1)
+        rt.stage.costume_index = idx
+        rt.stage.current_costume = idx
+        return
+    # Fall through to _set_costume for number/other string parsing
+    _set_costume(rt.stage, val)
+
+
+def _format_bubble_text(text: Any) -> str:
+    """Scratch-compatible bubble text formatting.
+
+    - Numbers rounded to 2 decimal places (unless < 0.01 or integer).
+    - Truncated at 330 characters.
+    """
+    if isinstance(text, (int, float)) and not isinstance(text, bool):
+        if text % 1 == 0:
+            s = str(int(text))
+        elif abs(text) >= 0.01:
+            s = f'{text:.2f}'
+        else:
+            s = str(text)
+    else:
+        s = str(text) if text is not None else ''
+    return s[:330]
 
 
 def looks_say(rt: Runtime, tgt: Target, block: Block) -> None:
-    msg = _str(rt.resolve_input(tgt, block.inputs.get('MESSAGE')))
-    tgt.say_text = msg if msg else None
+    msg = rt.resolve_input(tgt, block.inputs.get('MESSAGE'))
+    tgt.say_text = _format_bubble_text(msg) or None
 
 
 def looks_sayforsecs(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
-    msg = _str(rt.resolve_input(tgt, block.inputs.get('MESSAGE')))
+    msg = rt.resolve_input(tgt, block.inputs.get('MESSAGE'))
     secs = rt.resolve_num(tgt, block.inputs.get('SECS'))
-    tgt.say_text = msg if msg else None
+    tgt.say_text = _format_bubble_text(msg) or None
     if secs > 0:
         tgt.say_until = rt.clock._tick + rt.clock.frames_for(secs)
         yield wait_yield(secs)
@@ -450,25 +675,26 @@ def operator_multiply(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
 def operator_divide(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
     a = rt.resolve_num(tgt, block.inputs.get('NUM1'))
     b = rt.resolve_num(tgt, block.inputs.get('NUM2'))
+    # _num handles Infinity/INFINITY distinction already
     yield report(a / b if b != 0 else float('inf'))
 
 
 def operator_lt(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
-    a = rt.resolve_num(tgt, block.inputs.get('OPERAND1'))
-    b = rt.resolve_num(tgt, block.inputs.get('OPERAND2'))
-    yield report(a < b)
+    a = rt.resolve_input(tgt, block.inputs.get('OPERAND1'))
+    b = rt.resolve_input(tgt, block.inputs.get('OPERAND2'))
+    yield report(_scratch_compare(a, b) < 0)
 
 
 def operator_equals(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
     a = rt.resolve_input(tgt, block.inputs.get('OPERAND1'))
     b = rt.resolve_input(tgt, block.inputs.get('OPERAND2'))
-    yield report(a == b)
+    yield report(_scratch_compare(a, b) == 0)
 
 
 def operator_gt(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
-    a = rt.resolve_num(tgt, block.inputs.get('OPERAND1'))
-    b = rt.resolve_num(tgt, block.inputs.get('OPERAND2'))
-    yield report(a > b)
+    a = rt.resolve_input(tgt, block.inputs.get('OPERAND1'))
+    b = rt.resolve_input(tgt, block.inputs.get('OPERAND2'))
+    yield report(_scratch_compare(a, b) > 0)
 
 
 def operator_and(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
@@ -522,7 +748,8 @@ def operator_length(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
 def operator_contains(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
     s1 = _str(rt.resolve_input(tgt, block.inputs.get('STRING1')))
     s2 = _str(rt.resolve_input(tgt, block.inputs.get('STRING2')))
-    yield report(s2 in s1)
+    # Scratch comparison: case-insensitive
+    yield report(s2.lower() in s1.lower())
 
 
 def operator_mod(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
@@ -674,6 +901,16 @@ def data_replaceitemoflist(rt: Runtime, tgt: Target, block: Block) -> None:
             lst.contents[idx - 1] = item
 
 
+def data_deletealloflist(rt: Runtime, tgt: Target, block: Block) -> None:
+    list_name = _field_val(block.fields.get('LIST'))
+    if list_name:
+        lst = tgt.lookup_list(list_name)
+        if lst is None and rt.stage:
+            lst = rt.stage.lookup_list(list_name)
+        if lst:
+            lst.contents.clear()
+
+
 def data_itemoflist(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
     list_name = _field_val(block.fields.get('LIST'))
     idx = int(rt.resolve_num(tgt, block.inputs.get('INDEX')))
@@ -705,8 +942,23 @@ def data_listcontainsitem(rt: Runtime, tgt: Target, block: Block) -> Generator[A
         if lst is None and rt.stage:
             lst = rt.stage.lookup_list(list_name)
         if lst:
-            yield report(item in lst.contents)
+            # Scratch comparison: case-insensitive, type-insensitive
+            yield report(any(_scratch_compare(item, x) == 0 for x in lst.contents))
     yield report(False)
+
+
+def data_itemnumoflist(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+    list_name = _field_val(block.fields.get('LIST'))
+    item = rt.resolve_input(tgt, block.inputs.get('ITEM'))
+    if list_name:
+        lst = tgt.lookup_list(list_name)
+        if lst is None and rt.stage:
+            lst = rt.stage.lookup_list(list_name)
+        if lst:
+            for i, x in enumerate(lst.contents, 1):
+                if _scratch_compare(item, x) == 0:
+                    yield report(i)
+    yield report(0)
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -714,8 +966,34 @@ def data_listcontainsitem(rt: Runtime, tgt: Target, block: Block) -> Generator[A
 # ═══════════════════════════════════════════════════════════════════════
 
 
+def _touching_object_check(rt: Runtime, tgt: Target, obj_name: str) -> bool:
+    """Check if ``tgt`` is touching ``obj_name`` (_mouse_, _edge_, or sprite name)."""
+    if obj_name == '_mouse_':
+        return False
+    if obj_name == '_edge_':
+        left_, top_, right_, bottom_ = tgt.scratch_bounds()
+        return (
+            tgt.x + left_ < -240
+            or tgt.x + right_ > 240
+            or tgt.y + bottom_ < -180
+            or tgt.y + top_ > 180
+        )
+    tgt_bounds = tgt.scratch_bounds()
+    for other in rt.sprite_targets():
+        if other.name != obj_name:
+            continue
+        other_bounds = other.scratch_bounds()
+        if (
+            tgt.x + tgt_bounds[0] < other.x + other_bounds[2]
+            and tgt.x + tgt_bounds[2] > other.x + other_bounds[0]
+            and tgt.y + tgt_bounds[1] > other.y + other_bounds[3]
+            and tgt.y + tgt_bounds[3] < other.y + other_bounds[1]
+        ):
+            return True
+    return False
+
+
 def sensing_touchingobject(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
-    # Simplified: uses bounding-box overlap detection
     obj = block.fields.get('TOUCHINGOBJECTMENU')
     if obj is None:
         obj_input = block.inputs.get('TOUCHINGOBJECTMENU')
@@ -725,37 +1003,7 @@ def sensing_touchingobject(rt: Runtime, tgt: Target, block: Block) -> Generator[
             obj_name = '_mouse_'
     else:
         obj_name = obj.value
-
-    if obj_name == '_mouse_':
-        # We can't check mouse without the renderer; report False
-        yield report(False)
-        return
-
-    if obj_name == '_edge_':
-        left_, top_, right_, bottom_ = tgt.scratch_bounds()
-        yield report(
-            tgt.x + left_ < -240
-            or tgt.x + right_ > 240
-            or tgt.y + bottom_ < -180
-            or tgt.y + top_ > 180
-        )
-
-    # Compare bounding boxes with the named sprite
-    tgt_bounds = tgt.scratch_bounds()
-    for other in rt.sprite_targets():
-        if other.name != obj_name:
-            continue
-        other_bounds = other.scratch_bounds()
-        # AABB overlap
-        overlap = (
-            tgt.x + tgt_bounds[0] < other.x + other_bounds[2]
-            and tgt.x + tgt_bounds[2] > other.x + other_bounds[0]
-            and tgt.y + tgt_bounds[1] > other.y + other_bounds[3]
-            and tgt.y + tgt_bounds[3] < other.y + other_bounds[1]
-        )
-        if overlap:
-            yield report(True)
-    yield report(False)
+    yield report(_touching_object_check(rt, tgt, obj_name))
 
 
 def sensing_touchingcolor(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
@@ -768,9 +1016,23 @@ def sensing_keypressed(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]
     yield report(pressed)
 
 
-def sensing_askandwait(rt: Runtime, tgt: Target, block: Block) -> None:
-    """Ask and wait — no-op for now."""
-    pass
+def sensing_askandwait(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+    """Ask a question and wait for an answer.
+
+    Sets ``tgt.say_text`` to the question (like a think bubble), then waits
+    until ``rt._answer`` is set (by the UI/renderer).
+    """
+    question = _str(rt.resolve_input(tgt, block.inputs.get('QUESTION')))
+    tgt.say_text = question or None
+    rt._answer = None  # reset
+    # Yield until answer is provided
+    while rt._answer is None:
+        yield YIELD
+    tgt.say_text = None
+
+
+def sensing_answer(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+    yield report(getattr(rt, '_answer', ''))
 
 
 def sensing_resettimer(rt: Runtime, tgt: Target, block: Block) -> None:
@@ -797,15 +1059,29 @@ def pen_pen_up(rt: Runtime, tgt: Target, block: Block) -> None:
 def pen_set_pen_color_to_color(rt: Runtime, tgt: Target, block: Block) -> None:
     color = rt.resolve_input(tgt, block.inputs.get('COLOR'))
     if isinstance(color, (int, float)):
-        color = int(color)
+        color = int(color) & 0xFFFFFF
         red = (color >> 16) & 0xFF
         green = (color >> 8) & 0xFF
         blue = color & 0xFF
         tgt.pen_color = (red, green, blue)
+    elif isinstance(color, str):
+        color = color.strip().lstrip('#')
+        if color.startswith('0x') or color.startswith('0X'):
+            color = int(color, 16) & 0xFFFFFF
+            red = (color >> 16) & 0xFF
+            green = (color >> 8) & 0xFF
+            blue = color & 0xFF
+            tgt.pen_color = (red, green, blue)
+        elif len(color) == 6:
+            try:
+                val = int(color, 16)
+                tgt.pen_color = ((val >> 16) & 0xFF, (val >> 8) & 0xFF, val & 0xFF)
+            except ValueError:
+                pass
 
 
 def pen_change_pen_size_by(rt: Runtime, tgt: Target, block: Block) -> None:
-    tgt.pen_size += rt.resolve_num(tgt, block.inputs.get('SIZE'))
+    tgt.pen_size = max(0, tgt.pen_size + rt.resolve_num(tgt, block.inputs.get('SIZE')))
 
 
 def pen_set_pen_size_to(rt: Runtime, tgt: Target, block: Block) -> None:
@@ -831,18 +1107,45 @@ def pen_stamp(rt: Runtime, tgt: Target, block: Block) -> None:
 # ═══════════════════════════════════════════════════════════════════════
 
 
-def procedures_def(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
-    """Custom block definition — hat that collects arguments and runs body.
-    Not yet fully implemented."""
-    return
-    yield
+def procedures_definition(rt: Runtime, tgt: Target, block: Block) -> None:
+    """Custom block definition — hat. The body runs normally via next block."""
+    pass
 
 
 def procedures_call(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
     """Custom block call — looks up the prototype and runs its body."""
-    # Simplified: we'd need to resolve mutation references
+    # Simplified: find the definition in the target's blocks by proccode
+    # and jump to its body.
+    mutation = getattr(block, 'mutation', None) or getattr(block, '_mutation', None)
+    if mutation is None:
+        return
+    proccode = getattr(mutation, 'proccode', None) or (
+        mutation.get('proccode') if isinstance(mutation, dict) else None
+    )
+    if proccode is None:
+        return
+    for bid, b in list(tgt.blocks.items()):
+        if b.opcode in ('procedures_definition', 'procedures_def'):
+            b_mut = getattr(b, 'mutation', None) or getattr(b, '_mutation', None)
+            if b_mut:
+                b_proc = getattr(b_mut, 'proccode', None) or (
+                    b_mut.get('proccode') if isinstance(b_mut, dict) else None
+                )
+                if b_proc == proccode:
+                    yield from rt.execute_substack(tgt, b.next)
+                    return
     return
     yield
+
+
+def argument_reporter_string_number(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+    """Return the value of a custom block argument (string or number)."""
+    yield report(0)  # placeholder
+
+
+def argument_reporter_boolean(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+    """Return the value of a custom block argument (boolean)."""
+    yield report(False)  # placeholder
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -858,15 +1161,26 @@ OPCODE_MAP: dict[str, Handler] = {
     'control_if_else': control_if_else,
     'control_wait_until': control_wait_until,
     'control_repeat_until': control_repeat_until,
+    'control_while': control_while,
+    'control_for_each': control_for_each,
+    'control_get_counter': control_get_counter,
+    'control_incr_counter': control_incr_counter,
+    'control_clear_counter': control_clear_counter,
     'control_stop': control_stop,
     # Events
     'event_whenflagclicked': event_whenflagclicked,
     'event_whenbroadcastreceived': event_whenbroadcastreceived,
+    'event_whenkeypressed': event_whenkeypressed,
+    'event_whenthisspriteclicked': event_whenthisspriteclicked,
+    'event_whenstageclicked': event_whenstageclicked,
+    'event_whenbackdropswitchesto': event_whenbackdropswitchesto,
+    'event_whentouchingobject': event_whentouchingobject,
+    'event_whengreaterthan': event_whengreaterthan,
     'event_broadcast': event_broadcast,
     'event_broadcastandwait': event_broadcastandwait,
-    'event_whenkeypressed': event_whenkeypressed,
     # Motion
     'motion_movesteps': motion_movesteps,
+    'motion_goto': motion_goto,
     'motion_gotoxy': motion_gotoxy,
     'motion_gox': motion_gox,
     'motion_goy': motion_goy,
@@ -876,6 +1190,7 @@ OPCODE_MAP: dict[str, Handler] = {
     'motion_changeyby': motion_changeyby,
     'motion_setdirection': motion_setdirection,
     'motion_pointindirection': motion_pointindirection,
+    'motion_pointtowards': motion_pointtowards,
     'motion_turnright': motion_turnright,
     'motion_turnleft': motion_turnleft,
     'motion_ifonedgebounce': motion_ifonedgebounce,
@@ -929,9 +1244,11 @@ OPCODE_MAP: dict[str, Handler] = {
     # Data — lists
     'data_addtolist': data_addtolist,
     'data_deleteoflist': data_deleteoflist,
+    'data_deletealloflist': data_deletealloflist,
     'data_insertatlist': data_insertatlist,
     'data_replaceitemoflist': data_replaceitemoflist,
     'data_itemoflist': data_itemoflist,
+    'data_itemnumoflist': data_itemnumoflist,
     'data_lengthoflist': data_lengthoflist,
     'data_listcontainsitem': data_listcontainsitem,
     # Sensing
@@ -941,6 +1258,7 @@ OPCODE_MAP: dict[str, Handler] = {
     'sensing_askandwait': sensing_askandwait,
     'sensing_resettimer': sensing_resettimer,
     'sensing_timer': sensing_timer,
+    'sensing_answer': sensing_answer,
     # Pen
     'pen_penDown': pen_pen_down,
     'pen_penUp': pen_pen_up,
@@ -950,6 +1268,9 @@ OPCODE_MAP: dict[str, Handler] = {
     'pen_clear': pen_clear,
     'pen_stamp': pen_stamp,
     # Procedures
-    'procedures_def': procedures_def,
+    'procedures_def': procedures_definition,  # legacy name
+    'procedures_definition': procedures_definition,
     'procedures_call': procedures_call,
+    'argument_reporter_string_number': argument_reporter_string_number,
+    'argument_reporter_boolean': argument_reporter_boolean,
 }
