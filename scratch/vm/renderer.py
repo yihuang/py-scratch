@@ -34,6 +34,26 @@ COLOR_BLACK = (0, 0, 0)
 COLOR_GREY = (200, 200, 200)
 COLOR_STAGE_BG = (220, 220, 220)
 
+# ── Speech bubble style ────────────────────────────────────────────
+
+
+class BubbleStyle:
+    """Speech/think bubble style constants (from scratch-render TextBubbleSkin.js)."""
+    MAX_LINE_WIDTH = 170  # Scratch pixels
+    MIN_WIDTH = 50
+    STROKE_WIDTH = 4
+    PADDING = 10
+    CORNER_RADIUS = 16
+    TAIL_HEIGHT = 12
+    FONT_SIZE = 14
+    LINE_HEIGHT = 16
+    FONT_COLOR = (87, 94, 117)      # #575E75
+    BUBBLE_FILL = (255, 255, 255)    # white
+    BUBBLE_STROKE = (0, 0, 0, 38)    # rgba(0,0,0,0.15)
+    _TAIL_BEZIER_SAY: list[tuple[float, float]] = [
+        (0, 4), (4, 8), (4, 10), (2, 12), (-1, 12), (-11, 8), (-16, 0),
+    ]
+
 # Keyboard mapping — Scratch key names → pygame key codes
 KEY_MAP: dict[str, int] = {
     'space': pygame.K_SPACE,
@@ -266,6 +286,12 @@ class Renderer:
 
         # Step all threads
         self.runtime.step()
+        # Clear expired say/think bubbles
+        tick = self.runtime.clock._tick
+        for t in self.runtime.sprite_targets():
+            if t.say_until is not None and tick >= t.say_until:
+                t.say_text = None
+                t.say_until = None
 
     # ── Drawing ───────────────────────────────────────────────────────
 
@@ -287,6 +313,7 @@ class Renderer:
             if not sprite.visible:
                 continue
             self._draw_sprite(sprite)
+            self._draw_bubble(sprite)
 
         # Draw pen layer on top
         self.screen.blit(self.pen_layer.surface, (0, 0))
@@ -342,6 +369,170 @@ class Renderer:
         sx, sy = scratch_to_screen(sprite.x, sprite.y)
         rect = scaled.get_rect(center=(int(sx), int(sy)))
         self.screen.blit(scaled, rect)
+
+    # ── Speech bubble drawing ─────────────────────────────────────────
+
+    def _draw_bubble(self, sprite: Target) -> None:
+        """Draw the speech/think bubble for a sprite, if ``say_text`` is set."""
+        text = sprite.say_text
+        if not text:
+            return
+
+        scale = STAGE_SCALE
+        scaled_font_size = BubbleStyle.FONT_SIZE * scale
+        font = pygame.font.Font(None, scaled_font_size)
+        lines = self._wrap_text(font, text)
+
+        # Measure longest line (in screen pixels at scale)
+        max_line_w = max(font.size(l)[0] for l in lines)
+
+        # Bubble dimensions in Scratch coords
+        max_line_w_scratch = max_line_w // scale
+        padded_w = max(max_line_w_scratch, BubbleStyle.MIN_WIDTH) + BubbleStyle.PADDING * 2
+        padded_h = BubbleStyle.LINE_HEIGHT * len(lines) + BubbleStyle.PADDING * 2
+
+        # Total size including stroke and tail
+        total_w = padded_w + BubbleStyle.STROKE_WIDTH
+        total_h = padded_h + BubbleStyle.STROKE_WIDTH + BubbleStyle.TAIL_HEIGHT
+
+        # Position above the sprite, centred horizontally
+        points_left = sprite.x > 0
+        bubble_scratch_y = sprite.y + 60 + total_h / 2
+
+        bx, by = scratch_to_screen(sprite.x, bubble_scratch_y)
+
+        # Create a surface for the bubble at screen resolution
+        surf_w = int(total_w * scale)
+        surf_h = int(total_h * scale)
+        bubble_surf = pygame.Surface((surf_w, surf_h), pygame.SRCALPHA)
+
+        # Draw the bubble
+        self._render_bubble_surface(bubble_surf, lines, padded_w, padded_h,
+                                     total_w, total_h, scale, points_left)
+
+        # Blit at calculated screen position
+        blit_x = int(bx - total_w * scale / 2)
+        blit_y = int(by - total_h * scale / 2)
+        self.screen.blit(bubble_surf, (blit_x, blit_y))
+
+    @staticmethod
+    def _wrap_text(font: pygame.font.Font, text: str) -> list[str]:
+        """Wrap text to fit within MAX_LINE_WIDTH Scratch pixels."""
+        lines: list[str] = []
+        for paragraph in text.split('\n'):
+            words = paragraph.split(' ')
+            current = ''
+            for word in words:
+                test = current + (' ' if current else '') + word
+                w, _ = font.size(test)
+                if w > BubbleStyle.MAX_LINE_WIDTH * STAGE_SCALE and current:
+                    lines.append(current)
+                    current = word
+                else:
+                    current = test
+            if current:
+                lines.append(current)
+        return lines if lines else ['']
+
+    @staticmethod
+    def _render_bubble_surface(
+        surf: pygame.Surface, lines: list[str],
+        padded_w: int, padded_h: int,
+        total_w: int, total_h: int,
+        scale: int, points_left: bool,
+    ) -> None:
+        """Render the bubble shape and text onto *surf* at the given scale."""
+        s = scale  # short alias
+        # Scale bubble coordinates to surface pixels
+        R = BubbleStyle.CORNER_RADIUS * s
+        P = BubbleStyle.PADDING * s
+        SW = BubbleStyle.STROKE_WIDTH * s
+        TH = BubbleStyle.TAIL_HEIGHT * s
+        pw = padded_w * s
+        ph = padded_h * s
+
+        # Rounded rectangle path
+        points: list[tuple[float, float]] = []
+        # Top edge (left → right)
+        points.append((R, 0))
+        points.append((pw - R, 0))
+        # Top-right corner
+        points.append((pw, 0))
+        points.append((pw, R))
+        # Right edge
+        points.append((pw, ph - R))
+        # Bottom-right corner
+        points.append((pw, ph))
+        points.append((pw - R, ph))
+        # Bottom edge
+        r_right = pw - R
+        # Tail position: right side, above the corner
+        tail_x = pw
+        tail_y = ph
+
+        # Mirror for points_left
+        if points_left:
+            import math
+            for i, (px, py) in enumerate(points):
+                points[i] = (pw - px, py)
+            tail_x = 0
+
+        # Build rects for rounded corners using antialiased circles
+        rect = pygame.Rect(0, 0, pw, ph)
+        # Draw filled rounded rect
+        color = BubbleStyle.BUBBLE_FILL
+
+        # Use pygame's built-in rounded rect via gfxdraw or manual circles
+        # Fill body
+        body_rect = pygame.Rect(R, 0, pw - 2 * R, ph)
+        pygame.draw.rect(surf, color, body_rect)
+
+        # Fill top/bottom strips
+        top_rect = pygame.Rect(0, R, pw, ph - 2 * R)
+        pygame.draw.rect(surf, color, top_rect)
+
+        # Draw corners as filled circles
+        for cx, cy in [(R, R), (pw - R, R), (R, ph - R), (pw - R, ph - R)]:
+            pygame.draw.circle(surf, color, (cx, cy), R)
+
+        # Draw tail
+        if points_left:
+            # Flip the tail horizontally
+            tail_points = [
+                (tail_x, tail_y + 0 * s),
+                (tail_x + 4 * s, tail_y + 4 * s),
+                (tail_x + 4 * s, tail_y + 10 * s),
+                (tail_x + 2 * s, tail_y + 12 * s),
+                (tail_x - 1 * s, tail_y + 12 * s),
+                (tail_x - 11 * s, tail_y + 8 * s),
+                (tail_x - 16 * s, tail_y + 0 * s),
+            ]
+        else:
+            tail_points = [
+                (tail_x, tail_y),
+                (tail_x - 4 * s, tail_y + 4 * s),
+                (tail_x - 4 * s, tail_y + 10 * s),
+                (tail_x - 2 * s, tail_y + 12 * s),
+                (tail_x + 1 * s, tail_y + 12 * s),
+                (tail_x + 11 * s, tail_y + 8 * s),
+                (tail_x + 16 * s, tail_y),
+            ]
+        pygame.draw.polygon(surf, color, tail_points)
+
+        # Stroke
+        stroke_color = (0, 0, 0, 38)
+        # For simplicity, draw an outline rect and tail with thin line
+        pygame.draw.rect(surf, stroke_color, rect, SW)
+        pygame.draw.polygon(surf, stroke_color, tail_points, SW)
+
+        # Draw text at scaled font size
+        font_size = max(1, BubbleStyle.FONT_SIZE * s)
+        text_font = pygame.font.Font(None, font_size)
+        for i, line in enumerate(lines):
+            text_surf = text_font.render(line, True, BubbleStyle.FONT_COLOR)
+            tx = int(P + SW // 2)
+            ty = int(P + SW // 2 + BubbleStyle.LINE_HEIGHT * i * s / STAGE_SCALE)
+            surf.blit(text_surf, (tx, ty))
 
     def _draw_costume(self, target: Target, is_stage: bool = False) -> None:
         if target.costume is None:
