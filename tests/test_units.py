@@ -403,7 +403,9 @@ class TestLooks:
         assert t.visible is True
 
     def test_goto_front(self) -> None:
-        t = _stack('looks_gotofront')
+        t = _make_tgt()
+        t.blocks['b0'] = _op('looks_gotofrontback', fields={'FRONT_BACK': 'front'})
+        next(b for b in t.blocks.values() if b.opcode == 'event_whenflagclicked').next = 'b0'
         t.layer_order = 0
         t._rebuild_hat_cache()
         rt = _rt(t)

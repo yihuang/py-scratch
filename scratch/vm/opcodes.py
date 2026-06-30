@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import math
 import random
+import time
 from collections.abc import Generator
 from typing import Any
 
@@ -224,6 +225,34 @@ def control_incr_counter(rt: Runtime, tgt: Target, block: Block) -> None:
 def control_clear_counter(rt: Runtime, tgt: Target, block: Block) -> None:
     rt._for_each_counter = 0
 
+
+# ═══════════════════════════════════════════════════════════════════════
+def control_create_clone_of(rt: Runtime, tgt: Target, block: Block) -> None:
+    """Create a clone of the named sprite."""
+    clone_opt = block.fields.get('CLONE_OPTION')
+    name = _field_val(clone_opt) if clone_opt else ''
+    if not name:
+        name = _str(rt.resolve_input(tgt, block.inputs.get('CLONE_OPTION')))
+    if name == '_myself_':
+        name = tgt.name
+    rt.clone_target(name)
+
+
+def control_delete_this_clone(rt: Runtime, tgt: Target, block: Block) -> None:
+    """Delete the current sprite clone."""
+    rt.remove_clone(tgt)
+
+
+def control_all_at_once(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+    """Run the substack without yielding between blocks (all at once)."""
+    sub_id = _substack_val(block.inputs.get('SUBSTACK'))
+    if sub_id:
+        yield from rt.execute_substack(tgt, sub_id)
+
+
+# ═══════════════════════════════════════════════════════════════════════
+#  CONTROL
+# ═══════════════════════════════════════════════════════════════════════
 
 # ═══════════════════════════════════════════════════════════════════════
 #  EVENT
@@ -458,6 +487,27 @@ def motion_glideto_menu(rt: Runtime, tgt: Target, block: Block) -> None:
     pass
 
 
+# Legacy no-op motion blocks (do nothing, for compatibility)
+def motion_scroll_right(rt: Runtime, tgt: Target, block: Block) -> None:
+    pass
+
+
+def motion_scroll_up(rt: Runtime, tgt: Target, block: Block) -> None:
+    pass
+
+
+def motion_align_scene(rt: Runtime, tgt: Target, block: Block) -> None:
+    pass
+
+
+def motion_xscroll(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+    yield report(0)
+
+
+def motion_yscroll(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+    yield report(0)
+
+
 # ═══════════════════════════════════════════════════════════════════════
 #  LOOKS
 # ═══════════════════════════════════════════════════════════════════════
@@ -542,9 +592,33 @@ def looks_hide(rt: Runtime, tgt: Target, block: Block) -> None:
     tgt.visible = False
 
 
-def looks_gotofront(rt: Runtime, tgt: Target, block: Block) -> None:
-    max_layer = max((o.layer_order for o in rt.sprite_targets()), default=0)
-    tgt.layer_order = max_layer + 1
+def looks_gotofrontback(rt: Runtime, tgt: Target, block: Block) -> None:
+    """Go to front or back layer."""
+    if tgt.is_stage:
+        return
+    fb = block.fields.get('FRONT_BACK')
+    choice = _field_val(fb) if fb else 'front'
+    if choice == 'front':
+        max_layer = max((o.layer_order for o in rt.sprite_targets()), default=0)
+        tgt.layer_order = max_layer + 1
+    else:
+        min_layer = min((o.layer_order for o in rt.sprite_targets()), default=0)
+        tgt.layer_order = min_layer - 1
+
+
+def looks_hideallsprites(rt: Runtime, tgt: Target, block: Block) -> None:
+    """Legacy no-op."""
+    pass
+
+
+def looks_changestretchby(rt: Runtime, tgt: Target, block: Block) -> None:
+    """Legacy no-op."""
+    pass
+
+
+def looks_setstretchto(rt: Runtime, tgt: Target, block: Block) -> None:
+    """Legacy no-op."""
+    pass
 
 
 def looks_goforwardbackwardlayers(rt: Runtime, tgt: Target, block: Block) -> None:
@@ -647,6 +721,57 @@ def looks_sayforsecs(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
         yield wait_yield(secs)
     tgt.say_text = None
     tgt.say_until = None
+
+
+def looks_think(rt: Runtime, tgt: Target, block: Block) -> None:
+    """Think bubble."""
+    msg = rt.resolve_input(tgt, block.inputs.get('MESSAGE'))
+    tgt.say_text = _format_bubble_text(msg) or None
+
+
+def looks_thinkforsecs(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+    """Think bubble for a duration."""
+    msg = rt.resolve_input(tgt, block.inputs.get('MESSAGE'))
+    secs = rt.resolve_num(tgt, block.inputs.get('SECS'))
+    tgt.say_text = _format_bubble_text(msg) or None
+    if secs > 0:
+        tgt.say_until = rt.clock._tick + rt.clock.frames_for(secs)
+        yield wait_yield(secs)
+    tgt.say_text = None
+    tgt.say_until = None
+
+
+def looks_nextbackdrop(rt: Runtime, tgt: Target, block: Block) -> None:
+    """Switch to next backdrop on stage."""
+    if rt.stage:
+        n = len(rt.stage.costumes)
+        if n > 0:
+            rt.stage.costume_index = (rt.stage.costume_index + 1) % n
+            rt.stage.current_costume = rt.stage.costume_index
+
+
+def looks_changeeffectby(rt: Runtime, tgt: Target, block: Block) -> None:
+    effect = _field_val(block.fields.get('EFFECT')) if block.fields.get('EFFECT') else ''
+    change = rt.resolve_num(tgt, block.inputs.get('CHANGE'))
+    if effect:
+        tgt.effects[effect] = tgt.effects.get(effect, 0) + change
+
+
+def looks_seteffectto(rt: Runtime, tgt: Target, block: Block) -> None:
+    effect = _field_val(block.fields.get('EFFECT')) if block.fields.get('EFFECT') else ''
+    value = rt.resolve_num(tgt, block.inputs.get('VALUE'))
+    if effect:
+        tgt.effects[effect] = value
+
+
+def looks_cleargraphiceffects(rt: Runtime, tgt: Target, block: Block) -> None:
+    for k in tgt.effects:
+        tgt.effects[k] = 0
+
+
+def looks_size(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+    """Reporter: current sprite size."""
+    yield report(tgt.size)
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -961,6 +1086,28 @@ def data_itemnumoflist(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]
     yield report(0)
 
 
+def data_listcontents(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+    """Reporter: return list contents as a space-separated string."""
+    list_name = _field_val(block.fields.get('LIST'))
+    if list_name:
+        lst = tgt.lookup_list(list_name)
+        if lst is None and rt.stage:
+            lst = rt.stage.lookup_list(list_name)
+        if lst:
+            yield report(' '.join(str(x) for x in lst.contents))
+    yield report('')
+
+
+def data_hidelist(rt: Runtime, tgt: Target, block: Block) -> None:
+    """Hide list monitor — no-op."""
+    pass
+
+
+def data_showlist(rt: Runtime, tgt: Target, block: Block) -> None:
+    """Show list monitor — no-op."""
+    pass
+
+
 # ═══════════════════════════════════════════════════════════════════════
 #  SENSING
 # ═══════════════════════════════════════════════════════════════════════
@@ -1041,6 +1188,120 @@ def sensing_resettimer(rt: Runtime, tgt: Target, block: Block) -> None:
 
 def sensing_timer(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
     yield report(rt.clock.now())
+
+
+def sensing_coloristouchingcolor(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+    """Color touching color (simplified: no-op)."""
+    yield report(False)
+
+
+def sensing_distanceto(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+    """Distance to _mouse_ or another sprite."""
+    dest = block.fields.get('DISTANCETOMENU')
+    dest_name = _field_val(dest) if dest else '_mouse_'
+    if dest_name == '_mouse_':
+        yield report(200)  # arbitrary large distance
+        return
+    other = rt.get_target_by_name(dest_name)
+    if other:
+        dx = tgt.x - other.x
+        dy = tgt.y - other.y
+        yield report(math.sqrt(dx * dx + dy * dy))
+    else:
+        yield report(float('inf'))
+
+
+def sensing_of(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+    """Attribute of a sprite or stage (x, y, direction, costume#, size, variable)."""
+    prop = rt.resolve_input(tgt, block.inputs.get('PROPERTY'))
+    obj_menu = block.fields.get('OBJECT')
+    obj_name = _field_val(obj_menu) if obj_menu else ''
+    obj = rt.get_target_by_name(obj_name) if obj_name else None
+    if obj is None:
+        obj = tgt
+    prop_name = _str(prop) if not isinstance(prop, str) else prop
+    match prop_name:
+        case 'x':
+            yield report(obj.x)
+        case 'y':
+            yield report(obj.y)
+        case 'direction':
+            yield report(obj.direction)
+        case 'costume #' | 'costume':
+            yield report(obj.costume_index + 1)
+        case 'size':
+            yield report(obj.size)
+        case 'volume':
+            yield report(obj.volume)
+        case 'backdrop name':
+            yield report(obj.current_costume_name if rt.stage else '')
+        case 'backdrop #':
+            yield report((obj.costume_index + 1) if rt.stage else 0)
+        case _:
+            var = obj.lookup_variable(prop_name)
+            yield report(var.value if var else 0)
+
+
+def sensing_mousex(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+    """No mouse tracking yet."""
+    yield report(0)
+
+
+def sensing_mousey(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+    yield report(0)
+
+
+def sensing_setdragmode(rt: Runtime, tgt: Target, block: Block) -> None:
+    drag = block.fields.get('DRAG_MODE')
+    if drag:
+        tgt.draggable = _field_val(drag) == 'draggable'
+
+
+def sensing_mousedown(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+    yield report(False)
+
+
+def sensing_current(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+    lt = time.localtime()
+    menu = block.fields.get('CURRENTMENU')
+    opt = _field_val(menu) if menu else ''
+    match opt:
+        case 'YEAR':
+            yield report(lt.tm_year)
+        case 'MONTH':
+            yield report(lt.tm_mon)
+        case 'DATE':
+            yield report(lt.tm_mday)
+        case 'DAYOFWEEK':
+            yield report(lt.tm_wday + 1)
+        case 'HOUR':
+            yield report(lt.tm_hour)
+        case 'MINUTE':
+            yield report(lt.tm_min)
+        case 'SECOND':
+            yield report(lt.tm_sec)
+        case _:
+            yield report(0)
+
+
+def sensing_loudness(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+    yield report(0)
+
+
+def sensing_loud(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+    yield report(False)
+
+
+def sensing_online(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+    yield report(True)
+
+
+def sensing_username(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+    yield report('Scratcher')
+
+
+def sensing_userid(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+    yield report('')
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -1166,6 +1427,9 @@ OPCODE_MAP: dict[str, Handler] = {
     'control_get_counter': control_get_counter,
     'control_incr_counter': control_incr_counter,
     'control_clear_counter': control_clear_counter,
+    'control_create_clone_of': control_create_clone_of,
+    'control_delete_this_clone': control_delete_this_clone,
+    'control_all_at_once': control_all_at_once,
     'control_stop': control_stop,
     # Events
     'event_whenflagclicked': event_whenflagclicked,
@@ -1201,12 +1465,21 @@ OPCODE_MAP: dict[str, Handler] = {
     'motion_glideto': motion_glideto,
     'motion_glidesecstoxy': motion_glideto,
     'motion_glideto_menu': motion_glideto_menu,
+    'motion_scroll_right': motion_scroll_right,
+    'motion_scroll_up': motion_scroll_up,
+    'motion_align_scene': motion_align_scene,
+    'motion_xscroll': motion_xscroll,
+    'motion_yscroll': motion_yscroll,
     # Looks
     'looks_switchcostumeto': looks_switchcostumeto,
     'looks_nextcostume': looks_nextcostume,
     'looks_show': looks_show,
     'looks_hide': looks_hide,
-    'looks_gotofront': looks_gotofront,
+    'looks_gotofront': looks_gotofrontback,
+    'looks_gotofrontback': looks_gotofrontback,
+    'looks_hideallsprites': looks_hideallsprites,
+    'looks_changestretchby': looks_changestretchby,
+    'looks_setstretchto': looks_setstretchto,
     'looks_goforwardbackwardlayers': looks_goforwardbackwardlayers,
     'looks_setsizeto': looks_setsizeto,
     'looks_changesizeby': looks_changesizeby,
@@ -1216,6 +1489,13 @@ OPCODE_MAP: dict[str, Handler] = {
     'looks_switchbackdroptoandwait': looks_switchbackdropto,
     'looks_say': looks_say,
     'looks_sayforsecs': looks_sayforsecs,
+    'looks_think': looks_think,
+    'looks_thinkforsecs': looks_thinkforsecs,
+    'looks_nextbackdrop': looks_nextbackdrop,
+    'looks_changeeffectby': looks_changeeffectby,
+    'looks_seteffectto': looks_seteffectto,
+    'looks_cleargraphiceffects': looks_cleargraphiceffects,
+    'looks_size': looks_size,
     # Operators
     'operator_add': operator_add,
     'operator_subtract': operator_subtract,
@@ -1251,14 +1531,30 @@ OPCODE_MAP: dict[str, Handler] = {
     'data_itemnumoflist': data_itemnumoflist,
     'data_lengthoflist': data_lengthoflist,
     'data_listcontainsitem': data_listcontainsitem,
+    'data_listcontents': data_listcontents,
+    'data_hidelist': data_hidelist,
+    'data_showlist': data_showlist,
     # Sensing
     'sensing_touchingobject': sensing_touchingobject,
     'sensing_touchingcolor': sensing_touchingcolor,
+    'sensing_coloristouchingcolor': sensing_coloristouchingcolor,
+    'sensing_distanceto': sensing_distanceto,
+    'sensing_of': sensing_of,
+    'sensing_mousex': sensing_mousex,
+    'sensing_mousey': sensing_mousey,
+    'sensing_setdragmode': sensing_setdragmode,
+    'sensing_mousedown': sensing_mousedown,
     'sensing_keypressed': sensing_keypressed,
+    'sensing_current': sensing_current,
+    'sensing_loudness': sensing_loudness,
+    'sensing_loud': sensing_loud,
     'sensing_askandwait': sensing_askandwait,
+    'sensing_answer': sensing_answer,
     'sensing_resettimer': sensing_resettimer,
     'sensing_timer': sensing_timer,
-    'sensing_answer': sensing_answer,
+    'sensing_online': sensing_online,
+    'sensing_username': sensing_username,
+    'sensing_userid': sensing_userid,
     # Pen
     'pen_penDown': pen_pen_down,
     'pen_penUp': pen_pen_up,

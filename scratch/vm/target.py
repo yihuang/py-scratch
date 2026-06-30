@@ -65,6 +65,7 @@ class Target:
 
     name: str = 'Stage'
     is_stage: bool = False
+    _is_clone: bool = False
 
     # ── Scripts ───────────────────────────────────────────────────────
     blocks: dict[str, Block] = field(default_factory=dict)

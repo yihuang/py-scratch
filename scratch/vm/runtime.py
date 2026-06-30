@@ -9,6 +9,7 @@ from __future__ import annotations
 import heapq
 import time
 import math
+import copy
 import types
 from collections.abc import Callable, Generator
 from typing import Any
@@ -73,6 +74,7 @@ class Runtime:
         self._for_each_counter: float = 0
         self._real_time: bool = True
         self._time = time
+        self._clones: list[Target] = []
 
     # ── Registration ──────────────────────────────────────────────────
 
@@ -112,11 +114,35 @@ class Runtime:
         return [t for t in self.targets if not t.is_stage]
 
     def get_target_by_name(self, name: str) -> Target | None:
-        """Find a target (sprite or stage) by name."""
         for t in self.targets:
             if t.name == name:
                 return t
         return None
+
+    def clone_target(self, target_name: str) -> Target | None:
+        """Create a clone of the named sprite."""
+        src = self.get_target_by_name(target_name)
+        if src is None or src.is_stage:
+            return None
+        clone = copy.deepcopy(src)
+        clone._is_clone = True
+        clone.name = f'{src.name}_clone'
+        self._clones.append(clone)
+        self.targets.append(clone)
+        self._index_target_hats(clone)
+        # Start all hat scripts on the clone
+        for opcode in ['event_whenflagclicked', 'event_whenthisspriteclicked']:
+            self.start_hat_for_opcode(opcode, target=clone)
+        return clone
+
+    def remove_clone(self, clone: Target) -> None:
+        """Remove a clone from the runtime."""
+        if clone._is_clone and clone in self._clones:
+            self._clones.remove(clone)
+            self.targets.remove(clone)
+            for th in list(self.threads):
+                if th.target is clone:
+                    th.status = 'done'
 
     # ── Input evaluation ──────────────────────────────────────────────
 
