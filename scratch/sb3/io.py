@@ -288,7 +288,7 @@ def _load_bitmap(costume: Costume, data: bytes) -> None:
 def _rasterise_svg(costume: Costume, data: bytes) -> None:
     costume.data = data
     try:
-        import cairosvg  # noqa: PLC0415  — optional dep
+        import cairosvg  # type: ignore[import-untyped]  # noqa: PLC0415  — optional dep
 
         png_data = cairosvg.svg2png(bytestring=data, scale=1)
         buf = io.BytesIO(png_data)

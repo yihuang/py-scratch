@@ -85,7 +85,7 @@ class Target:
     # ── Motion (sprites only) ─────────────────────────────────────────
     _x: float = 0.0
     _y: float = 0.0
-    _direction: float = 90.0  # Scratch degrees; 90 = right
+    _direction: float = 0.0  # Scratch degrees
     size: float = 100.0  # percent
     rotation_style: str = 'all around'  # 'all around' | 'left-right' | 'don\'t rotate'
 
@@ -230,9 +230,9 @@ class Target:
             broadcasts=self.broadcasts,
             costumes=self.costumes,
             sounds=self.sounds,
-            x=self.x,
-            y=self.y,
-            direction=self.direction,
+            _x=self.x,
+            _y=self.y,
+            _direction=self.direction,
             size=self.size,
             rotation_style=self.rotation_style,
             visible=self.visible,

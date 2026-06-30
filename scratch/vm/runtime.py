@@ -71,6 +71,7 @@ class Runtime:
         self._wait_seq = 0
         self._hat_index: dict[str, list[tuple[Target, str]]] = {}
         self.current_thread: Thread | None = None
+        self._answer: str | None = None
         self._for_each_counter: float = 0
         self._real_time: bool = True
         self._time = time
