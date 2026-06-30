@@ -64,7 +64,7 @@ class Runtime:
 
     def __init__(self) -> None:
         self.targets: list[Target] = []
-        self.threads: list[Thread] = []
+        self._runnable_queue: list[Thread] = []
         self._handlers: dict[str, Handler] = {}
         self.clock = Clock()
         self.stage: Target | None = None
@@ -83,6 +83,11 @@ class Runtime:
         self._mouse_down: bool = False
         self._edge_hat_values: dict[str, bool] = {}
 
+    @property
+    def threads(self) -> list[Thread]:
+        """All alive threads: runnable + waiting.  Read-only view for external consumers."""
+        waiting = [t for _, _, t in self._wait_queue]
+        return self._runnable_queue + waiting
     # ── Registration ──────────────────────────────────────────────────
 
     def register(self, opcode: str) -> Callable[[Handler], Handler]:
@@ -151,9 +156,8 @@ class Runtime:
         if clone._is_clone and clone in self._clones:
             self._clones.remove(clone)
             self.targets.remove(clone)
-            for th in list(self.threads):
-                if th.target is clone:
-                    th.status = 'done'
+            self._runnable_queue[:] = [t for t in self._runnable_queue if t.target is not clone]
+            self._wait_queue[:] = [e for e in self._wait_queue if e[2].target is not clone]
 
     # ── Input evaluation ──────────────────────────────────────────────
 
@@ -270,7 +274,7 @@ class Runtime:
             nxt = block.next if block else None
             thread = Thread(target=target, top_block=nxt or bid)
             thread.start()
-            self.threads.append(thread)
+            self._runnable_queue.append(thread)
             created.append(thread)
         return created
 
@@ -286,7 +290,7 @@ class Runtime:
             nxt = block.next if block else None
             thread = Thread(target=t, top_block=nxt or bid)
             thread.start()
-            self.threads.append(thread)
+            self._runnable_queue.append(thread)
 
     def start_key_hat(self, key_name: str) -> None:
         for target, bid in self._hat_index.get('event_whenkeypressed', []):
@@ -301,7 +305,7 @@ class Runtime:
             nxt = block.next
             thread = Thread(target=target, top_block=nxt or bid)
             thread.start()
-            self.threads.append(thread)
+            self._runnable_queue.append(thread)
 
     def start_click_hat(self, scratch_x: float, scratch_y: float) -> None:
         """Start click hats for the sprite (or stage) at *(scratch_x, scratch_y)*."""
@@ -323,7 +327,7 @@ class Runtime:
                         nxt = tgt.blocks[bid].next
                         thread = Thread(target=tgt, top_block=nxt or bid)
                         thread.start()
-                        self.threads.append(thread)
+                        self._runnable_queue.append(thread)
                 return
         # No sprite hit — stage click
         stage = self.stage
@@ -333,7 +337,7 @@ class Runtime:
                     nxt = stage.blocks[bid].next
                     thread = Thread(target=stage, top_block=nxt or bid)
                     thread.start()
-                    self.threads.append(thread)
+                    self._runnable_queue.append(thread)
 
     def _check_edge_hat(self, opcode: str, target: Target, block: Block, current_value: bool) -> bool:
         """Check false→true edge activation for edge-activated hats.
@@ -349,28 +353,26 @@ class Runtime:
     # ── Scheduler ─────────────────────────────────────────────────────
 
     def step(self) -> None:
-        if self._real_time:
-            now = self._time.monotonic()
-            while self._wait_queue and self._wait_queue[0][0] <= now:
-                _, _, thread = heapq.heappop(self._wait_queue)
-                if thread.status == ThreadStatus.WAITING:
-                    thread.status = ThreadStatus.RUNNING
-        else:
-            tick = self.clock._tick
-            while self._wait_queue and self._wait_queue[0][0] <= tick:
-                _, _, thread = heapq.heappop(self._wait_queue)
-                if thread.status == ThreadStatus.WAITING:
-                    thread.status = ThreadStatus.RUNNING
-
-        for thread in list(self.threads):
-            if thread.is_done():
-                continue
+        # 1. Wake waiting threads whose timer expired
+        now = self._time.monotonic() if self._real_time else self.clock._tick
+        while self._wait_queue and self._wait_queue[0][0] <= now:
+            _, _, thread = heapq.heappop(self._wait_queue)
             if thread.status == ThreadStatus.WAITING:
-                continue
+                thread.status = ThreadStatus.RUNNING
+                self._runnable_queue.append(thread)
+
+        # 2. Step each runnable thread once.
+        #    Post-step: done threads are dropped, waiting threads stay in _wait_queue.
+        still_runnable: list[Thread] = []
+        for thread in self._runnable_queue:
+            if thread.is_done():
+                continue  # marked done externally (stop opcode, etc.)
             self._step_thread(thread)
+            if not thread.is_done() and thread.status != ThreadStatus.WAITING:
+                still_runnable.append(thread)
+        self._runnable_queue[:] = still_runnable
 
         self.clock.tick()
-        self.threads[:] = [t for t in self.threads if not t.is_done()]
 
     def _schedule_wake(self, thread: Thread, delay: float) -> None:
         thread.status = ThreadStatus.WAITING
@@ -461,18 +463,14 @@ class Runtime:
             # If there's a parent frame, we're returning control to it
 
     def green_flag(self) -> None:
-        for t in self.threads:
-            t.status = ThreadStatus.DONE
-        self.threads.clear()
+        self._runnable_queue.clear()
         self._wait_queue.clear()
         self.start_hat('event_whenflagclicked')
 
     def broadcast(self, message: str) -> list[Thread]:
         started: list[Thread] = []
         for target, bid in self._hat_index.get('event_whenbroadcastreceived', []):
-            block = target.blocks.get(bid)
-            if block is None:
-                continue
+            block = target.blocks[bid]
             fld = block.fields.get('BROADCAST_OPTION')
             hat_val = str(getattr(fld, 'value', fld or ''))
             # Match: try broadcast id/name lookup, fall back to direct string comparison
@@ -490,7 +488,7 @@ class Runtime:
             nxt = block.next
             thread = Thread(target=target, top_block=nxt or bid)
             thread.start()
-            self.threads.append(thread)
+            self._runnable_queue.append(thread)
             started.append(thread)
         return started
 
