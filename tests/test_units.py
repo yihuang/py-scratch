@@ -10,7 +10,7 @@ import pytest
 
 from scratch.vm import BroadcastMsg, ListVar, Runtime, Target, Variable, make_block
 from scratch.vm.opcodes import OPCODE_MAP
-from scratch.vm.types import Block, Costume, Field
+from scratch.vm.types import Block, Costume, Field, Input
 
 # ═══════════════════════════════════════════════════════════════════════
 #  Helpers
@@ -350,7 +350,7 @@ class TestControl:
         t = _make_tgt()
         t.blocks['b0'] = make_block(
             'control_repeat_until', 'b0',
-            inputs={'CONDITION': [5, 'done'], 'SUBSTACK': 'b1'},
+            inputs={'CONDITION': [12, 'done'], 'SUBSTACK': 'b1'},
         )
         t.blocks['b1'] = Block(
             id='b1', opcode='data_setvariableto',
@@ -465,7 +465,7 @@ class TestControl:
         t = _make_tgt()
         t.blocks['w'] = make_block(
             'control_wait_until', 'w',
-            inputs={'CONDITION': [5, 'ready']},
+            inputs={'CONDITION': [12, 'ready']},
         )
         t.blocks['set_ready'] = Block(
             id='set_ready', opcode='data_setvariableto',
@@ -3220,3 +3220,226 @@ class TestMixed:
         assert t.x == 20.0  # b2 hasn't run yet; _step_thread only advances
         rt.step()  # b2 runs (instant) → done
         assert t.x == 30.0
+
+# ═══════════════════════════════════════════════════════════════════════
+#  Value type resolution (resolve_input)
+# ═══════════════════════════════════════════════════════════════════════
+
+
+class TestValueResolution:
+    """Test how resolve_input handles different SB3 value formats."""
+
+    def _make_rt(self) -> tuple[Runtime, Target]:
+        rt = Runtime()
+        rt._real_time = False
+        rt.add_target(Target(name='Stage', is_stage=True))
+        rt.register_all(OPCODE_MAP)
+        t = Target(name='Sprite')
+        t.variables['v1'] = Variable(name='myVar', value=42)
+        t.lists['l1'] = ListVar('myList', contents=['a', 'b'])
+        # Add a reporter block for block-reference tests
+        t.blocks['reporter'] = Block(
+            id='reporter', opcode='data_variable',
+            fields={'VARIABLE': 'myVar'}
+        )
+        rt.add_target(t)
+        return rt, t
+
+    # ── Literal values ──────────────────────────────────────────────
+
+    def test_literal_int(self) -> None:
+        rt, t = self._make_rt()
+        assert rt.resolve_input(t, 42) == 42
+        assert rt.resolve_input(t, Input(name='', value=42)) == 42
+
+    def test_literal_float(self) -> None:
+        rt, t = self._make_rt()
+        assert rt.resolve_input(t, 3.14) == 3.14
+
+    def test_literal_str(self) -> None:
+        rt, t = self._make_rt()
+        assert rt.resolve_input(t, 'hello') == 'hello'
+
+    def test_literal_bool(self) -> None:
+        rt, t = self._make_rt()
+        assert rt.resolve_input(t, True) is True
+        assert rt.resolve_input(t, False) is False
+
+    def test_literal_none(self) -> None:
+        rt, t = self._make_rt()
+        assert rt.resolve_input(t, None) is None
+
+    def test_literal_zero(self) -> None:
+        rt, t = self._make_rt()
+        assert rt.resolve_input(t, 0) == 0
+        assert rt.resolve_input(t, 0.0) == 0.0
+
+    # ── Input wrapper (unwrapping) ──────────────────────────────────
+
+    def test_input_wrapper_literal(self) -> None:
+        rt, t = self._make_rt()
+        inp = Input(name='', value=99)
+        assert rt.resolve_input(t, inp) == 99
+
+    def test_input_wrapper_shadow(self) -> None:
+        rt, t = self._make_rt()
+        inp = Input(name='', value=77, shadow=True)
+        assert rt.resolve_input(t, inp) == 77
+
+    # ── Inlined primitives (type codes 4-13) ────────────────────────
+
+    def test_primitive_4_math_number(self) -> None:
+        rt, t = self._make_rt()
+        # [4, value] = math_number
+        assert rt.resolve_input(t, [4, 10]) == 10
+        assert rt.resolve_input(t, [4, 3.5]) == 3.5
+
+    def test_primitive_5_positive_number(self) -> None:
+        rt, t = self._make_rt()
+        # [5, value] = math_positive_number — literal, NOT variable
+        assert rt.resolve_input(t, [5, '1']) == '1'
+        assert rt.resolve_input(t, [5, 2.5]) == 2.5
+        assert rt.resolve_input(t, [5, '0.5']) == '0.5'
+
+    def test_primitive_6_whole_number(self) -> None:
+        rt, t = self._make_rt()
+        assert rt.resolve_input(t, [6, 7]) == 7
+
+    def test_primitive_7_integer(self) -> None:
+        rt, t = self._make_rt()
+        assert rt.resolve_input(t, [7, -3]) == -3
+
+    def test_primitive_8_angle(self) -> None:
+        rt, t = self._make_rt()
+        assert rt.resolve_input(t, [8, 90]) == 90
+
+    def test_primitive_9_colour_picker(self) -> None:
+        rt, t = self._make_rt()
+        assert rt.resolve_input(t, [9, 0xFF0000]) == 0xFF0000
+        assert rt.resolve_input(t, [9, '#FF0000']) == '#FF0000'
+
+    def test_primitive_10_text(self) -> None:
+        rt, t = self._make_rt()
+        assert rt.resolve_input(t, [10, 'apple']) == 'apple'
+        assert rt.resolve_input(t, [10, '']) == ''
+
+    def test_primitive_11_broadcast(self) -> None:
+        rt, t = self._make_rt()
+        assert rt.resolve_input(t, [11, 'message1']) == 'message1'
+
+    def test_primitive_12_variable(self) -> None:
+        rt, t = self._make_rt()
+        value = rt.resolve_input(t, [12, 'v1'])
+        assert value == 42
+
+    def test_primitive_12_variable_by_name(self) -> None:
+        rt, t = self._make_rt()
+        value = rt.resolve_input(t, [12, 'myVar'])
+        assert value == 42
+
+    def test_primitive_12_variable_not_found(self) -> None:
+        rt, t = self._make_rt()
+        value = rt.resolve_input(t, [12, 'nonexistent'])
+        assert value == 0
+
+    def test_primitive_13_list(self) -> None:
+        rt, t = self._make_rt()
+        value = rt.resolve_input(t, [13, 'l1'])
+        assert value == ['a', 'b']
+
+    def test_primitive_13_list_by_name(self) -> None:
+        rt, t = self._make_rt()
+        value = rt.resolve_input(t, [13, 'myList'])
+        assert value == ['a', 'b']
+
+    def test_primitive_13_list_not_found(self) -> None:
+        rt, t = self._make_rt()
+        value = rt.resolve_input(t, [13, 'nonexistent'])
+        assert value == []
+
+    def test_primitive_unknown_type(self) -> None:
+        rt, t = self._make_rt()
+        # Unknown type codes return the ref value as-is
+        assert rt.resolve_input(t, [99, 'foo']) == 'foo'
+        assert rt.resolve_input(t, [0, 10]) == 10
+
+    # ── Stage variable fallback ─────────────────────────────────────
+
+    def test_variable_on_stage(self) -> None:
+        rt = Runtime()
+        rt._real_time = False
+        stage = Target(name='Stage', is_stage=True)
+        stage.variables['global'] = Variable('global', 999)
+        rt.add_target(stage)
+        rt.register_all(OPCODE_MAP)
+        t = Target(name='Sprite')
+        rt.add_target(t)
+        value = rt.resolve_input(t, [12, 'global'])
+        assert value == 999
+
+    # ── Shadow pair: [block_id, literal] ────────────────────────────
+
+    def test_shadow_pair(self) -> None:
+        rt, t = self._make_rt()
+        # [block_id, literal] — the second element is the shadow default
+        value = rt.resolve_input(t, ['reporter', 42])
+        assert value == 42
+
+    def test_shadow_pair_string_literal(self) -> None:
+        rt, t = self._make_rt()
+        value = rt.resolve_input(t, ['reporter', 'default_text'])
+        assert value == 'default_text'
+
+    # ── Block reference (string resolving to reporter) ──────────────
+
+    def test_block_reference(self) -> None:
+        rt, t = self._make_rt()
+        # The string 'reporter' is a block ID → evaluate the reporter
+        value = rt.resolve_input(t, 'reporter')
+        assert value == 42  # data_variable reporter returns myVar=42
+
+    def test_block_reference_via_input(self) -> None:
+        rt, t = self._make_rt()
+        inp = Input(name='', value='reporter')
+        value = rt.resolve_input(t, inp)
+        assert value == 42
+
+    # ── num / truthy / val accessors ─────────────────────────────────
+
+    def test_num_accessor(self) -> None:
+        rt, t = self._make_rt()
+        t.blocks['b'] = Block(
+            id='b', opcode='control_wait',
+            inputs={'DURATION': Input(name='', value=[5, '0.5'], shadow=True)}
+        )
+        # [5, '0.5'] = positive number literal → '0.5' → float('0.5') = 0.5
+        val = rt.num(t, t.blocks['b'], 'DURATION')
+        assert abs(val - 0.5) < 0.001
+
+    def test_num_accessor_variable_ref(self) -> None:
+        rt, t = self._make_rt()
+        t.blocks['b'] = Block(
+            id='b', opcode='control_wait',
+            inputs={'DURATION': Input(name='', value=[12, 'v1'], shadow=True)}
+        )
+        # [12, 'v1'] = variable reference → myVar=42 → float(42) = 42.0
+        val = rt.num(t, t.blocks['b'], 'DURATION')
+        assert val == 42.0
+
+    def test_val_accessor_literal(self) -> None:
+        rt, t = self._make_rt()
+        t.blocks['b'] = Block(
+            id='b', opcode='data_setvariableto',
+            inputs={'VALUE': Input(name='', value=[10, 'hello'], shadow=True)}
+        )
+        val = rt.val(t, t.blocks['b'], 'VALUE')
+        assert val == 'hello'
+
+    def test_val_accessor_variable_ref(self) -> None:
+        rt, t = self._make_rt()
+        t.blocks['b'] = Block(
+            id='b', opcode='data_setvariableto',
+            inputs={'VALUE': Input(name='', value=[12, 'v1'], shadow=True)}
+        )
+        val = rt.val(t, t.blocks['b'], 'VALUE')
+        assert val == 42

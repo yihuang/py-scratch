@@ -194,20 +194,24 @@ class Runtime:
         if isinstance(value, str) and value in target.blocks:
             return self.evaluate(target, value)
 
-        # Scratch variable/list reference: [type_code, name_or_id]
-        if isinstance(value, (list, tuple)) and len(value) == 2 and isinstance(value[0], int):
-            type_code, ref = value
-            if type_code == 5:  # Variable reference
+        # Scratch inlined primitive: [type_code, value, ...]
+        # 4=math_number, 5=math_positive_number, 6=math_whole_number,
+        # 7=math_integer, 8=math_angle, 9=colour_picker, 10=text
+        # 11=broadcast, 12=variable, 13=list
+        if isinstance(value, (list, tuple)) and len(value) >= 2 and isinstance(value[0], int):
+            type_code = value[0]
+            ref = value[1]
+            if type_code == 12:  # Variable reference
                 var = target.lookup_variable(ref) or (
                     self.stage and self.stage.lookup_variable(ref)
                 )
                 return var.value if var else 0
-            if type_code == 12:  # List reference
+            if type_code == 13:  # List reference
                 lst = target.lookup_list(ref) or (
                     self.stage and self.stage.lookup_list(ref)
                 )
                 return lst.contents if lst else []
-            # Other reference types (4=broadcast, etc.) — return the name
+            # Literal primitives (4-10) and broadcast (11) — return the value directly
             return ref
 
         # Shadow pair: [block_id, literal] — use the literal.
@@ -235,7 +239,7 @@ class Runtime:
 
     def num(self, target: Target, block: Block, name: str) -> float:
         """Resolve a named numeric input from *block*."""
-        return self.resolve_num(target, block.inputs.get(name))
+        return self.resolve_num(target, self._input_raw(block, name))
 
     def num_int(self, target: Target, block: Block, name: str) -> int:
         """Resolve a named numeric input and round to nearest int (Scratch-style round-half-up)."""
