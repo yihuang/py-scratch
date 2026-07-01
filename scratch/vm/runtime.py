@@ -22,6 +22,12 @@ from .thread import (
     YIELD,
     YieldPass,
 )
+from .constants import (
+    CLICK_HIT_RADIUS,
+    CLONE_START_HATS,
+    PrimitiveType,
+)
+
 from .types import Block, Input
 
 # Type alias: an opcode handler is a generator that yields control signals
@@ -170,7 +176,7 @@ class Runtime:
         self.targets.append(clone)
         self._index_target_hats(clone)
         # Start all hat scripts on the clone
-        for opcode in ['event_whenflagclicked', 'event_whenthisspriteclicked']:
+        for opcode in CLONE_START_HATS:
             self.start_hat_for_opcode(opcode, target=clone)
         self.start_hat_for_opcode('control_start_as_clone', target=clone)
         return clone
@@ -219,24 +225,19 @@ class Runtime:
             return self.evaluate(target, value)
 
         # Scratch inlined primitive: [type_code, value, ...]
-        # 4=math_number, 5=math_positive_number, 6=math_whole_number,
-        # 7=math_integer, 8=math_angle, 9=colour_picker, 10=text
-        # 11=broadcast, 12=variable, 13=list
         if isinstance(value, (list, tuple)) and len(value) >= 2 and isinstance(value[0], int):
             type_code = value[0]
             ref = value[1]
-            if type_code == 12:  # Variable reference
+            if type_code == PrimitiveType.VARIABLE:  # Variable reference
                 var = target.lookup_variable(ref) or (
                     self.stage and self.stage.lookup_variable(ref)
                 )
                 return var.value if var else 0
-            if type_code == 13:  # List reference
+            if type_code == PrimitiveType.LIST:  # List reference
                 lst = target.lookup_list(ref) or (
                     self.stage and self.stage.lookup_list(ref)
                 )
                 return lst.contents if lst else []
-            # Literal primitives (4-10) and broadcast (11) — return the value directly
-            return ref
 
         # Shadow pair: [block_id, literal] — use the literal.
         return _unwrap_shadow(value)
@@ -322,7 +323,7 @@ class Runtime:
             if not tgt.visible:
                 continue
             # Simple radius check: bounding circle based on costume size
-            radius = 30.0  # default placeholder radius
+            radius = CLICK_HIT_RADIUS
             if tgt.costume and tgt.costume.surface:
                 w, h = tgt.costume.surface.get_size()
                 radius = (math.sqrt(w * w + h * h) / 2) * (tgt.size / 100.0)

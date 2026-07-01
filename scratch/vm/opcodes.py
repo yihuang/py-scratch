@@ -19,8 +19,49 @@ from typing import Any
 
 from .runtime import Handler, Runtime
 from .target import Target
-from .thread import Report, Thread, Wait, YIELD
+from .thread import Report, Thread, ThreadStatus, Wait, YIELD
 from .types import Block, Input, Sound
+from .constants import (
+    BOUNCE_REFLECT_ANGLE,
+    BUBBLE_DECIMAL_THRESHOLD,
+    BUBBLE_MAX_CHARS,
+    DEFAULT_TEMPO_BPM,
+    DISTANCE_UNREACHABLE,
+    DST_OFFSET_SECS,
+    LIST_INDEX_ALL,
+    LIST_INDEX_ALL_SENTINEL,
+    LIST_INDEX_ANY,
+    LIST_INDEX_LAST,
+    LIST_INDEX_RANDOM,
+    LOOKS_NEXTCOSTUME_OFFSET,
+    MATH_TRIG_PRECISION,
+    PAN_MAX,
+    PAN_MIN,
+    PEN_SIZE_MIN,
+    PITCH_MAX,
+    PITCH_MIN,
+    ROTATION_ALL_AROUND,
+    ROTATION_DONT_ROTATE,
+    ROTATION_LEFT_RIGHT,
+    SCRATCH_RIGHT,
+    SECONDS_PER_DAY,
+    SOUND_EFFECT_PAN,
+    SOUND_EFFECT_PITCH,
+    STAGE_BOTTOM,
+    STAGE_LEFT,
+    STAGE_RIGHT,
+    STAGE_TOP,
+    STOP_ALL,
+    STOP_OTHER_IN_SPRITE,
+    STOP_OTHER_IN_STAGE,
+    STOP_THIS_SCRIPT,
+    TEMPO_MAX,
+    TEMPO_MIN,
+    VOLUME_MAX,
+    VOLUME_MIN,
+    YEAR_2000_EPOCH,
+)
+
 
 # ── Helpers ──────────────────────────────────────────────────────────────
 
@@ -177,22 +218,22 @@ def control_repeat_until(rt: Runtime, tgt: Target, block: Block) -> Generator[An
 def control_stop(rt: Runtime, tgt: Target, block: Block) -> None:
     """Stop behaviour: stop all | this script | other scripts in sprite | other scripts in stage."""
     option = block.fields.get('STOP_OPTION')
-    choice = option.value if option else 'all'
+    choice = option.value if option else STOP_ALL
     _cur = rt.current_thread
-    if choice == 'all':
+    if choice == STOP_ALL:
         for th in list(rt.threads):
-            th.status = 'done'
-    elif choice == 'this script':
+            th.status = ThreadStatus.DONE
+    elif choice == STOP_THIS_SCRIPT:
         if _cur is not None:
-            _cur.status = 'done'
-    elif choice == 'other scripts in sprite':
+            _cur.status = ThreadStatus.DONE
+    elif choice == STOP_OTHER_IN_SPRITE:
         for th in list(rt.threads):
             if th.target is tgt and th is not _cur:
-                th.status = 'done'
-    elif choice == 'other scripts in stage':
+                th.status = ThreadStatus.DONE
+    elif choice == STOP_OTHER_IN_STAGE:
         for th in list(rt.threads):
             if th.target.is_stage and th is not _cur:
-                th.status = 'done'
+                th.status = ThreadStatus.DONE
 
 
 def control_while(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
@@ -341,7 +382,7 @@ def event_broadcastandwait(rt: Runtime, tgt: Target, block: Block) -> Generator[
 
 def motion_movesteps(rt: Runtime, tgt: Target, block: Block) -> None:
     steps = rt.num(tgt, block, 'STEPS')
-    rad = math.radians(90 - tgt.direction)
+    rad = math.radians(SCRATCH_RIGHT - tgt.direction)
     tgt.set_xy(tgt.x + steps * math.cos(rad), tgt.y + steps * math.sin(rad))
 
 
@@ -350,7 +391,7 @@ def _target_xy(rt: Runtime, target_name: str) -> tuple[float, float] | None:
     if target_name == '_mouse_':
         return (rt._mouse_x, rt._mouse_y)
     if target_name == '_random_':
-        return (round(random.uniform(-240.0, 240.0)), round(random.uniform(-180.0, 180.0)))
+        return (round(random.uniform(STAGE_LEFT, STAGE_RIGHT)), round(random.uniform(STAGE_BOTTOM, STAGE_TOP)))
     t = rt.get_target_by_name(target_name)
     if t is not None:
         return (t.x, t.y)
@@ -404,17 +445,13 @@ def motion_pointindirection(rt: Runtime, tgt: Target, block: Block) -> None:
 
 def motion_pointtowards(rt: Runtime, tgt: Target, block: Block) -> None:
     target_name = _str(block.fields.get('TOWARDS'))
-    if target_name == '_random_':
-        tgt.direction = round(random.uniform(-180, 180))
-        return
     xy = _target_xy(rt, target_name)
     if xy is None:
         return
     dx = xy[0] - tgt.x
     dy = xy[1] - tgt.y
-    direction = 90 - math.degrees(math.atan2(dy, dx))
+    direction = SCRATCH_RIGHT - math.degrees(math.atan2(dy, dx))
     tgt.direction = direction
-
 
 def motion_turnright(rt: Runtime, tgt: Target, block: Block) -> None:
     tgt.direction += rt.num(tgt, block, 'DEGREES')
@@ -428,10 +465,10 @@ def motion_ifonedgebounce(rt: Runtime, tgt: Target, block: Block) -> None:
         return
     surf = tgt.costume.surface
     w, h = surf.get_width(), surf.get_height()
-    left = -240 + w / 2
-    right = 240 - w / 2
-    top = 180 - h / 2
-    bottom = -180 + h / 2
+    left = STAGE_LEFT + w / 2
+    right = STAGE_RIGHT - w / 2
+    top = STAGE_TOP - h / 2
+    bottom = STAGE_BOTTOM + h / 2
     bounced = False
     if tgt.x > right:
         tgt.x = right
@@ -446,7 +483,7 @@ def motion_ifonedgebounce(rt: Runtime, tgt: Target, block: Block) -> None:
         tgt.y = bottom
         bounced = True
     if bounced:
-        tgt.direction = 180 - tgt.direction
+        tgt.direction = BOUNCE_REFLECT_ANGLE - tgt.direction
     # keepInFence: clamp position to fence bounds unconditionally
     if tgt.x < left:
         tgt.x = left
@@ -613,7 +650,7 @@ def looks_switchcostumeto(rt: Runtime, tgt: Target, block: Block) -> None:
 
 
 def looks_nextcostume(rt: Runtime, tgt: Target, block: Block) -> None:
-    _set_costume(tgt, tgt.costume_index + 2)  # +2 because _set_costume is 1-based
+    _set_costume(tgt, tgt.costume_index + LOOKS_NEXTCOSTUME_OFFSET)
 
 
 def looks_show(rt: Runtime, tgt: Target, block: Block) -> None:
@@ -767,13 +804,13 @@ def _format_bubble_text(text: Any) -> str:
     if isinstance(text, (int, float)) and not isinstance(text, bool):
         if text % 1 == 0:
             s = str(int(text))
-        elif abs(text) >= 0.01:
+        elif abs(text) >= BUBBLE_DECIMAL_THRESHOLD:
             s = f'{text:.2f}'
         else:
             s = str(text)
     else:
         s = str(text) if text is not None else ''
-    return s[:330]
+    return s[:BUBBLE_MAX_CHARS]
 
 
 def looks_say(rt: Runtime, tgt: Target, block: Block) -> None:
@@ -981,9 +1018,9 @@ def operator_mathop(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
         case 'sqrt':
             r = math.sqrt(n) if n >= 0 else float('nan')
         case 'sin':
-            r = round(math.sin(math.radians(n)), 10)
+            r = round(math.sin(math.radians(n)), MATH_TRIG_PRECISION)
         case 'cos':
-            r = round(math.cos(math.radians(n)), 10)
+            r = round(math.cos(math.radians(n)), MATH_TRIG_PRECISION)
         case 'tan':
             r = math.tan(math.radians(n)) if n % 180 != 90 else float('inf')
         case 'asin':
@@ -1065,11 +1102,11 @@ def _to_list_index(value: Any, length: int) -> int | str | None:
     """
     if isinstance(value, str):
         v = value.lower()
-        if v == 'all':
-            return 'ALL'
-        if v == 'last':
+        if v == LIST_INDEX_ALL:
+            return LIST_INDEX_ALL_SENTINEL
+        if v == LIST_INDEX_LAST:
             return length if length > 0 else None
-        if v in ('random', 'any'):
+        if v in (LIST_INDEX_RANDOM, LIST_INDEX_ANY):
             return random.randint(1, max(1, length))
     try:
         idx = int(round(float(value)))
@@ -1078,8 +1115,6 @@ def _to_list_index(value: Any, length: int) -> int | str | None:
     if 1 <= idx <= length:
         return idx
     return None
- 
- 
 # ═══════════════════════════════════════════════════════════════════════
 #  DATA — Lists
 # ═══════════════════════════════════════════════════════════════════════
@@ -1128,9 +1163,9 @@ def data_insertatlist(rt: Runtime, tgt: Target, block: Block) -> None:
             # Determine 0-based insertion position
             if isinstance(idx_val, str):
                 v = idx_val.lower()
-                if v == 'last':
+                if v == LIST_INDEX_LAST:
                     pos = length  # insert at end
-                elif v in ('random', 'any'):
+                elif v in (LIST_INDEX_RANDOM, LIST_INDEX_ANY):
                     pos = random.randint(0, length)
                 else:
                     idx = _to_list_index(idx_val, length)
@@ -1261,10 +1296,10 @@ def _touching_object_check(rt: Runtime, tgt: Target, obj_name: str) -> bool:
     if obj_name == '_edge_':
         left_, top_, right_, bottom_ = tgt.scratch_bounds()
         return (
-            tgt.x + left_ < -240
-            or tgt.x + right_ > 240
-            or tgt.y + bottom_ < -180
-            or tgt.y + top_ > 180
+            tgt.x + left_ < STAGE_LEFT
+            or tgt.x + right_ > STAGE_RIGHT
+            or tgt.y + bottom_ < STAGE_BOTTOM
+            or tgt.y + top_ > STAGE_TOP
         )
     tgt_bounds = tgt.scratch_bounds()
     for other in rt.sprite_targets():
@@ -1279,7 +1314,6 @@ def _touching_object_check(rt: Runtime, tgt: Target, obj_name: str) -> bool:
         ):
             return True
     return False
-
 
 def sensing_touchingobject(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
     obj = block.fields.get('TOUCHINGOBJECTMENU')
@@ -1361,7 +1395,7 @@ def sensing_distanceto(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]
         dy = tgt.y - other.y
         yield Report(math.sqrt(dx * dx + dy * dy))
     else:
-        yield Report(10000.0)
+        yield Report(DISTANCE_UNREACHABLE)
 
 
 def sensing_of(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
@@ -1437,15 +1471,14 @@ def sensing_current(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
 
 def sensing_dayssince2000(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
     """Days since 2000-01-01 (Scratch-compatible)."""
-    epoch = time.mktime((2000, 1, 1, 0, 0, 0, 0, 0, 0))
+    epoch = time.mktime(YEAR_2000_EPOCH)
     # Adjust for timezone offset (mktime assumes local time, so epoch includes DST/UTC offset)
     now = time.time()
     is_dst = time.localtime(now).tm_isdst
     offset = time.timezone
     if is_dst > 0:
-        offset -= 3600
-    yield Report((now - epoch + offset) / 86400)
-
+        offset -= DST_OFFSET_SECS
+    yield Report((now - epoch + offset) / SECONDS_PER_DAY)
 
 def sensing_loudness(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
     yield Report(0)
@@ -1527,13 +1560,13 @@ def sound_stopallsounds(rt: Runtime, tgt: Target, block: Block) -> None:
 
 
 def sound_setvolumeto(rt: Runtime, tgt: Target, block: Block) -> None:
-    v = max(0, min(100, rt.num(tgt, block, 'VOLUME')))
+    v = max(VOLUME_MIN, min(VOLUME_MAX, rt.num(tgt, block, 'VOLUME')))
     tgt.volume = v
 
 
 def sound_changevolumeby(rt: Runtime, tgt: Target, block: Block) -> None:
     delta = rt.num(tgt, block, 'VOLUME')
-    tgt.volume = max(0.0, min(100.0, tgt.volume + delta))
+    tgt.volume = max(VOLUME_MIN, min(VOLUME_MAX, tgt.volume + delta))
 
 
 def sound_volume(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
@@ -1543,33 +1576,32 @@ def sound_volume(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
 
 def _clamp_effect(effect: str, value: float) -> float:
     """Clamp a sound effect value."""
-    if effect == 'PITCH':
-        return max(-360.0, min(360.0, value))
-    if effect == 'PAN':
-        return max(-100.0, min(100.0, value))
+    if effect == SOUND_EFFECT_PITCH:
+        return max(PITCH_MIN, min(PITCH_MAX, value))
+    if effect == SOUND_EFFECT_PAN:
+        return max(PAN_MIN, min(PAN_MAX, value))
     return value
-
 
 def sound_seteffectto(rt: Runtime, tgt: Target, block: Block) -> None:
     effect = _field_val(block.fields.get('EFFECT')) if block.fields else ''
     value = rt.num(tgt, block, 'VALUE')
-    if effect in ('PITCH', 'PAN'):
+    if effect in (SOUND_EFFECT_PITCH, SOUND_EFFECT_PAN):
         tgt.sound_effects[effect] = _clamp_effect(effect, value)
 
 
 def sound_changeeffectby(rt: Runtime, tgt: Target, block: Block) -> None:
     effect = _field_val(block.fields.get('EFFECT')) if block.fields else ''
     delta = rt.num(tgt, block, 'VALUE')
-    if effect in ('PITCH', 'PAN'):
+    if effect in (SOUND_EFFECT_PITCH, SOUND_EFFECT_PAN):
         tgt.sound_effects[effect] = _clamp_effect(effect, tgt.sound_effects.get(effect, 0.0) + delta)
 
 
 def sound_cleareffects(rt: Runtime, tgt: Target, block: Block) -> None:
-    tgt.sound_effects = {'PITCH': 0.0, 'PAN': 0.0}
+    tgt.sound_effects = {SOUND_EFFECT_PITCH: 0.0, SOUND_EFFECT_PAN: 0.0}
 
 
 def sound_settempo(rt: Runtime, tgt: Target, block: Block) -> None:
-    bpm = max(20.0, min(500.0, rt.num(tgt, block, 'TEMPO')))
+    bpm = max(TEMPO_MIN, min(TEMPO_MAX, rt.num(tgt, block, 'TEMPO')))
     stage = rt.stage
     if stage:
         stage.tempo = bpm
@@ -1579,13 +1611,13 @@ def sound_changetempo(rt: Runtime, tgt: Target, block: Block) -> None:
     delta = rt.num(tgt, block, 'TEMPO')
     stage = rt.stage
     if stage:
-        stage.tempo = max(20.0, min(500.0, stage.tempo + delta))
+        stage.tempo = max(TEMPO_MIN, min(TEMPO_MAX, stage.tempo + delta))
 
 
 def sound_tempo(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
     """Reporter: current tempo."""
     stage = rt.stage
-    yield Report(stage.tempo if stage else 60.0)
+    yield Report(stage.tempo if stage else DEFAULT_TEMPO_BPM)
 
 # ═══════════════════════════════════════════════════════════════════════
 #  PEN
@@ -1625,11 +1657,11 @@ def pen_set_pen_color_to_color(rt: Runtime, tgt: Target, block: Block) -> None:
 
 
 def pen_change_pen_size_by(rt: Runtime, tgt: Target, block: Block) -> None:
-    tgt.pen_size = max(0, tgt.pen_size + rt.num(tgt, block, 'SIZE'))
+    tgt.pen_size = max(PEN_SIZE_MIN, tgt.pen_size + rt.num(tgt, block, 'SIZE'))
 
 
 def pen_set_pen_size_to(rt: Runtime, tgt: Target, block: Block) -> None:
-    tgt.pen_size = max(0, rt.num(tgt, block, 'SIZE'))
+    tgt.pen_size = max(PEN_SIZE_MIN, rt.num(tgt, block, 'SIZE'))
 
 
 def pen_clear(rt: Runtime, tgt: Target, block: Block) -> None:

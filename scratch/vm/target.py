@@ -10,6 +10,22 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from .constants import (
+    DEFAULT_DIRECTION,
+    DEFAULT_LAYER_ORDER,
+    DEFAULT_PEN_BRIGHTNESS,
+    DEFAULT_PEN_COLOR,
+    DEFAULT_PEN_SIZE,
+    DEFAULT_PEN_SATURATION,
+    DEFAULT_SIZE_PCT,
+    DEFAULT_TEMPO_BPM,
+    DEFAULT_VOLUME_PCT,
+    GRAPHIC_EFFECTS,
+    ROTATION_ALL_AROUND,
+    SOUND_EFFECT_PAN,
+    SOUND_EFFECT_PITCH,
+)
+
 from .types import Block, Costume, Sound
 
 # ── Variable & List wrappers ─────────────────────────────────────────────
@@ -85,10 +101,9 @@ class Target:
     # ── Motion (sprites only) ─────────────────────────────────────────
     _x: float = 0.0
     _y: float = 0.0
-    _direction: float = 90.0  # Scratch degrees (default: facing right)
-    size: float = 100.0  # percent
-    rotation_style: str = 'all around'  # 'all around' | 'left-right' | 'don\'t rotate'
-
+    _direction: float = DEFAULT_DIRECTION
+    size: float = DEFAULT_SIZE_PCT
+    rotation_style: str = ROTATION_ALL_AROUND
     @property
     def x(self) -> float:
         return self._x
@@ -105,55 +120,48 @@ class Target:
     def y(self, val: float) -> None:
         self._y = round(val)
 
+    def set_xy(self, x: float, y: float) -> None:
+        self.x = x
+        self.y = y
+
     @property
     def direction(self) -> float:
         return self._direction
 
     @direction.setter
     def direction(self, val: float) -> None:
-        self._direction = val
-
-    def set_xy(self, x: float, y: float) -> None:
-        self.x = x
-        self.y = y
+        norm = val % 360
+        self._direction = norm if norm <= 180 else norm - 360
 
     # ── Looks ─────────────────────────────────────────────────────────
     visible: bool = True
-    volume: float = 100.0  # percent
-    layer_order: int = 0
+    volume: float = DEFAULT_VOLUME_PCT
+    layer_order: int = DEFAULT_LAYER_ORDER
     say_text: str | None = None
-    say_until: float | None = None  # tick count when the bubble should disappear
+    say_until: float | None = None
 
-    # ── Sound effects ─────────────────────────────────────────────────
     sound_effects: dict[str, float] = field(
-        default_factory=lambda: {'PITCH': 0.0, 'PAN': 0.0}
+        default_factory=lambda: {SOUND_EFFECT_PITCH: 0.0, SOUND_EFFECT_PAN: 0.0}
     )
 
     # ── Tempo (Music extension, stored on stage) ──────────────────────
-    tempo: float = 60.0
+    tempo: float = DEFAULT_TEMPO_BPM
 
     # ── Effects ───────────────────────────────────────────────────────
     effects: dict[str, float] = field(
         default_factory=lambda: {
-            'color': 0,
-            'fisheye': 0,
-            'whirl': 0,
-            'pixelate': 0,
-            'mosaic': 0,
-            'brightness': 0,
-            'ghost': 0,
+            name: 0 for name in GRAPHIC_EFFECTS
         }
     )
-
     # ── Draggable ─────────────────────────────────────────────────────
     draggable: bool = False
 
     # ── Pen ───────────────────────────────────────────────────────────
     pen_down: bool = False
-    pen_color: tuple[int, int, int] = (0, 0, 255)
-    pen_size: float = 1.0
-    pen_saturation: float = 100.0
-    pen_brightness: float = 100.0
+    pen_color: tuple[int, int, int] = DEFAULT_PEN_COLOR
+    pen_size: float = DEFAULT_PEN_SIZE
+    pen_saturation: float = DEFAULT_PEN_SATURATION
+    pen_brightness: float = DEFAULT_PEN_BRIGHTNESS
     # Renderer-internal (set by pen opcodes)
     _pen_clear_requested: bool = False
     _stamp_queue: list[Any] = field(default_factory=list)

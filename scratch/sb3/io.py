@@ -20,6 +20,18 @@ import pygame
 from ..vm.runtime import Runtime
 from ..vm.target import BroadcastMsg, ListVar, Target, Variable
 from ..vm.types import Block, Costume, Field, Input, Mutation, Sound
+from ..vm.constants import (
+    BLOCK_REF_FLAG,
+    OBSOLETE_FLAG,
+    PROJECT_SEMVER,
+    SHADOW_FLAG,
+    VM_AGENT,
+    VM_VERSION,
+    SERIALIZE_TEMPO,
+    SERIALIZE_VIDEO_STATE,
+    SERIALIZE_VIDEO_TRANSPARENCY,
+)
+
 
 logger = logging.getLogger(__name__)
 
@@ -160,9 +172,9 @@ def _parse_input(data: list[Any]) -> Input:
                                  actual reporter block reference)
     """
     shadow_flag = data[0] if len(data) > 0 else 0
-    is_shadow = shadow_flag in (1, 3)
+    is_shadow = shadow_flag in (SHADOW_FLAG, OBSOLETE_FLAG)
 
-    if shadow_flag == 3 and len(data) >= 3:
+    if shadow_flag == OBSOLETE_FLAG and len(data) >= 3:
         # [3, literal, block_id] — use the block reference as the value
         value = data[2]
     else:
@@ -392,15 +404,12 @@ def _serialize_block(block: Block) -> dict[str, Any]:
 
 def _serialize_input(inp: Input) -> list[Any]:
     """Serialize an Input to Scratch ``[shadow_flag, value]`` format."""
-    shadow_flag = 1 if inp.shadow else 2
+    shadow_flag = SHADOW_FLAG if inp.shadow else BLOCK_REF_FLAG
     return [shadow_flag, inp.value]
-
 
 def _serialize_field(fld: Field) -> list[Any]:
     """Serialize a Field to Scratch ``[value, id]`` format."""
     return [fld.value, fld.id]
-
-
 def _serialize_target(target: Target) -> dict[str, Any]:
     """Serialize a Target to Scratch JSON format."""
     variables: dict[str, list[Any]] = {}
@@ -427,10 +436,9 @@ def _serialize_target(target: Target) -> dict[str, Any]:
         'sounds': [_serialize_sound(s) for s in target.sounds],
         'volume': target.volume,
         'layerOrder': target.layer_order,
-        'tempo': 60,
-        'videoTransparency': 50,
-        'videoState': 'on',
-        'textToSpeechLanguage': None,
+        'tempo': SERIALIZE_TEMPO,
+        'videoTransparency': SERIALIZE_VIDEO_TRANSPARENCY,
+        'videoState': SERIALIZE_VIDEO_STATE,
     }
 
     if not target.is_stage:
@@ -481,9 +489,9 @@ def _build_project_json(runtime: Runtime) -> dict[str, Any]:
         'monitors': [],
         'extensions': [],
         'meta': {
-            'semver': '3.0.0',
-            'vm': '0.2.0',
-            'agent': 'py-scratch',
+            'semver': PROJECT_SEMVER,
+            'vm': VM_VERSION,
+            'agent': VM_AGENT,
         },
     }
 

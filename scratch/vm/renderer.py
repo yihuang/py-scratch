@@ -328,11 +328,10 @@ class Renderer:
         if not sprite.costume:
             # Draw placeholder
             sx, sy = scratch_to_screen(sprite.x, sprite.y)
-            sz = max(4, int(sprite.size * STAGE_SCALE / 100 * 20))
+            sz = max(PLACEHOLDER_MIN_SIZE, int(sprite.size * STAGE_SCALE / 100 * PLACEHOLDER_SIZE_FACTOR))
             rect = pygame.Rect(int(sx - sz / 2), int(sy - sz / 2), sz, sz)
-            pygame.draw.ellipse(self.screen, (255, 0, 0), rect)
-            pygame.draw.ellipse(self.screen, COLOR_BLACK, rect, 2)
-            return
+            pygame.draw.ellipse(self.screen, COLOR_RED, rect)
+            pygame.draw.ellipse(self.screen, COLOR_BLACK, rect, PLACEHOLDER_STROKE_WIDTH)
 
         if sprite.costume.surface is None:
             _load_costume_surface(sprite.costume)
@@ -397,7 +396,7 @@ class Renderer:
 
         # Position above the sprite, centred horizontally
         points_left = sprite.x > 0
-        bubble_scratch_y = sprite.y + 60 + total_h / 2
+        bubble_scratch_y = sprite.y + BUBBLE_Y_OFFSET + total_h / 2
 
         bx, by = scratch_to_screen(sprite.x, bubble_scratch_y)
 
@@ -550,7 +549,7 @@ class Renderer:
 
     def _draw_info(self) -> None:
         """Overlay: FPS, thread count, help."""
-        font = pygame.font.Font(None, 24)
+        font = pygame.font.Font(None, OVERLAY_FONT_SIZE)
         threads = len([t for t in self.runtime.threads if not t.is_done()])
         fps = f'{self.clock.get_fps():.0f}'
         lines = [
@@ -558,11 +557,11 @@ class Renderer:
             f'FPS: {fps}',
             'ESC = Quit',
         ]
-        y = 5
+        y = OVERLAY_Y
         for line in lines:
             img = font.render(line, True, COLOR_BLACK)
-            self.screen.blit(img, (5, y))
-            y += 22
+            self.screen.blit(img, (OVERLAY_X, y))
+            y += OVERLAY_LINE_HEIGHT
 
     # ── Helpers for demo project construction ─────────────────────────
 
@@ -588,3 +587,18 @@ class Renderer:
             rotation_center_y=cy,
             surface=surf,
         )
+
+# Placeholder sprite
+COLOR_RED = (255, 0, 0)
+PLACEHOLDER_SIZE_FACTOR = 20
+PLACEHOLDER_MIN_SIZE = 4
+PLACEHOLDER_STROKE_WIDTH = 2
+
+# Overlay / debug info
+OVERLAY_FONT_SIZE = 24
+OVERLAY_X = 5
+OVERLAY_Y = 5
+OVERLAY_LINE_HEIGHT = 22
+
+# Bubble position
+BUBBLE_Y_OFFSET = 60
