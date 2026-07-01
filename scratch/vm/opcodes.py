@@ -218,17 +218,17 @@ def control_stop(rt: Runtime, tgt: Target, block: Block) -> None:
     choice = option.value if option else STOP_ALL
     _cur = rt.current_thread
     if choice == STOP_ALL:
-        for th in list(rt.threads):
+        for th in rt.threads:
             th.status = ThreadStatus.DONE
     elif choice == STOP_THIS_SCRIPT:
         if _cur is not None:
             _cur.status = ThreadStatus.DONE
     elif choice == STOP_OTHER_IN_SPRITE:
-        for th in list(rt.threads):
+        for th in rt.threads:
             if th.target is tgt and th is not _cur:
                 th.status = ThreadStatus.DONE
     elif choice == STOP_OTHER_IN_STAGE:
-        for th in list(rt.threads):
+        for th in rt.threads:
             if th.target.is_stage and th is not _cur:
                 th.status = ThreadStatus.DONE
 
@@ -1711,7 +1711,7 @@ def procedures_call(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
     )
     if proccode is None:
         return
-    for bid, b in list(tgt.blocks.items()):
+    for bid, b in tgt.blocks.items():
         if b.opcode in ('procedures_definition', 'procedures_def'):
             b_mut = getattr(b, 'mutation', None) or getattr(b, '_mutation', None)
             if b_mut:

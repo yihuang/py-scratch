@@ -16,7 +16,7 @@ RUNNING ──→ DONE               (generator exhausted / stack empty)
 | Yield value | Meaning |
 |---|---|
 | `YIELD` | Pause this thread; resume next tick |
-| `wait_yield(secs)` | Park thread until wall-clock time elapses |
+| `Wait(secs)` | Park thread until wall-clock time elapses |
 | `Report(value)` | Reporter block returns a value to its parent |
 | `StopIteration` (generator exit) | Handler finished; advance to next block |
 
@@ -36,7 +36,7 @@ Each thread has a **stack of frames**. A frame holds:
 2. **Generator block**: call `next(frame.gen)` to resume the handler:
    - `StopIteration` → handler finished → advance to next block.
    - `YIELD` → suspend thread; resume next frame.
-   - `wait_yield(secs)` → suspend thread; resume after `secs` seconds by wall clock.
+   - `Wait(secs)` → suspend thread; resume after `secs` seconds by wall clock.
    - `Report(value)` → reporter block result; pop frame, deliver value to parent.
 
 ### Block chaining
