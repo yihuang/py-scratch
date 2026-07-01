@@ -13,6 +13,13 @@ RUNNING ──→ DONE               (generator exhausted / stack empty)
 | `WAITING` | Paused for a timer (`wait_yield`) | Set back to `RUNNING` when `clock.now() >= waiting_until` |
 | `DONE` | Finished | Removed from the thread list by the sweep at the end of each `step()` |
 
+| Yield value | Meaning |
+|---|---|
+| `YIELD` | Pause this thread; resume next tick |
+| `wait_yield(secs)` | Park thread until wall-clock time elapses |
+| `Report(value)` | Reporter block returns a value to its parent |
+| `StopIteration` (generator exit) | Handler finished; advance to next block |
+
 A thread in `RUNNING` that yields `YIELD` stays `RUNNING` — the generator is simply resumed by `next(gen)` on the next call to `step()`. There is no separate `YIELD` state; the per-frame guarantee (each thread is stepped at most once per `step()`) makes it unnecessary.
 
 ### Execution per thread
@@ -79,6 +86,7 @@ This is the only place threads are removed (besides `green_flag()` which clears 
 
 ## Why generators?
 
+**89 opcode handlers** implemented across Control, Events, Motion, Looks, Operators, Data, Sensing, and Pen.
 Each opcode handler is a Python generator function. This gives us:
 
 - **Cooperative concurrency** — handlers voluntarily yield control by yielding `YIELD` or `wait_yield`. No preemption needed.
