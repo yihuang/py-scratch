@@ -417,7 +417,10 @@ def _serialize_target(target: Target) -> dict[str, Any]:
     """Serialize a Target to Scratch JSON format."""
     variables: dict[str, list[Any]] = {}
     for vid, var in target.variables.items():
-        variables[vid] = [var.name, var.value]
+        entry: list[Any] = [var.name, var.value]
+        if var.is_cloud:
+            entry.append(True)
+        variables[vid] = entry
 
     lists: dict[str, list[Any]] = {}
     for lid, lst in target.lists.items():

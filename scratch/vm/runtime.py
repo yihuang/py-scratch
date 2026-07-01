@@ -111,6 +111,10 @@ class Runtime:
         self._mouse_y: float = 0.0
         self._mouse_down: bool = False
         self._edge_hat_values: dict[str, bool] = {}
+        self._cloud_count: int = 0
+        self._cloud_limit: int = 10
+        self._cloud: Any = None
+
 
     @property
     def threads(self) -> list[Thread]:
@@ -140,11 +144,45 @@ class Runtime:
     def get_handler(self, opcode: str) -> Handler | None:
         return self._handlers.get(opcode)
 
+    # ── Cloud IO ─────────────────────────────────────────────────────
+
+    def _init_cloud(self) -> None:
+        """Lazily create the Cloud IO device."""
+        if self._cloud is None:
+            from .cloud import Cloud  # noqa: late import to avoid circular dependency
+            self._cloud = Cloud(self)
+            if self.stage is not None:
+                self._cloud.set_stage(self.stage)
+
+    def io_query(self, device: str, method: str, *args: Any) -> Any:
+        """Query an IO device (cloud, keyboard, etc.)."""
+        if device == 'cloud':
+            self._init_cloud()
+            fn = getattr(self._cloud, method, None)
+            if fn is not None:
+                return fn(*args)
+        return None
+
+    def can_add_cloud_variable(self) -> bool:
+        """Check if another cloud variable can be added (max 10)."""
+        return self._cloud_count < self._cloud_limit
+
+    def add_cloud_variable(self) -> None:
+        """Increment the cloud variable counter."""
+        self._cloud_count += 1
+
+    def has_cloud_data(self) -> bool:
+        """Whether the runtime has any cloud variables."""
+        return self._cloud_count > 0
+
     # ── Target management ─────────────────────────────────────────────
     def add_target(self, target: Target) -> None:
         self.targets.append(target)
         if target.is_stage:
             self.stage = target
+            self._init_cloud()
+            if self._cloud is not None:
+                self._cloud.set_stage(self.stage)
         self._index_target_hats(target)
 
     def _index_target_hats(self, target: Target) -> None:

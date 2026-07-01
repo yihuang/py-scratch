@@ -1058,6 +1058,8 @@ def data_setvariableto(rt: Runtime, tgt: Target, block: Block) -> None:
             var = rt.stage.lookup_variable(var_name)
         if var:
             var.value = value
+            if var.is_cloud:
+                rt.io_query('cloud', 'request_update_variable', var.name, value)
 
 
 def data_changevariableby(rt: Runtime, tgt: Target, block: Block) -> None:
@@ -1069,7 +1071,8 @@ def data_changevariableby(rt: Runtime, tgt: Target, block: Block) -> None:
             var = rt.stage.lookup_variable(var_name)
         if var:
             var.value = _num(var.value) + delta
-
+            if var.is_cloud:
+                rt.io_query('cloud', 'request_update_variable', var.name, var.value)
 
 def data_showvariable(rt: Runtime, tgt: Target, block: Block) -> None:
     """Toggle variable monitor visibility — no-op for now."""

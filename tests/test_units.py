@@ -2297,6 +2297,98 @@ class TestDataVariables:
         rt = _run(t)
         assert len(rt.threads) == 0
 
+    # ── Cloud variables ────────────────────────────────────────────────
+
+    def test_cloud_variable_set(self) -> None:
+        """Setting a cloud variable updates its value."""
+        t = _stack('data_setvariableto')
+        t.variables['score'] = Variable('☁ score', 0, is_cloud=True)
+        _set(t, 'b0', inputs={'VALUE': 99}, fields={'VARIABLE': '☁ score'})
+        rt = _run(t)
+        var = t.lookup_variable('☁ score')
+        assert var is not None and var.value == 99
+        assert var.is_cloud
+
+    def test_cloud_variable_change(self) -> None:
+        """Changing a cloud variable adds delta to its value."""
+        t = _stack('data_changevariableby')
+        t.variables['c'] = Variable('☁ counter', 10, is_cloud=True)
+        _set(t, 'b0', inputs={'VALUE': 5}, fields={'VARIABLE': '☁ counter'})
+        rt = _run(t)
+        var = t.lookup_variable('☁ counter')
+        assert var is not None and var.value == 15
+
+    def test_cloud_update_sent_via_io_query(self) -> None:
+        """data_setvariableto sends cloud update via io_query when variable is cloud."""
+        rt = Runtime()
+        rt._real_time = False
+        rt.add_target(Target(name='Stage', is_stage=True))
+        rt.register_all(OPCODE_MAP)
+
+        # Track cloud updates
+        sent: list[tuple[str, Any]] = []
+
+        class TrackingProvider:
+            def update_variable(self, name, value):
+                sent.append((name, value))
+
+        rt._init_cloud()
+        rt._cloud.set_provider(TrackingProvider())
+
+        t = Target(name='Sprite')
+        t.variables['v'] = Variable('☁ x', 0, is_cloud=True)
+        t.blocks['h'] = Block(id='h', opcode='event_whenflagclicked', top_level=True, next='b')
+        t.blocks['b'] = Block(id='b', opcode='data_setvariableto',
+            inputs={'VALUE': Input(name='', value=42)},
+            fields={'VARIABLE': Field(name='VARIABLE', value='☁ x')})
+        t._rebuild_hat_cache()
+        rt.add_target(t)
+
+        rt.green_flag()
+        for _ in range(10):
+            rt.step()
+
+        assert len(sent) == 1, f'Expected 1 cloud update, got {sent}'
+        assert sent[0] == ('☁ x', 42)
+
+    def test_cloud_variable_limit(self) -> None:
+        """Runtime enforces max 10 cloud variables."""
+        rt = Runtime()
+        rt._cloud_count = 10
+        assert not rt.can_add_cloud_variable()
+        # Under limit
+        rt2 = Runtime()
+        assert rt2.can_add_cloud_variable()
+        rt2.add_cloud_variable()
+        assert rt2._cloud_count == 1
+        assert rt2.has_cloud_data()
+
+    def test_cloud_variable_non_cloud_not_sent(self) -> None:
+        """Non-cloud variables do not trigger cloud updates."""
+        t = _stack('data_setvariableto')
+        t.variables['v'] = Variable('local_var', 0, is_cloud=False)
+        _set(t, 'b0', inputs={'VALUE': 77}, fields={'VARIABLE': 'local_var'})
+        rt = _run(t)
+        var = t.lookup_variable('local_var')
+        assert var is not None and var.value == 77
+        assert not var.is_cloud
+
+    def test_cloud_sb3_round_trip(self) -> None:
+        """Cloud flag survives SB3 serialization."""
+        from scratch.sb3.io import _build_project_json
+        rt = Runtime()
+        rt._real_time = False
+        rt.add_target(Target(name='Stage', is_stage=True))
+        t = Target(name='Sprite')
+        t.variables['c'] = Variable('☁ data', 42, is_cloud=True)
+        rt.add_target(t)
+        project = _build_project_json(rt)
+        var_json = project['targets'][1]['variables']['c']
+        assert len(var_json) == 3
+        assert var_json[0] == '☁ data'
+        assert var_json[1] == 42
+        assert var_json[2] is True
+
 
 # ═══════════════════════════════════════════════════════════════════════
 #  Data — Lists
