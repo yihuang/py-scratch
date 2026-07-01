@@ -823,6 +823,38 @@ class TestEvent:
         assert len(rt.threads) == 0
         assert t2.x == 5.0
 
+    def test_broadcast_primitive_type_array_resolved(self) -> None:
+        """Broadcast input in Scratch primitive format [11, msg, block_id] is resolved to bare string.
+
+        Scratch JSON stores inline primitives as ``[type_code, value, block_id]``.
+        Type code 11 = broadcast. ``resolve_input`` must unwrap the array and
+        return only the message string; otherwise the broadcast lookup uses the
+        raw list and never matches.
+        """
+        t1 = Target(name='A', is_stage=False)
+        t1.blocks['h1'] = make_block('event_whenflagclicked', 'h1', top_level=True, next_='b')
+        t1.blocks['b'] = make_block(
+            'event_broadcast', 'b',
+            inputs={'BROADCAST_INPUT': [11, '我的消息', 'h=dummy_id']},
+        )
+        t1._rebuild_hat_cache()
+
+        t2 = Target(name='B', is_stage=False)
+        t2.blocks['h2'] = make_block(
+            'event_whenbroadcastreceived', 'h2', top_level=True,
+            fields={'BROADCAST_OPTION': '我的消息'}, next_='m',
+        )
+        t2.blocks['m'] = Block(id='m', opcode='motion_movesteps', inputs={'STEPS': 5})
+        t2._rebuild_hat_cache()
+
+        rt = _rt([t1, t2])
+        rt.green_flag()
+        for _ in range(10):
+            rt.step()
+        assert len(rt.threads) == 0
+        # B should have received the broadcast and moved
+        assert t2.x == 5.0
+
     def test_keypressed_matches_key_name(self) -> None:
         """event_whenkeypressed hat starts when start_key_hat matches."""
         t1 = Target(name='Sprite1', is_stage=False)

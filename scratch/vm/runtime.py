@@ -238,6 +238,8 @@ class Runtime:
                     self.stage and self.stage.lookup_list(ref)
                 )
                 return lst.contents if lst else []
+            # Literal primitives (4-10) and broadcast (11) — return the value directly
+            return ref
 
         # Shadow pair: [block_id, literal] — use the literal.
         return _unwrap_shadow(value)
