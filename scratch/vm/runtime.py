@@ -15,7 +15,6 @@ from collections.abc import Callable, Generator
 from typing import Any
 from .target import Target
 from .thread import (
-    Report,
     Thread,
     ThreadStatus,
     Wait,
@@ -115,7 +114,6 @@ class Runtime:
         self._cloud_limit: int = 10
         self._cloud: Any = None
 
-
     @property
     def threads(self) -> list[Thread]:
         """All alive threads: runnable + waiting.  Read-only view for external consumers."""
@@ -149,7 +147,8 @@ class Runtime:
     def _init_cloud(self) -> None:
         """Lazily create the Cloud IO device."""
         if self._cloud is None:
-            from .cloud import Cloud  # noqa: late import to avoid circular dependency
+            from .cloud import Cloud  # noqa: PLC0415  — late import to avoid circular dependency
+
             self._cloud = Cloud(self)
             if self.stage is not None:
                 self._cloud.set_stage(self.stage)
@@ -231,26 +230,13 @@ class Runtime:
     def evaluate(self, target: Target, block_id: str) -> Any:
         """Evaluate a reporter/boolean block by id and return its value.
 
-        This runs synchronously; reporter chains are resolved atomically
-        within one frame.  That matches Scratch's behaviour because
-        reporters never wait.
+        Reporters are synchronous — they return their value directly.
         """
         block = target.blocks[block_id]
         handler = self.get_handler(block.opcode)
-        assert handler is not None
-        gen = handler(self, target, block)
-        if gen is not None:
-            try:
-                while True:
-                    val = next(gen)
-                    # Reporters only yield REPORT(value); we collect it.
-                    if isinstance(val, Report):
-                        return val.value
-                    # Ignore YIELD/WAIT — should not happen in reporters,
-                    # but handle gracefully.
-            except StopIteration:
-                pass
-        return None
+        if handler is None:
+            return None
+        return handler(self, target, block)
 
     def resolve_input(self, target: Target, value: Any) -> Any:
         """Resolve a raw value (literal, block reference, or inlined primitive) to a concrete value.
@@ -452,28 +438,32 @@ class Runtime:
         if frame.gen is None:
             gen_or_val = handler(self, thread.target, block)
             if gen_or_val is None or not hasattr(gen_or_val, '__next__'):
+                if thread.status is ThreadStatus.DONE:
+                    self.current_thread = None
+                    return
                 self._advance_to_next(thread)
                 self.current_thread = None
                 return
-            if not isinstance(gen_or_val, types.GeneratorType):
+            if isinstance(gen_or_val, types.GeneratorType):
+                frame.gen = gen_or_val
+            else:
+                # Non-generator with __next__ (unusual) — treat as instant
+                if thread.status is ThreadStatus.DONE:
+                    self.current_thread = None
+                    return
                 self._advance_to_next(thread)
                 self.current_thread = None
                 return
-            frame.gen = gen_or_val
         try:
             yielded = next(frame.gen)
         except StopIteration:
+            if thread.status is ThreadStatus.DONE:
+                self.current_thread = None
+                return
             self._advance_to_next(thread)
             self.current_thread = None
             return
         match yielded:
-            case Report(value=result):
-                thread.pop_frame()
-                parent = thread.peek_frame()
-                if parent is not None:
-                    parent.saved['_result'] = result
-                self.current_thread = None
-                return
             case Wait(seconds=secs):
                 self._schedule_wake(thread, secs)
                 self.current_thread = None

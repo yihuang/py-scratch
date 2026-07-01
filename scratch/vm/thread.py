@@ -21,10 +21,10 @@ if TYPE_CHECKING:
 
 # ── Yield protocol constants ────────────────────────────────────────────
 
-# A block handler is a generator that yields one of these values:
+# A stack block handler is a generator that yields one of these values:
 #   YieldPass() — yield control; reschedule next tick.
 #   Wait(secs)  — pause thread for secs.
-#   Report(val) — reporter block returning a value to its parent.
+# Reporter blocks return their value directly (no yield).
 
 
 class YieldPass:
@@ -39,13 +39,6 @@ class Wait:
     """Pause thread for ``seconds``."""
 
     seconds: float
-
-
-@dataclass(frozen=True)
-class Report:
-    """Reporter block returning a ``value`` to the parent frame."""
-
-    value: Any
 
 
 # ── Status ──────────────────────────────────────────────────────────────

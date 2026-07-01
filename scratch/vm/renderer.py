@@ -342,13 +342,12 @@ class Renderer:
             rect = pygame.Rect(int(sx - sz / 2), int(sy - sz / 2), sz, sz)
             pygame.draw.ellipse(self.screen, COLOR_RED, rect)
             pygame.draw.ellipse(self.screen, COLOR_BLACK, rect, PLACEHOLDER_STROKE_WIDTH)
+        costume = sprite.costume
+        assert costume is not None  # checked above
+        if costume.surface is None:
+            _load_costume_surface(costume)
 
-        if sprite.costume.surface is None:
-            _load_costume_surface(sprite.costume)
-
-        base = sprite.costume.surface
-        if base is None:
-            return
+        base = costume.surface
 
         # Apply size
         scale = sprite.size / 100.0

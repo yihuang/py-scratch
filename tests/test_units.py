@@ -2329,7 +2329,7 @@ class TestDataVariables:
         sent: list[tuple[str, Any]] = []
 
         class TrackingProvider:
-            def update_variable(self, name, value):
+            def update_variable(self, name: str, value: Any) -> None:
                 sent.append((name, value))
 
         rt._init_cloud()
@@ -2338,9 +2338,12 @@ class TestDataVariables:
         t = Target(name='Sprite')
         t.variables['v'] = Variable('☁ x', 0, is_cloud=True)
         t.blocks['h'] = Block(id='h', opcode='event_whenflagclicked', top_level=True, next='b')
-        t.blocks['b'] = Block(id='b', opcode='data_setvariableto',
+        t.blocks['b'] = Block(
+            id='b',
+            opcode='data_setvariableto',
             inputs={'VALUE': Input(name='', value=42)},
-            fields={'VARIABLE': Field(name='VARIABLE', value='☁ x')})
+            fields={'VARIABLE': Field(name='VARIABLE', value='☁ x')},
+        )
         t._rebuild_hat_cache()
         rt.add_target(t)
 
@@ -2375,7 +2378,8 @@ class TestDataVariables:
 
     def test_cloud_sb3_round_trip(self) -> None:
         """Cloud flag survives SB3 serialization."""
-        from scratch.sb3.io import _build_project_json
+        from scratch.sb3.io import _build_project_json  # noqa: PLC0415
+
         rt = Runtime()
         rt._real_time = False
         rt.add_target(Target(name='Stage', is_stage=True))

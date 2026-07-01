@@ -1,10 +1,10 @@
 """
 Opcodes — the actual block implementations for the Scratch VM.
 
-Each handler is a generator function ``(runtime, target, block) -> Generator``.
-* Stack blocks end normally (``StopIteration``) when done.
-* Reporter blocks ``yield Report(value)``.
-* Blocks that need to pause ``yield YIELD`` or ``yield Wait(secs)``.
+Each handler is a function ``(runtime, target, block)``.
+* Stack blocks that need to pause ``yield YIELD`` or ``yield Wait(secs)``.
+* Reporter blocks **return** their value directly (no ``yield``).
+* Instant (no-op) handlers return ``None``.
 """
 
 from __future__ import annotations
@@ -14,12 +14,11 @@ import pygame
 import random
 import time
 import json
-from collections.abc import Generator
 from typing import Any
 
 from .runtime import Handler, Runtime
 from .target import Target
-from .thread import Report, Thread, ThreadStatus, Wait, YIELD
+from .thread import Thread, ThreadStatus, Wait, YIELD
 from .types import Block, Input, Sound
 from .constants import (
     BOUNCE_REFLECT_ANGLE,
@@ -158,12 +157,12 @@ def _scratch_compare(v1: Any, v2: Any) -> int:
 # ═══════════════════════════════════════════════════════════════════════
 
 
-def control_wait(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+def control_wait(rt: Runtime, tgt: Target, block: Block) -> Any:
     dur = rt.num(tgt, block, 'DURATION')
     yield Wait(dur)
 
 
-def control_repeat(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+def control_repeat(rt: Runtime, tgt: Target, block: Block) -> Any:
     count = rt.num_int(tgt, block, 'TIMES')
     sub_id = _substack_val(block.inputs.get('SUBSTACK'))
     for _ in range(count):
@@ -172,7 +171,7 @@ def control_repeat(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
         yield YIELD
 
 
-def control_forever(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+def control_forever(rt: Runtime, tgt: Target, block: Block) -> Any:
     sub_id = _substack_val(block.inputs.get('SUBSTACK'))
     while True:
         if sub_id:
@@ -180,14 +179,14 @@ def control_forever(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
         yield YIELD
 
 
-def control_if(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+def control_if(rt: Runtime, tgt: Target, block: Block) -> Any:
     cond = rt.truthy(tgt, block, 'CONDITION')
     sub_id = _substack_val(block.inputs.get('SUBSTACK'))
     if cond and sub_id:
         yield from rt.execute_substack(tgt, sub_id)
 
 
-def control_if_else(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+def control_if_else(rt: Runtime, tgt: Target, block: Block) -> Any:
     cond = rt.truthy(tgt, block, 'CONDITION')
     if cond:
         sub_id = _substack_val(block.inputs.get('SUBSTACK'))
@@ -199,12 +198,12 @@ def control_if_else(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
             yield from rt.execute_substack(tgt, sub_id)
 
 
-def control_wait_until(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+def control_wait_until(rt: Runtime, tgt: Target, block: Block) -> Any:
     while not rt.truthy(tgt, block, 'CONDITION'):
         yield YIELD
 
 
-def control_repeat_until(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+def control_repeat_until(rt: Runtime, tgt: Target, block: Block) -> Any:
     substack = block.inputs.get('SUBSTACK')
     while not rt.truthy(tgt, block, 'CONDITION'):
         if substack and substack.value:
@@ -233,7 +232,7 @@ def control_stop(rt: Runtime, tgt: Target, block: Block) -> None:
                 th.status = ThreadStatus.DONE
 
 
-def control_while(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+def control_while(rt: Runtime, tgt: Target, block: Block) -> Any:
     substack = block.inputs.get('SUBSTACK')
     while rt.truthy(tgt, block, 'CONDITION'):
         if substack and substack.value:
@@ -241,7 +240,7 @@ def control_while(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
         yield YIELD
 
 
-def control_for_each(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+def control_for_each(rt: Runtime, tgt: Target, block: Block) -> Any:
     var_field = block.fields.get('VARIABLE')
     var_name = _field_val(var_field) if var_field else ''
     var = tgt.lookup_variable(var_name) if var_name else None
@@ -258,8 +257,8 @@ def control_for_each(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
         yield YIELD
 
 
-def control_get_counter(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
-    yield Report(rt._for_each_counter)
+def control_get_counter(rt: Runtime, tgt: Target, block: Block) -> Any:
+    return rt._for_each_counter
 
 
 def control_incr_counter(rt: Runtime, tgt: Target, block: Block) -> None:
@@ -291,7 +290,7 @@ def control_start_as_clone(rt: Runtime, tgt: Target, block: Block) -> None:
     """Hat — fires when a clone is created. Threads started by clone_target."""
 
 
-def control_all_at_once(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+def control_all_at_once(rt: Runtime, tgt: Target, block: Block) -> Any:
     """Run the substack without yielding between blocks (all at once)."""
     sub_id = _substack_val(block.inputs.get('SUBSTACK'))
     if sub_id:
@@ -337,18 +336,18 @@ def event_whenbackdropswitchesto(rt: Runtime, tgt: Target, block: Block) -> None
     pass
 
 
-def event_whentouchingobject(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+def event_whentouchingobject(rt: Runtime, tgt: Target, block: Block) -> Any:
     """Edge-activated hat — returns True when touching the specified object."""
     obj = block.fields.get('TOUCHINGOBJECTMENU')
     obj_name = _field_val(obj) if obj else ''
     if obj_name == '':
-        yield Report(False)
+        return False
         return
     touching = _touching_object_check(rt, tgt, obj_name)
-    yield Report(rt._check_edge_hat('event_whentouchingobject', tgt, block, touching))
+    return rt._check_edge_hat('event_whentouchingobject', tgt, block, touching)
 
 
-def event_whengreaterthan(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+def event_whengreaterthan(rt: Runtime, tgt: Target, block: Block) -> Any:
     """Edge-activated hat — returns True when timer/loudness > VALUE."""
     option = block.fields.get('WHENGREATERTHANMENU')
     opt = _field_val(option) if option else ''
@@ -359,14 +358,14 @@ def event_whengreaterthan(rt: Runtime, tgt: Target, block: Block) -> Generator[A
         result = False  # no microphone
     else:
         result = False
-    yield Report(rt._check_edge_hat('event_whengreaterthan', tgt, block, result))
+    return rt._check_edge_hat('event_whengreaterthan', tgt, block, result)
 
 
 def event_broadcast(rt: Runtime, tgt: Target, block: Block) -> None:
     rt.broadcast(rt.val(tgt, block, 'BROADCAST_INPUT'))
 
 
-def event_broadcastandwait(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+def event_broadcastandwait(rt: Runtime, tgt: Target, block: Block) -> Any:
     started = rt.broadcast(rt.val(tgt, block, 'BROADCAST_INPUT'))
     # Yield until all started threads are done
     while any(th for th in started if not th.is_done()):
@@ -502,25 +501,25 @@ def motion_setrotationstyle(rt: Runtime, tgt: Target, block: Block) -> None:
         tgt.rotation_style = style.value
 
 
-def motion_xposition(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+def motion_xposition(rt: Runtime, tgt: Target, block: Block) -> Any:
     val = tgt.x
     if abs(val - round(val)) < 1e-9:
         val = round(val)
-    yield Report(val)
+    return val
 
 
-def motion_yposition(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+def motion_yposition(rt: Runtime, tgt: Target, block: Block) -> Any:
     val = tgt.y
     if abs(val - round(val)) < 1e-9:
         val = round(val)
-    yield Report(val)
+    return val
 
 
-def motion_direction(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
-    yield Report(tgt.direction)
+def motion_direction(rt: Runtime, tgt: Target, block: Block) -> Any:
+    return tgt.direction
 
 
-def motion_glidesecstoxy(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+def motion_glidesecstoxy(rt: Runtime, tgt: Target, block: Block) -> Any:
     secs = rt.num(tgt, block, 'SECS')
     x = rt.num(tgt, block, 'X')
     y = rt.num(tgt, block, 'Y')
@@ -538,7 +537,7 @@ def motion_glidesecstoxy(rt: Runtime, tgt: Target, block: Block) -> Generator[An
     tgt.set_xy(x, y)
 
 
-def motion_glideto(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+def motion_glideto(rt: Runtime, tgt: Target, block: Block) -> Any:
     secs = rt.num(tgt, block, 'SECS')
     target_name = _str(block.fields.get('TO'))
     xy = _target_xy(rt, target_name)
@@ -576,12 +575,12 @@ def motion_align_scene(rt: Runtime, tgt: Target, block: Block) -> None:
     pass
 
 
-def motion_xscroll(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
-    yield Report(0)
+def motion_xscroll(rt: Runtime, tgt: Target, block: Block) -> Any:
+    return 0
 
 
-def motion_yscroll(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
-    yield Report(0)
+def motion_yscroll(rt: Runtime, tgt: Target, block: Block) -> Any:
+    return 0
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -709,38 +708,38 @@ def looks_changesizeby(rt: Runtime, tgt: Target, block: Block) -> None:
     tgt.size += rt.num(tgt, block, 'CHANGE')
 
 
-def looks_costumenumbername(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+def looks_costumenumbername(rt: Runtime, tgt: Target, block: Block) -> Any:
     numname = block.fields.get('NUMBER_NAME')
     if numname and numname.value == 'number':
-        yield Report(tgt.costume_index + 1)
+        return tgt.costume_index + 1
     else:
-        yield Report(tgt.current_costume_name)
+        return tgt.current_costume_name
 
 
-def looks_costume(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+def looks_costume(rt: Runtime, tgt: Target, block: Block) -> Any:
     """Menu block: costume dropdown for ``looks_switchcostumeto``.
     Returns the selected costume name from the ``COSTUME`` field.
     """
     name = _field_val(block.fields.get('COSTUME'))
-    yield Report(name)
+    return name
 
 
-def looks_backdrops(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+def looks_backdrops(rt: Runtime, tgt: Target, block: Block) -> Any:
     """Menu block: backdrop dropdown for ``looks_switchbackdropto``.
     Returns the selected backdrop name from the ``BACKDROP`` field.
     """
     name = _field_val(block.fields.get('BACKDROP'))
-    yield Report(name)
+    return name
 
 
-def looks_backdropnumbername(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+def looks_backdropnumbername(rt: Runtime, tgt: Target, block: Block) -> Any:
     numname = block.fields.get('NUMBER_NAME')
     if numname and numname.value == 'number':
-        yield Report(tgt.costume_index + 1)
+        return tgt.costume_index + 1
     else:
-        yield Report(tgt.current_costume_name)
+        return tgt.current_costume_name
 
-    yield Report(tgt.current_costume_name)
+    return tgt.current_costume_name
 
 
 def _set_backdrop(rt: Runtime, val: Any) -> list[Thread]:
@@ -787,7 +786,7 @@ def looks_switchbackdropto(rt: Runtime, tgt: Target, block: Block) -> None:
     _set_backdrop(rt, val)
 
 
-def looks_switchbackdroptoandwait(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+def looks_switchbackdroptoandwait(rt: Runtime, tgt: Target, block: Block) -> Any:
     """Switch backdrop and wait for all ``event_whenbackdropswitchesto`` handlers to finish."""
     if rt.stage is None:
         return
@@ -820,7 +819,7 @@ def looks_say(rt: Runtime, tgt: Target, block: Block) -> None:
     tgt.say_text = _format_bubble_text(msg) or None
 
 
-def looks_sayforsecs(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+def looks_sayforsecs(rt: Runtime, tgt: Target, block: Block) -> Any:
     msg = rt.val(tgt, block, 'MESSAGE')
     secs = rt.num(tgt, block, 'SECS')
     tgt.say_text = _format_bubble_text(msg) or None
@@ -837,7 +836,7 @@ def looks_think(rt: Runtime, tgt: Target, block: Block) -> None:
     tgt.say_text = _format_bubble_text(msg) or None
 
 
-def looks_thinkforsecs(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+def looks_thinkforsecs(rt: Runtime, tgt: Target, block: Block) -> Any:
     """Think bubble for a duration."""
     msg = rt.val(tgt, block, 'MESSAGE')
     secs = rt.num(tgt, block, 'SECS')
@@ -885,9 +884,9 @@ def looks_cleargraphiceffects(rt: Runtime, tgt: Target, block: Block) -> None:
         tgt.effects[k] = 0
 
 
-def looks_size(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+def looks_size(rt: Runtime, tgt: Target, block: Block) -> Any:
     """Reporter: current sprite size."""
-    yield Report(tgt.size)
+    return tgt.size
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -895,120 +894,120 @@ def looks_size(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
 # ═══════════════════════════════════════════════════════════════════════
 
 
-def operator_add(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+def operator_add(rt: Runtime, tgt: Target, block: Block) -> Any:
     a = rt.num(tgt, block, 'NUM1')
     b = rt.num(tgt, block, 'NUM2')
-    yield Report(a + b)
+    return a + b
 
 
-def operator_subtract(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+def operator_subtract(rt: Runtime, tgt: Target, block: Block) -> Any:
     a = rt.num(tgt, block, 'NUM1')
     b = rt.num(tgt, block, 'NUM2')
-    yield Report(a - b)
+    return a - b
 
 
-def operator_multiply(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+def operator_multiply(rt: Runtime, tgt: Target, block: Block) -> Any:
     a = rt.num(tgt, block, 'NUM1')
     b = rt.num(tgt, block, 'NUM2')
-    yield Report(a * b)
+    return a * b
 
 
-def operator_divide(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+def operator_divide(rt: Runtime, tgt: Target, block: Block) -> Any:
     a = rt.num(tgt, block, 'NUM1')
     b = rt.num(tgt, block, 'NUM2')
     # _num handles Infinity/INFINITY distinction already
-    yield Report(a / b if b != 0 else float('inf'))
+    return a / b if b != 0 else float('inf')
 
 
-def operator_lt(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+def operator_lt(rt: Runtime, tgt: Target, block: Block) -> Any:
     a = rt.val(tgt, block, 'OPERAND1')
     b = rt.val(tgt, block, 'OPERAND2')
-    yield Report(_scratch_compare(a, b) < 0)
+    return _scratch_compare(a, b) < 0
 
 
-def operator_equals(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+def operator_equals(rt: Runtime, tgt: Target, block: Block) -> Any:
     a = rt.val(tgt, block, 'OPERAND1')
     b = rt.val(tgt, block, 'OPERAND2')
-    yield Report(_scratch_compare(a, b) == 0)
+    return _scratch_compare(a, b) == 0
 
 
-def operator_gt(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+def operator_gt(rt: Runtime, tgt: Target, block: Block) -> Any:
     a = rt.val(tgt, block, 'OPERAND1')
     b = rt.val(tgt, block, 'OPERAND2')
-    yield Report(_scratch_compare(a, b) > 0)
+    return _scratch_compare(a, b) > 0
 
 
-def operator_and(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+def operator_and(rt: Runtime, tgt: Target, block: Block) -> Any:
     a = rt.truthy(tgt, block, 'OPERAND1')
     b = rt.truthy(tgt, block, 'OPERAND2')
-    yield Report(a and b)
+    return a and b
 
 
-def operator_or(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+def operator_or(rt: Runtime, tgt: Target, block: Block) -> Any:
     a = rt.truthy(tgt, block, 'OPERAND1')
     b = rt.truthy(tgt, block, 'OPERAND2')
-    yield Report(a or b)
+    return a or b
 
 
-def operator_not(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+def operator_not(rt: Runtime, tgt: Target, block: Block) -> Any:
     a = rt.truthy(tgt, block, 'OPERAND')
-    yield Report(not a)
+    return not a
 
 
-def operator_random(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+def operator_random(rt: Runtime, tgt: Target, block: Block) -> Any:
     lo = rt.num(tgt, block, 'FROM')
     hi = rt.num(tgt, block, 'TO')
     if lo > hi:
         lo, hi = hi, lo
     lo_int, hi_int = int(lo), int(hi)
     if lo == lo_int and hi == hi_int:
-        yield Report(random.randint(lo_int, hi_int))
+        return random.randint(lo_int, hi_int)
     else:
-        yield Report(lo + (hi - lo) * random.random())
+        return lo + (hi - lo) * random.random()
 
 
-def operator_join(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+def operator_join(rt: Runtime, tgt: Target, block: Block) -> Any:
     a = _str(rt.val(tgt, block, 'STRING1'))
     b = _str(rt.val(tgt, block, 'STRING2'))
-    yield Report(a + b)
+    return a + b
 
 
-def operator_letter_of(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+def operator_letter_of(rt: Runtime, tgt: Target, block: Block) -> Any:
     idx = rt.num_int(tgt, block, 'LETTER')
     s = _str(rt.val(tgt, block, 'STRING'))
     if 1 <= idx <= len(s):
-        yield Report(s[idx - 1])
-    yield Report('')
+        return s[idx - 1]
+    return ''
 
 
-def operator_length(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+def operator_length(rt: Runtime, tgt: Target, block: Block) -> Any:
     s = _str(rt.val(tgt, block, 'STRING'))
-    yield Report(len(s))
+    return len(s)
 
 
-def operator_contains(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+def operator_contains(rt: Runtime, tgt: Target, block: Block) -> Any:
     s1 = _str(rt.val(tgt, block, 'STRING1'))
     s2 = _str(rt.val(tgt, block, 'STRING2'))
     # Scratch comparison: case-insensitive
-    yield Report(s2.lower() in s1.lower())
+    return s2.lower() in s1.lower()
 
 
-def operator_mod(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+def operator_mod(rt: Runtime, tgt: Target, block: Block) -> Any:
     a = rt.num(tgt, block, 'NUM1')
     b = rt.num(tgt, block, 'NUM2')
-    yield Report(a % b if b != 0 else float('nan'))
+    return a % b if b != 0 else float('nan')
 
 
-def operator_round(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+def operator_round(rt: Runtime, tgt: Target, block: Block) -> Any:
     n = rt.num(tgt, block, 'NUM')
-    yield Report(round(n))
+    return round(n)
 
 
-def operator_mathop(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+def operator_mathop(rt: Runtime, tgt: Target, block: Block) -> Any:
     op = block.fields.get('OPERATOR')
     n = rt.num(tgt, block, 'NUM')
     if op is None:
-        yield Report(0)
+        return 0
         return
     match _field_val(op):
         case 'abs':
@@ -1041,7 +1040,7 @@ def operator_mathop(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
             r = math.pow(10, n)
         case _:
             r = 0
-    yield Report(r)
+    return r
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -1074,6 +1073,7 @@ def data_changevariableby(rt: Runtime, tgt: Target, block: Block) -> None:
             if var.is_cloud:
                 rt.io_query('cloud', 'request_update_variable', var.name, var.value)
 
+
 def data_showvariable(rt: Runtime, tgt: Target, block: Block) -> None:
     """Toggle variable monitor visibility — no-op for now."""
     pass
@@ -1083,15 +1083,15 @@ def data_hidevariable(rt: Runtime, tgt: Target, block: Block) -> None:
     pass
 
 
-def data_variable(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+def data_variable(rt: Runtime, tgt: Target, block: Block) -> Any:
     var_name = _field_val(block.fields.get('VARIABLE'))
     if var_name:
         var = tgt.lookup_variable(var_name)
         if var is None and rt.stage:
             var = rt.stage.lookup_variable(var_name)
         if var:
-            yield Report(var.value)
-    yield Report(0)
+            return var.value
+    return 0
 
 
 LIST_ITEM_LIMIT = 200000
@@ -1213,7 +1213,7 @@ def data_deletealloflist(rt: Runtime, tgt: Target, block: Block) -> None:
             lst.contents.clear()
 
 
-def data_itemoflist(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+def data_itemoflist(rt: Runtime, tgt: Target, block: Block) -> Any:
     list_name = _field_val(block.fields.get('LIST'))
     value = rt.val(tgt, block, 'INDEX')
     if list_name:
@@ -1223,22 +1223,22 @@ def data_itemoflist(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
         if lst:
             idx = _to_list_index(value, len(lst.contents))
             if isinstance(idx, int):
-                yield Report(lst.contents[idx - 1])
-    yield Report('')
+                return lst.contents[idx - 1]
+    return ''
 
 
-def data_lengthoflist(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+def data_lengthoflist(rt: Runtime, tgt: Target, block: Block) -> Any:
     list_name = _field_val(block.fields.get('LIST'))
     if list_name:
         lst = tgt.lookup_list(list_name)
         if lst is None and rt.stage:
             lst = rt.stage.lookup_list(list_name)
         if lst:
-            yield Report(len(lst.contents))
-    yield Report(0)
+            return len(lst.contents)
+    return 0
 
 
-def data_listcontainsitem(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+def data_listcontainsitem(rt: Runtime, tgt: Target, block: Block) -> Any:
     list_name = _field_val(block.fields.get('LIST'))
     item = rt.val(tgt, block, 'ITEM')
     if list_name:
@@ -1247,11 +1247,11 @@ def data_listcontainsitem(rt: Runtime, tgt: Target, block: Block) -> Generator[A
             lst = rt.stage.lookup_list(list_name)
         if lst:
             # Scratch comparison: case-insensitive, type-insensitive
-            yield Report(any(_scratch_compare(item, x) == 0 for x in lst.contents))
-    yield Report(False)
+            return any(_scratch_compare(item, x) == 0 for x in lst.contents)
+    return False
 
 
-def data_itemnumoflist(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+def data_itemnumoflist(rt: Runtime, tgt: Target, block: Block) -> Any:
     list_name = _field_val(block.fields.get('LIST'))
     item = rt.val(tgt, block, 'ITEM')
     if list_name:
@@ -1261,11 +1261,11 @@ def data_itemnumoflist(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]
         if lst:
             for i, x in enumerate(lst.contents, 1):
                 if _scratch_compare(item, x) == 0:
-                    yield Report(i)
-    yield Report(0)
+                    return i
+    return 0
 
 
-def data_listcontents(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+def data_listcontents(rt: Runtime, tgt: Target, block: Block) -> Any:
     """Reporter: return list contents as a space-separated string."""
     list_name = _field_val(block.fields.get('LIST'))
     if list_name:
@@ -1275,10 +1275,10 @@ def data_listcontents(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
         if lst:
             items = lst.contents
             if all(len(str(x)) == 1 for x in items):
-                yield Report(''.join(str(x) for x in items))
+                return ''.join(str(x) for x in items)
             else:
-                yield Report(' '.join(str(x) for x in items))
-    yield Report('')
+                return ' '.join(str(x) for x in items)
+    return ''
 
 
 def data_hidelist(rt: Runtime, tgt: Target, block: Block) -> None:
@@ -1323,7 +1323,7 @@ def _touching_object_check(rt: Runtime, tgt: Target, obj_name: str) -> bool:
     return False
 
 
-def sensing_touchingobject(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+def sensing_touchingobject(rt: Runtime, tgt: Target, block: Block) -> Any:
     obj = block.fields.get('TOUCHINGOBJECTMENU')
     if obj is None:
         obj_input = block.inputs.get('TOUCHINGOBJECTMENU')
@@ -1336,26 +1336,26 @@ def sensing_touchingobject(rt: Runtime, tgt: Target, block: Block) -> Generator[
             obj_name = '_mouse_'
     else:
         obj_name = _field_val(obj)
-    yield Report(_touching_object_check(rt, tgt, obj_name))
+    return _touching_object_check(rt, tgt, obj_name)
 
 
-def sensing_touchingcolor(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
-    yield Report(False)  # simplified
+def sensing_touchingcolor(rt: Runtime, tgt: Target, block: Block) -> Any:
+    return False  # simplified
 
 
-def sensing_keypressed(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+def sensing_keypressed(rt: Runtime, tgt: Target, block: Block) -> Any:
     key_name = _field_val(block.fields.get('KEY_OPTION'))
     if not hasattr(rt, '_keyboard'):
-        yield Report(False)
+        return False
         return
     if key_name == 'any':
-        yield Report(any(rt._keyboard.values()))
+        return any(rt._keyboard.values())
         return
     pressed = rt._keyboard.get(key_name.lower(), False)
-    yield Report(pressed)
+    return pressed
 
 
-def sensing_askandwait(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+def sensing_askandwait(rt: Runtime, tgt: Target, block: Block) -> Any:
     """Ask a question and wait for an answer.
 
     Sets ``tgt.say_text`` to the question (like a think bubble), then waits
@@ -1370,43 +1370,43 @@ def sensing_askandwait(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]
     tgt.say_text = None
 
 
-def sensing_answer(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+def sensing_answer(rt: Runtime, tgt: Target, block: Block) -> Any:
     ans = getattr(rt, '_answer', None)
-    yield Report('' if ans is None else ans)
+    return '' if ans is None else ans
 
 
 def sensing_resettimer(rt: Runtime, tgt: Target, block: Block) -> None:
     rt.clock.reset()
 
 
-def sensing_timer(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
-    yield Report(rt.clock.now())
+def sensing_timer(rt: Runtime, tgt: Target, block: Block) -> Any:
+    return rt.clock.now()
 
 
-def sensing_coloristouchingcolor(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+def sensing_coloristouchingcolor(rt: Runtime, tgt: Target, block: Block) -> Any:
     """Color touching color (simplified: no-op)."""
-    yield Report(False)
+    return False
 
 
-def sensing_distanceto(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+def sensing_distanceto(rt: Runtime, tgt: Target, block: Block) -> Any:
     """Distance to _mouse_ or another sprite."""
     dest = block.fields.get('DISTANCETOMENU')
     dest_name = _field_val(dest) if dest else '_mouse_'
     if dest_name == '_mouse_':
         dx = tgt.x - rt._mouse_x
         dy = tgt.y - rt._mouse_y
-        yield Report(math.sqrt(dx * dx + dy * dy))
+        return math.sqrt(dx * dx + dy * dy)
         return
     other = rt.get_target_by_name(dest_name)
     if other:
         dx = tgt.x - other.x
         dy = tgt.y - other.y
-        yield Report(math.sqrt(dx * dx + dy * dy))
+        return math.sqrt(dx * dx + dy * dy)
     else:
-        yield Report(DISTANCE_UNREACHABLE)
+        return DISTANCE_UNREACHABLE
 
 
-def sensing_of(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+def sensing_of(rt: Runtime, tgt: Target, block: Block) -> Any:
     """Attribute of a sprite or stage (x, y, direction, costume#, size, variable)."""
     prop = rt.val(tgt, block, 'PROPERTY')
     obj_menu = block.fields.get('OBJECT')
@@ -1417,34 +1417,34 @@ def sensing_of(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
     prop_name = _str(prop) if not isinstance(prop, str) else prop
     match prop_name:
         case 'x' | 'x position':
-            yield Report(obj.x)
+            return obj.x
         case 'y' | 'y position':
-            yield Report(obj.y)
+            return obj.y
         case 'direction':
-            yield Report(obj.direction)
+            return obj.direction
         case 'costume #' | 'costume':
-            yield Report(obj.costume_index + 1)
+            return obj.costume_index + 1
         case 'costume name':
-            yield Report(obj.current_costume_name)
+            return obj.current_costume_name
         case 'size':
-            yield Report(obj.size)
+            return obj.size
         case 'volume':
-            yield Report(obj.volume)
+            return obj.volume
         case 'backdrop name':
-            yield Report(obj.current_costume_name if obj.is_stage else '')
+            return obj.current_costume_name if obj.is_stage else ''
         case 'backdrop #' | 'background #':
-            yield Report((obj.costume_index + 1) if obj.is_stage else 0)
+            return (obj.costume_index + 1) if obj.is_stage else 0
         case _:
             var = obj.lookup_variable(prop_name)
-            yield Report(var.value if var else 0)
+            return var.value if var else 0
 
 
-def sensing_mousex(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
-    yield Report(rt._mouse_x)
+def sensing_mousex(rt: Runtime, tgt: Target, block: Block) -> Any:
+    return rt._mouse_x
 
 
-def sensing_mousey(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
-    yield Report(rt._mouse_y)
+def sensing_mousey(rt: Runtime, tgt: Target, block: Block) -> Any:
+    return rt._mouse_y
 
 
 def sensing_setdragmode(rt: Runtime, tgt: Target, block: Block) -> None:
@@ -1453,34 +1453,34 @@ def sensing_setdragmode(rt: Runtime, tgt: Target, block: Block) -> None:
         tgt.draggable = _field_val(drag) == 'draggable'
 
 
-def sensing_mousedown(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
-    yield Report(rt._mouse_down)
+def sensing_mousedown(rt: Runtime, tgt: Target, block: Block) -> Any:
+    return rt._mouse_down
 
 
-def sensing_current(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+def sensing_current(rt: Runtime, tgt: Target, block: Block) -> Any:
     lt = time.localtime()
     menu = block.fields.get('CURRENTMENU')
     opt = _field_val(menu) if menu else ''
     match opt:
         case 'YEAR':
-            yield Report(lt.tm_year)
+            return lt.tm_year
         case 'MONTH':
-            yield Report(lt.tm_mon)
+            return lt.tm_mon
         case 'DATE':
-            yield Report(lt.tm_mday)
+            return lt.tm_mday
         case 'DAYOFWEEK':
-            yield Report((lt.tm_wday + 1) % 7 + 1)
+            return (lt.tm_wday + 1) % 7 + 1
         case 'HOUR':
-            yield Report(lt.tm_hour)
+            return lt.tm_hour
         case 'MINUTE':
-            yield Report(lt.tm_min)
+            return lt.tm_min
         case 'SECOND':
-            yield Report(lt.tm_sec)
+            return lt.tm_sec
         case _:
-            yield Report(0)
+            return 0
 
 
-def sensing_dayssince2000(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+def sensing_dayssince2000(rt: Runtime, tgt: Target, block: Block) -> Any:
     """Days since 2000-01-01 (Scratch-compatible)."""
     epoch = time.mktime(YEAR_2000_EPOCH)
     # Adjust for timezone offset (mktime assumes local time, so epoch includes DST/UTC offset)
@@ -1489,27 +1489,27 @@ def sensing_dayssince2000(rt: Runtime, tgt: Target, block: Block) -> Generator[A
     offset = time.timezone
     if is_dst > 0:
         offset -= DST_OFFSET_SECS
-    yield Report((now - epoch + offset) / SECONDS_PER_DAY)
+    return (now - epoch + offset) / SECONDS_PER_DAY
 
 
-def sensing_loudness(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
-    yield Report(0)
+def sensing_loudness(rt: Runtime, tgt: Target, block: Block) -> Any:
+    return 0
 
 
-def sensing_loud(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
-    yield Report(False)
+def sensing_loud(rt: Runtime, tgt: Target, block: Block) -> Any:
+    return False
 
 
-def sensing_online(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
-    yield Report(True)
+def sensing_online(rt: Runtime, tgt: Target, block: Block) -> Any:
+    return True
 
 
-def sensing_username(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
-    yield Report('Scratcher')
+def sensing_username(rt: Runtime, tgt: Target, block: Block) -> Any:
+    return 'Scratcher'
 
 
-def sensing_userid(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
-    yield Report('')
+def sensing_userid(rt: Runtime, tgt: Target, block: Block) -> Any:
+    return ''
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -1535,10 +1535,10 @@ def _ensure_sound_loaded(sound: Sound) -> bool:
         return False
 
 
-def sound_sounds_menu(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+def sound_sounds_menu(rt: Runtime, tgt: Target, block: Block) -> Any:
     """Menu block: sound name dropdown."""
     name = _field_val(block.fields.get('SOUND_MENU')) if block.fields else ''
-    yield Report(name)
+    return name
 
 
 def sound_play(rt: Runtime, tgt: Target, block: Block) -> None:
@@ -1552,7 +1552,7 @@ def sound_play(rt: Runtime, tgt: Target, block: Block) -> None:
         channel.set_volume(max(0.0, min(1.0, tgt.volume / 100.0)))
 
 
-def sound_playuntildone(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+def sound_playuntildone(rt: Runtime, tgt: Target, block: Block) -> Any:
     """Play a sound and wait until it finishes."""
     name = _str(rt.val(tgt, block, 'SOUND_MENU'))
     sound_obj = _find_sound(tgt, name)
@@ -1581,9 +1581,9 @@ def sound_changevolumeby(rt: Runtime, tgt: Target, block: Block) -> None:
     tgt.volume = max(VOLUME_MIN, min(VOLUME_MAX, tgt.volume + delta))
 
 
-def sound_volume(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+def sound_volume(rt: Runtime, tgt: Target, block: Block) -> Any:
     """Reporter: current volume."""
-    yield Report(tgt.volume)
+    return tgt.volume
 
 
 def _clamp_effect(effect: str, value: float) -> float:
@@ -1629,10 +1629,10 @@ def sound_changetempo(rt: Runtime, tgt: Target, block: Block) -> None:
         stage.tempo = max(TEMPO_MIN, min(TEMPO_MAX, stage.tempo + delta))
 
 
-def sound_tempo(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+def sound_tempo(rt: Runtime, tgt: Target, block: Block) -> Any:
     """Reporter: current tempo."""
     stage = rt.stage
-    yield Report(stage.tempo if stage else DEFAULT_TEMPO_BPM)
+    return stage.tempo if stage else DEFAULT_TEMPO_BPM
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -1704,7 +1704,7 @@ def procedures_definition(rt: Runtime, tgt: Target, block: Block) -> None:
     pass
 
 
-def procedures_call(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+def procedures_call(rt: Runtime, tgt: Target, block: Block) -> Any:
     """Custom block call — looks up the prototype and runs its body."""
     mutation = getattr(block, 'mutation', None) or getattr(block, '_mutation', None)
     if mutation is None:
@@ -1743,26 +1743,26 @@ def procedures_call(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
                     return
 
 
-def argument_reporter_string_number(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+def argument_reporter_string_number(rt: Runtime, tgt: Target, block: Block) -> Any:
     """Return the value of a custom block argument (string or number)."""
     arg_name = _field_val(block.fields.get('VALUE')) if block.fields.get('VALUE') else ''
     if arg_name:
         frame = rt.current_thread.peek_frame() if rt.current_thread else None
         if frame is not None and arg_name in frame.saved:
-            yield Report(frame.saved[arg_name])
+            return frame.saved[arg_name]
             return
-    yield Report(0)
+    return 0
 
 
-def argument_reporter_boolean(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
+def argument_reporter_boolean(rt: Runtime, tgt: Target, block: Block) -> Any:
     """Return the value of a custom block argument (boolean)."""
     arg_name = _field_val(block.fields.get('VALUE')) if block.fields.get('VALUE') else ''
     if arg_name:
         frame = rt.current_thread.peek_frame() if rt.current_thread else None
         if frame is not None and arg_name in frame.saved:
-            yield Report(frame.saved[arg_name])
+            return frame.saved[arg_name]
             return
-    yield Report(0)
+    return 0
 
 
 # ═══════════════════════════════════════════════════════════════════════
