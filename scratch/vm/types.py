@@ -80,7 +80,6 @@ class Block:
     def __repr__(self) -> str:
         return f'Block({self.opcode!r}, id={self.id!r})'
 
-
 # ── Costume & Sound ──────────────────────────────────────────────────────
 
 

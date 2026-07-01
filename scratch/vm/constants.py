@@ -207,6 +207,5 @@ VM_AGENT: str = 'py-scratch'
 # ═════════════════════════════════════════════════════════════════════════
 
 CLONE_START_HATS: tuple[str, ...] = (
-    'event_whenflagclicked',
-    'event_whenthisspriteclicked',
+    'control_start_as_clone',
 )

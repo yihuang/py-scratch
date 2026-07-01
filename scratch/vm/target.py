@@ -8,7 +8,7 @@ rendering state (position, direction, size, visibility).
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Iterable
 
 from .constants import (
     DEFAULT_DIRECTION,
@@ -199,11 +199,21 @@ class Target:
 
     # ── Block utilities ───────────────────────────────────────────────
 
-    def get_hat_blocks(self, opcode: str) -> list[str]:
+    def get_hat_blocks(self, opcode: str) -> Iterable[Block]:
         if self._hat_cache is None:
             self._rebuild_hat_cache()
+
         assert self._hat_cache is not None
-        return self._hat_cache.get(opcode, [])
+        for bid in self._hat_cache.get(opcode, []):
+            yield self.blocks[bid]
+
+    def get_hat_next_blocks(self, opcode: str) -> Iterable[str]:
+        '''
+        Return list of executable blocks that follows the hat block
+        '''
+        for block in self.get_hat_blocks(opcode):
+            if block.next is not None:
+                yield block.next
 
     def _rebuild_hat_cache(self) -> None:
         cache: dict[str, list[str]] = {}

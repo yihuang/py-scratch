@@ -12,7 +12,7 @@ import math
 import copy
 import types
 from collections.abc import Callable, Generator
-from typing import Any
+from typing import Any, Iterable
 from .target import Target
 from .thread import (
     Thread,
@@ -99,7 +99,6 @@ class Runtime:
         self._keyboard: dict[str, bool] = {}
         self._wait_queue: list[tuple[float, int, Thread]] = []
         self._wait_seq = 0
-        self._hat_index: dict[str, list[tuple[Target, str]]] = {}
         self.current_thread: Thread | None = None
         self._answer: str | None = None
         self._for_each_counter: float = 0
@@ -174,7 +173,6 @@ class Runtime:
         """Whether the runtime has any cloud variables."""
         return self._cloud_count > 0
 
-    # ── Target management ─────────────────────────────────────────────
     def add_target(self, target: Target) -> None:
         self.targets.append(target)
         if target.is_stage:
@@ -182,14 +180,7 @@ class Runtime:
             self._init_cloud()
             if self._cloud is not None:
                 self._cloud.set_stage(self.stage)
-        self._index_target_hats(target)
-
-    def _index_target_hats(self, target: Target) -> None:
-        for bid, block in target.blocks.items():
-            if block.top_level and (
-                block.opcode.startswith('event_') or block.opcode == 'control_start_as_clone'
-            ):
-                self._hat_index.setdefault(block.opcode, []).append((target, bid))
+        target._rebuild_hat_cache()
 
     def sprite_targets(self) -> list[Target]:
         return [t for t in self.targets if not t.is_stage]
@@ -210,12 +201,12 @@ class Runtime:
         clone.name = f'{src.name}_clone'
         self._clones.append(clone)
         self.targets.append(clone)
-        self._index_target_hats(clone)
-        # Start all hat scripts on the clone
+        clone._rebuild_hat_cache()
+        # Start all hat scripts on the clone (only control_start_as_clone per official impl)
         for opcode in CLONE_START_HATS:
-            self.start_hat_for_opcode(opcode, target=clone)
-        self.start_hat_for_opcode('control_start_as_clone', target=clone)
+            self.start_threads(clone, clone.get_hat_next_blocks(opcode))
         return clone
+
 
     def remove_clone(self, clone: Target) -> None:
         """Remove a clone from the runtime."""
@@ -297,46 +288,41 @@ class Runtime:
 
     # ── Thread lifecycle ──────────────────────────────────────────────
 
-    def start_hat(self, opcode: str) -> list[Thread]:
-        """Start threads for all hat blocks with the given opcode."""
+    def start_threads(self, target: Target, block_ids: Iterable[str]) -> list[Thread]:
+        """Start threads at the given block IDs (usually hat blocks)."""
         created: list[Thread] = []
-        for target, bid in self._hat_index.get(opcode, []):
-            block = target.blocks.get(bid)
-            nxt = block.next if block else None
-            thread = Thread(target=target, top_block=nxt or bid)
+        for bid in block_ids:
+            thread = Thread(target=target, top_block=bid)
             thread.start()
             self._runnable_queue.append(thread)
             created.append(thread)
         return created
 
-    def start_hat_for_opcode(self, opcode: str, target: Target | None = None) -> None:
-        """Start hats for an opcode, optionally on a single target."""
-        if target is not None:
-            entries = [(target, bid) for (t, bid) in self._hat_index.get(opcode, []) if t == target]
-        else:
-            entries = self._hat_index.get(opcode, [])
+    def start_hat(self, opcode: str) -> list[Thread]:
+        """Start threads for all hat blocks with the given opcode."""
+        created: list[Thread] = []
+        for target in self.targets:
+            created += self.start_threads(target, target.get_hat_next_blocks(opcode))
+        return created
 
-        for t, bid in entries:
-            block = t.blocks[bid]
-            nxt = block.next if block else None
-            thread = Thread(target=t, top_block=nxt or bid)
-            thread.start()
-            self._runnable_queue.append(thread)
+    def start_hat_for(self, opcode: str, target: Target) -> list[Thread]:
+        """Start threads for all hat blocks with the given opcode on a specific target."""
+        return self.start_threads(target, target.get_hat_next_blocks(opcode))
 
     def start_key_hat(self, key_name: str) -> None:
-        for target, bid in self._hat_index.get('event_whenkeypressed', []):
-            block = target.blocks.get(bid)
-            if block is None:
-                continue
-            fld = block.fields.get('KEY_OPTION')
-            hat_key = str(getattr(fld, 'value', fld or ''))
-            # Wildcard 'any' matches any key press
-            if hat_key.lower() != 'any' and hat_key.lower() != key_name.lower():
-                continue
-            nxt = block.next
-            thread = Thread(target=target, top_block=nxt or bid)
-            thread.start()
-            self._runnable_queue.append(thread)
+        for target in self.targets:
+            for block in target.get_hat_blocks('event_whenkeypressed'):
+                if block.next is None:
+                    continue
+
+                # TODO cleanup field parsing
+                fld = block.fields.get('KEY_OPTION')
+                hat_key = str(getattr(fld, 'value', fld or ''))
+                if hat_key != 'any' and hat_key != key_name:
+                    continue
+                thread = Thread(target=target, top_block=block.next)
+                thread.start()
+                self._runnable_queue.append(thread)
 
     def start_click_hat(self, scratch_x: float, scratch_y: float) -> None:
         """Start click hats for the sprite (or stage) at *(scratch_x, scratch_y)*."""
@@ -345,6 +331,7 @@ class Runtime:
         for tgt in sprites:
             if not tgt.visible:
                 continue
+
             # Simple radius check: bounding circle based on costume size
             radius = CLICK_HIT_RADIUS
             if tgt.costume and tgt.costume.surface:
@@ -353,22 +340,12 @@ class Runtime:
             dx = scratch_x - tgt.x
             dy = scratch_y - tgt.y
             if dx * dx + dy * dy <= radius * radius:
-                for _, bid in self._hat_index.get('event_whenthisspriteclicked', []):
-                    if bid in tgt.blocks:
-                        nxt = tgt.blocks[bid].next
-                        thread = Thread(target=tgt, top_block=nxt or bid)
-                        thread.start()
-                        self._runnable_queue.append(thread)
+                self.start_hat_for('event_whenthisspriteclicked', tgt)
                 return
+
         # No sprite hit — stage click
-        stage = self.stage
-        if stage is not None:
-            for _, bid in self._hat_index.get('event_whenstageclicked', []):
-                if bid in stage.blocks:
-                    nxt = stage.blocks[bid].next
-                    thread = Thread(target=stage, top_block=nxt or bid)
-                    thread.start()
-                    self._runnable_queue.append(thread)
+        if self.stage is not None:
+            self.start_hat_for('event_whenstageclicked', self.stage)
 
     def _check_edge_hat(
         self, opcode: str, target: Target, block: Block, current_value: bool
@@ -505,27 +482,31 @@ class Runtime:
 
     def broadcast(self, message: str) -> list[Thread]:
         started: list[Thread] = []
-        for target, bid in self._hat_index.get('event_whenbroadcastreceived', []):
-            block = target.blocks[bid]
-            fld = block.fields.get('BROADCAST_OPTION')
-            hat_val = str(getattr(fld, 'value', fld or ''))
-            # Match: try broadcast id/name lookup, fall back to direct string comparison
-            matched = False
-            if hat_val == message:
-                matched = True
-            else:
-                for bcast_id, bcast_msg in target.broadcasts.items():
-                    if hat_val == bcast_id or hat_val == bcast_msg.name:
-                        if message == bcast_id or message == bcast_msg.name:
-                            matched = True
-                        break
-            if not matched:
-                continue
-            nxt = block.next
-            thread = Thread(target=target, top_block=nxt or bid)
-            thread.start()
-            self._runnable_queue.append(thread)
-            started.append(thread)
+        for target in self.targets:
+            for block in target.get_hat_blocks('event_whenbroadcastreceived'):
+                if not block.next:
+                    continue
+
+                # TODO parse field value
+                fld = block.fields.get('BROADCAST_OPTION')
+                hat_val = str(getattr(fld, 'value', fld or ''))
+                # Match: try broadcast id/name lookup, fall back to direct string comparison
+                matched = False
+                if hat_val == message:
+                    matched = True
+                else:
+                    for bcast_id, bcast_msg in target.broadcasts.items():
+                        if hat_val == bcast_id or hat_val == bcast_msg.name:
+                            if message == bcast_id or message == bcast_msg.name:
+                                matched = True
+                            break
+                if not matched:
+                    continue
+
+                thread = Thread(target=target, top_block=block.next)
+                thread.start()
+                self._runnable_queue.append(thread)
+                started.append(thread)
         return started
 
     # ── Sub-stack execution helper ────────────────────────────────────
