@@ -407,9 +407,12 @@ def _serialize_input(inp: Input) -> list[Any]:
     shadow_flag = SHADOW_FLAG if inp.shadow else BLOCK_REF_FLAG
     return [shadow_flag, inp.value]
 
+
 def _serialize_field(fld: Field) -> list[Any]:
     """Serialize a Field to Scratch ``[value, id]`` format."""
     return [fld.value, fld.id]
+
+
 def _serialize_target(target: Target) -> dict[str, Any]:
     """Serialize a Target to Scratch JSON format."""
     variables: dict[str, list[Any]] = {}

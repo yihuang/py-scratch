@@ -347,6 +347,7 @@ def event_whentouchingobject(rt: Runtime, tgt: Target, block: Block) -> Generato
     touching = _touching_object_check(rt, tgt, obj_name)
     yield Report(rt._check_edge_hat('event_whentouchingobject', tgt, block, touching))
 
+
 def event_whengreaterthan(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
     """Edge-activated hat — returns True when timer/loudness > VALUE."""
     option = block.fields.get('WHENGREATERTHANMENU')
@@ -388,7 +389,10 @@ def _target_xy(rt: Runtime, target_name: str) -> tuple[float, float] | None:
     if target_name == '_mouse_':
         return (rt._mouse_x, rt._mouse_y)
     if target_name == '_random_':
-        return (round(random.uniform(STAGE_LEFT, STAGE_RIGHT)), round(random.uniform(STAGE_BOTTOM, STAGE_TOP)))
+        return (
+            round(random.uniform(STAGE_LEFT, STAGE_RIGHT)),
+            round(random.uniform(STAGE_BOTTOM, STAGE_TOP)),
+        )
     t = rt.get_target_by_name(target_name)
     if t is not None:
         return (t.x, t.y)
@@ -403,9 +407,7 @@ def motion_goto(rt: Runtime, tgt: Target, block: Block) -> None:
 
 
 def motion_gotoxy(rt: Runtime, tgt: Target, block: Block) -> None:
-    tgt.set_xy(
-        rt.num(tgt, block, 'X'), rt.num(tgt, block, 'Y')
-    )
+    tgt.set_xy(rt.num(tgt, block, 'X'), rt.num(tgt, block, 'Y'))
 
 
 def motion_gox(rt: Runtime, tgt: Target, block: Block) -> None:
@@ -450,12 +452,14 @@ def motion_pointtowards(rt: Runtime, tgt: Target, block: Block) -> None:
     direction = SCRATCH_RIGHT - math.degrees(math.atan2(dy, dx))
     tgt.direction = direction
 
+
 def motion_turnright(rt: Runtime, tgt: Target, block: Block) -> None:
     tgt.direction += rt.num(tgt, block, 'DEGREES')
 
 
 def motion_turnleft(rt: Runtime, tgt: Target, block: Block) -> None:
     tgt.direction -= rt.num(tgt, block, 'DEGREES')
+
 
 def motion_ifonedgebounce(rt: Runtime, tgt: Target, block: Block) -> None:
     if not tgt.costume or tgt.costume.surface is None:
@@ -696,6 +700,7 @@ def looks_goforwardbackwardlayers(rt: Runtime, tgt: Target, block: Block) -> Non
         num = -num
     tgt.layer_order += num
 
+
 def looks_setsizeto(rt: Runtime, tgt: Target, block: Block) -> None:
     tgt.size = rt.num(tgt, block, 'SIZE')
 
@@ -711,13 +716,13 @@ def looks_costumenumbername(rt: Runtime, tgt: Target, block: Block) -> Generator
     else:
         yield Report(tgt.current_costume_name)
 
+
 def looks_costume(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
     """Menu block: costume dropdown for ``looks_switchcostumeto``.
     Returns the selected costume name from the ``COSTUME`` field.
     """
     name = _field_val(block.fields.get('COSTUME'))
     yield Report(name)
-
 
 
 def looks_backdrops(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
@@ -740,7 +745,7 @@ def looks_backdropnumbername(rt: Runtime, tgt: Target, block: Block) -> Generato
 
 def _set_backdrop(rt: Runtime, val: Any) -> list[Thread]:
     """Switch backdrop on the stage and trigger ``event_whenbackdropswitchesto`` hats.
-    
+
     Returns the list of threads started by the hat.
     """
     stage = rt.stage
@@ -772,16 +777,16 @@ def _set_backdrop(rt: Runtime, val: Any) -> list[Thread]:
     if stage.costume_index != old_idx:
         return rt.start_hat('event_whenbackdropswitchesto')
     return []
-    
-    
+
+
 def looks_switchbackdropto(rt: Runtime, tgt: Target, block: Block) -> None:
     """Switch backdrop (on the stage, not the sprite)."""
     if rt.stage is None:
         return
     val = rt.val(tgt, block, 'BACKDROP')
     _set_backdrop(rt, val)
-    
-    
+
+
 def looks_switchbackdroptoandwait(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
     """Switch backdrop and wait for all ``event_whenbackdropswitchesto`` handlers to finish."""
     if rt.stage is None:
@@ -850,8 +855,8 @@ def looks_nextbackdrop(rt: Runtime, tgt: Target, block: Block) -> None:
         n = len(rt.stage.costumes)
         if n > 0:
             rt.stage.costume_index = (rt.stage.costume_index + 1) % n
-    
-    
+
+
 def looks_changeeffectby(rt: Runtime, tgt: Target, block: Block) -> None:
     effect = _field_val(block.fields.get('EFFECT')) if block.fields.get('EFFECT') else ''
     change = rt.num(tgt, block, 'CHANGE')
@@ -1112,6 +1117,8 @@ def _to_list_index(value: Any, length: int) -> int | str | None:
     if 1 <= idx <= length:
         return idx
     return None
+
+
 # ═══════════════════════════════════════════════════════════════════════
 #  DATA — Lists
 # ═══════════════════════════════════════════════════════════════════════
@@ -1312,6 +1319,7 @@ def _touching_object_check(rt: Runtime, tgt: Target, obj_name: str) -> bool:
             return True
     return False
 
+
 def sensing_touchingobject(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
     obj = block.fields.get('TOUCHINGOBJECTMENU')
     if obj is None:
@@ -1431,8 +1439,10 @@ def sensing_of(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
 def sensing_mousex(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
     yield Report(rt._mouse_x)
 
+
 def sensing_mousey(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
     yield Report(rt._mouse_y)
+
 
 def sensing_setdragmode(rt: Runtime, tgt: Target, block: Block) -> None:
     drag = block.fields.get('DRAG_MODE')
@@ -1442,6 +1452,7 @@ def sensing_setdragmode(rt: Runtime, tgt: Target, block: Block) -> None:
 
 def sensing_mousedown(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
     yield Report(rt._mouse_down)
+
 
 def sensing_current(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
     lt = time.localtime()
@@ -1476,6 +1487,7 @@ def sensing_dayssince2000(rt: Runtime, tgt: Target, block: Block) -> Generator[A
     if is_dst > 0:
         offset -= DST_OFFSET_SECS
     yield Report((now - epoch + offset) / SECONDS_PER_DAY)
+
 
 def sensing_loudness(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
     yield Report(0)
@@ -1579,6 +1591,7 @@ def _clamp_effect(effect: str, value: float) -> float:
         return max(PAN_MIN, min(PAN_MAX, value))
     return value
 
+
 def sound_seteffectto(rt: Runtime, tgt: Target, block: Block) -> None:
     effect = _field_val(block.fields.get('EFFECT')) if block.fields else ''
     value = rt.num(tgt, block, 'VALUE')
@@ -1590,7 +1603,9 @@ def sound_changeeffectby(rt: Runtime, tgt: Target, block: Block) -> None:
     effect = _field_val(block.fields.get('EFFECT')) if block.fields else ''
     delta = rt.num(tgt, block, 'VALUE')
     if effect in (SOUND_EFFECT_PITCH, SOUND_EFFECT_PAN):
-        tgt.sound_effects[effect] = _clamp_effect(effect, tgt.sound_effects.get(effect, 0.0) + delta)
+        tgt.sound_effects[effect] = _clamp_effect(
+            effect, tgt.sound_effects.get(effect, 0.0) + delta
+        )
 
 
 def sound_cleareffects(rt: Runtime, tgt: Target, block: Block) -> None:
@@ -1615,6 +1630,7 @@ def sound_tempo(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
     """Reporter: current tempo."""
     stage = rt.stage
     yield Report(stage.tempo if stage else DEFAULT_TEMPO_BPM)
+
 
 # ═══════════════════════════════════════════════════════════════════════
 #  PEN
@@ -1684,6 +1700,7 @@ def procedures_definition(rt: Runtime, tgt: Target, block: Block) -> None:
     """Custom block definition — hat. The body runs normally via next block."""
     pass
 
+
 def procedures_call(rt: Runtime, tgt: Target, block: Block) -> Generator[Any]:
     """Custom block call — looks up the prototype and runs its body."""
     mutation = getattr(block, 'mutation', None) or getattr(block, '_mutation', None)
@@ -1743,8 +1760,6 @@ def argument_reporter_boolean(rt: Runtime, tgt: Target, block: Block) -> Generat
             yield Report(frame.saved[arg_name])
             return
     yield Report(0)
-
-
 
 
 # ═══════════════════════════════════════════════════════════════════════

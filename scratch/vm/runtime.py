@@ -150,8 +150,7 @@ class Runtime:
     def _index_target_hats(self, target: Target) -> None:
         for bid, block in target.blocks.items():
             if block.top_level and (
-                block.opcode.startswith('event_')
-                or block.opcode == 'control_start_as_clone'
+                block.opcode.startswith('event_') or block.opcode == 'control_start_as_clone'
             ):
                 self._hat_index.setdefault(block.opcode, []).append((target, bid))
 
@@ -234,9 +233,7 @@ class Runtime:
                 )
                 return var.value if var else 0
             if type_code == PrimitiveType.LIST:  # List reference
-                lst = target.lookup_list(ref) or (
-                    self.stage and self.stage.lookup_list(ref)
-                )
+                lst = target.lookup_list(ref) or (self.stage and self.stage.lookup_list(ref))
                 return lst.contents if lst else []
             # Literal primitives (4-10) and broadcast (11) — return the value directly
             return ref
@@ -349,7 +346,9 @@ class Runtime:
                     thread.start()
                     self._runnable_queue.append(thread)
 
-    def _check_edge_hat(self, opcode: str, target: Target, block: Block, current_value: bool) -> bool:
+    def _check_edge_hat(
+        self, opcode: str, target: Target, block: Block, current_value: bool
+    ) -> bool:
         """Check false→true edge activation for edge-activated hats.
 
         Returns True only when *current_value* is True and the previous
@@ -446,8 +445,7 @@ class Runtime:
                 return
             case _:
                 raise RuntimeError(
-                    f"Unknown yield {yielded!r} from {block.opcode!r} "
-                    f"(block {block.id!r})"
+                    f'Unknown yield {yielded!r} from {block.opcode!r} (block {block.id!r})'
                 )
 
     def _advance_to_next(self, thread: Thread) -> None:
@@ -504,7 +502,9 @@ class Runtime:
 
     # ── Sub-stack execution helper ────────────────────────────────────
 
-    def execute_substack(self, target: Target, block_id: str | None, yield_between: bool = True) -> Generator[Any]:
+    def execute_substack(
+        self, target: Target, block_id: str | None, yield_between: bool = True
+    ) -> Generator[Any]:
         """Generator: step through a linked list of blocks.
 
         Control blocks (repeat, if, etc.) should ``yield from`` this
@@ -538,5 +538,3 @@ class Runtime:
             bid = block.next
             if bid and yield_between:
                 yield YIELD
-
-

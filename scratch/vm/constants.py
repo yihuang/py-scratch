@@ -15,10 +15,10 @@ import enum
 STAGE_W: int = 480
 STAGE_H: int = 360
 
-STAGE_LEFT: float = -STAGE_W / 2        # -240
-STAGE_RIGHT: float = STAGE_W / 2         #  240
-STAGE_TOP: float = STAGE_H / 2           #  180
-STAGE_BOTTOM: float = -STAGE_H / 2       # -180
+STAGE_LEFT: float = -STAGE_W / 2  # -240
+STAGE_RIGHT: float = STAGE_W / 2  #  240
+STAGE_TOP: float = STAGE_H / 2  #  180
+STAGE_BOTTOM: float = -STAGE_H / 2  # -180
 
 # ═════════════════════════════════════════════════════════════════════════
 #  Motion / direction
@@ -44,7 +44,7 @@ ROTATION_DONT_ROTATE: str = "don't rotate"
 # ═════════════════════════════════════════════════════════════════════════
 
 DEFAULT_DIRECTION: float = SCRATCH_RIGHT
-DEFAULT_SIZE_PCT: float = 100.0       # percent
+DEFAULT_SIZE_PCT: float = 100.0  # percent
 DEFAULT_VOLUME_PCT: float = 100.0
 DEFAULT_TEMPO_BPM: float = 60.0
 DEFAULT_LAYER_ORDER: int = 0
@@ -116,7 +116,7 @@ LIST_INDEX_ALL: str = 'all'
 LIST_INDEX_LAST: str = 'last'
 LIST_INDEX_RANDOM: str = 'random'
 LIST_INDEX_ANY: str = 'any'
-LIST_INDEX_ALL_SENTINEL: str = 'ALL'   # internal sentinel
+LIST_INDEX_ALL_SENTINEL: str = 'ALL'  # internal sentinel
 
 # ═════════════════════════════════════════════════════════════════════════
 #  Control stop options
@@ -139,9 +139,7 @@ MATH_TRIG_PRECISION: int = 10  # rounding for sin/cos results
 
 SECONDS_PER_DAY: float = 86400.0
 DST_OFFSET_SECS: int = 3600
-YEAR_2000_EPOCH: tuple[int, int, int, int, int, int, int, int, int] = (
-    2000, 1, 1, 0, 0, 0, 0, 0, 0
-)
+YEAR_2000_EPOCH: tuple[int, int, int, int, int, int, int, int, int] = (2000, 1, 1, 0, 0, 0, 0, 0, 0)
 
 # ═════════════════════════════════════════════════════════════════════════
 #  Distance default
@@ -159,6 +157,7 @@ CLICK_HIT_RADIUS: float = 30.0
 # ═════════════════════════════════════════════════════════════════════════
 #  Scratch JSON primitive type codes
 # ═════════════════════════════════════════════════════════════════════════
+
 
 class PrimitiveType(enum.IntEnum):
     """Scratch 3.0 inlined primitive type codes.
@@ -183,9 +182,9 @@ class PrimitiveType(enum.IntEnum):
 #  Scratch JSON shadow / block-reference flags
 # ═════════════════════════════════════════════════════════════════════════
 
-SHADOW_FLAG: int = 1       # [1, literal] — shadow with literal value
-BLOCK_REF_FLAG: int = 2    # [2, block_id] — reference to another block
-OBSOLETE_FLAG: int = 3     # [3, value, block_id] — obsolete shadow + block
+SHADOW_FLAG: int = 1  # [1, literal] — shadow with literal value
+BLOCK_REF_FLAG: int = 2  # [2, block_id] — reference to another block
+OBSOLETE_FLAG: int = 3  # [3, value, block_id] — obsolete shadow + block
 
 # ═════════════════════════════════════════════════════════════════════════
 #  Serialization defaults

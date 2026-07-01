@@ -33,15 +33,18 @@ class YieldPass:
 
 YIELD = YieldPass()
 
+
 @dataclass(frozen=True)
 class Wait:
     """Pause thread for ``seconds``."""
+
     seconds: float
 
 
 @dataclass(frozen=True)
 class Report:
     """Reporter block returning a ``value`` to the parent frame."""
+
     value: Any
 
 

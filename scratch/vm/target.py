@@ -104,6 +104,7 @@ class Target:
     _direction: float = DEFAULT_DIRECTION
     size: float = DEFAULT_SIZE_PCT
     rotation_style: str = ROTATION_ALL_AROUND
+
     @property
     def x(self) -> float:
         return self._x
@@ -148,11 +149,7 @@ class Target:
     tempo: float = DEFAULT_TEMPO_BPM
 
     # ── Effects ───────────────────────────────────────────────────────
-    effects: dict[str, float] = field(
-        default_factory=lambda: {
-            name: 0 for name in GRAPHIC_EFFECTS
-        }
-    )
+    effects: dict[str, float] = field(default_factory=lambda: {name: 0 for name in GRAPHIC_EFFECTS})
     # ── Draggable ─────────────────────────────────────────────────────
     draggable: bool = False
 
@@ -212,8 +209,7 @@ class Target:
         cache: dict[str, list[str]] = {}
         for bid, block in self.blocks.items():
             if block.top_level and (
-                block.opcode.startswith('event_')
-                or block.opcode == 'control_start_as_clone'
+                block.opcode.startswith('event_') or block.opcode == 'control_start_as_clone'
             ):
                 cache.setdefault(block.opcode, []).append(bid)
         self._hat_cache = cache

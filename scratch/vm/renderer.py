@@ -39,6 +39,7 @@ COLOR_STAGE_BG = (220, 220, 220)
 
 class BubbleStyle:
     """Speech/think bubble style constants (from scratch-render TextBubbleSkin.js)."""
+
     MAX_LINE_WIDTH = 170  # Scratch pixels
     MIN_WIDTH = 50
     STROKE_WIDTH = 4
@@ -47,12 +48,19 @@ class BubbleStyle:
     TAIL_HEIGHT = 12
     FONT_SIZE = 14
     LINE_HEIGHT = 16
-    FONT_COLOR = (87, 94, 117)      # #575E75
-    BUBBLE_FILL = (255, 255, 255)    # white
-    BUBBLE_STROKE = (0, 0, 0, 38)    # rgba(0,0,0,0.15)
+    FONT_COLOR = (87, 94, 117)  # #575E75
+    BUBBLE_FILL = (255, 255, 255)  # white
+    BUBBLE_STROKE = (0, 0, 0, 38)  # rgba(0,0,0,0.15)
     _TAIL_BEZIER_SAY: list[tuple[float, float]] = [
-        (0, 4), (4, 8), (4, 10), (2, 12), (-1, 12), (-11, 8), (-16, 0),
+        (0, 4),
+        (4, 8),
+        (4, 10),
+        (2, 12),
+        (-1, 12),
+        (-11, 8),
+        (-16, 0),
     ]
+
 
 # Keyboard mapping — Scratch key names → pygame key codes
 KEY_MAP: dict[str, int] = {
@@ -328,7 +336,9 @@ class Renderer:
         if not sprite.costume:
             # Draw placeholder
             sx, sy = scratch_to_screen(sprite.x, sprite.y)
-            sz = max(PLACEHOLDER_MIN_SIZE, int(sprite.size * STAGE_SCALE / 100 * PLACEHOLDER_SIZE_FACTOR))
+            sz = max(
+                PLACEHOLDER_MIN_SIZE, int(sprite.size * STAGE_SCALE / 100 * PLACEHOLDER_SIZE_FACTOR)
+            )
             rect = pygame.Rect(int(sx - sz / 2), int(sy - sz / 2), sz, sz)
             pygame.draw.ellipse(self.screen, COLOR_RED, rect)
             pygame.draw.ellipse(self.screen, COLOR_BLACK, rect, PLACEHOLDER_STROKE_WIDTH)
@@ -406,8 +416,9 @@ class Renderer:
         bubble_surf = pygame.Surface((surf_w, surf_h), pygame.SRCALPHA)
 
         # Draw the bubble
-        self._render_bubble_surface(bubble_surf, lines, padded_w, padded_h,
-                                     total_w, total_h, scale, points_left)
+        self._render_bubble_surface(
+            bubble_surf, lines, padded_w, padded_h, total_w, total_h, scale, points_left
+        )
 
         # Blit at calculated screen position
         blit_x = int(bx - total_w * scale / 2)
@@ -435,10 +446,14 @@ class Renderer:
 
     @staticmethod
     def _render_bubble_surface(
-        surf: pygame.Surface, lines: list[str],
-        padded_w: int, padded_h: int,
-        total_w: int, total_h: int,
-        scale: int, points_left: bool,
+        surf: pygame.Surface,
+        lines: list[str],
+        padded_w: int,
+        padded_h: int,
+        total_w: int,
+        total_h: int,
+        scale: int,
+        points_left: bool,
     ) -> None:
         """Render the bubble shape and text onto *surf* at the given scale."""
         s = scale  # short alias
@@ -587,6 +602,7 @@ class Renderer:
             rotation_center_y=cy,
             surface=surf,
         )
+
 
 # Placeholder sprite
 COLOR_RED = (255, 0, 0)
