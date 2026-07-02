@@ -86,10 +86,50 @@ This is the only place threads are removed (besides `green_flag()` which clears 
 
 ## Why generators?
 
-**89 opcode handlers** implemented across Control, Events, Motion, Looks, Operators, Data, Sensing, and Pen.
-Each opcode handler is a Python generator function. This gives us:
 
-- **Cooperative concurrency** — handlers voluntarily yield control by yielding `YIELD` or `wait_yield`. No preemption needed.
-- **Natural control flow** — loops (`repeat`, `forever`) are actual Python loops inside the generator. No need for a separate instruction pointer or continuation-passing style.
-- **Zero-copy input resolution** — reporter blocks yield `Report(value)` which pops back up the stack naturally.
-- **Deterministic stepping** — each `step()` call advances each thread by exactly one generator `.next()`. The thread list is stable within a single frame.
+## DSL Design
+
+The `scratch.dsl` package is a Pythonic block builder that mirrors Scratch block
+structure through composable expression objects.  A full reference is at
+`docs/dsl-reference.md`.
+
+### Expression tree
+
+Each Scratch block is represented by a single `StackExpr` (command, hat, C-shaped)
+or `Reporter` (oval, boolean).  Category modules (`scratch.dsl.motion`,
+`scratch.dsl.control`, etc.) provide factory functions that construct these
+expression objects with typed parameters::
+
+```python
+motion.move(10)                    # StackExpr for motion_movesteps
+operators.add(x_position(), 5)     # Reporter for operator_add
+```
+
+C-shaped blocks use ``__call__`` to attach their body, and ``.else_()`` for
+the false branch of ``if_else``::
+
+```python
+control.repeat(10)(motion.move(5))          # repeat body
+control.if_else(cond)(say("a")).else_(move(-10))  # if-else
+```
+
+### Builder
+
+``chain()`` links a list of ``StackExpr`` into a flat ``target.blocks`` dict.
+``Script.build()`` does the same for a hat + body pair.  Both register reporter
+blocks referenced from inputs and resolve variable field IDs.
+
+### Project
+
+``Project`` wraps the full lifecycle: it manages targets (stage + sprites),
+turns DSL expressions into a ``Runtime`` via ``build_runtime()``, and serializes
+to an ``.sb3`` file via ``save()``.  Placeholder costumes with valid PNG data
+are auto-generated for targets that lack them, ensuring the .sb3 is importable
+by the Scratch editor.
+
+### Schema compliance
+
+The DSL enforces the Scratch SB3 schema constraints documented in
+``docs/vm-reference.md`` under *SB3 Validation Constraints*:
+literal values use compact primitives, reporter parents are linked, and variable
+field IDs are resolved on all blocks including reporters.
