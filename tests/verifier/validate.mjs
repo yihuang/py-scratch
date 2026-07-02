@@ -1,33 +1,62 @@
 #!/usr/bin/env node
 /**
- * Validate .sb3 files using the official scratch-vm.
- * Usage: node validate.mjs [path-to-sb3]
- * Default: /tmp/validate.sb3
+ * Validate .sb3 files using the official scratch-vm, with asset loading.
+ *
+ * Reads costume/sound assets from the .sb3 zip so the VM doesn't
+ * emit "No storage module present" warnings.  Exits 0 on success.
+ *
+ * Usage: node validate.mjs <path-to-sb3>
  */
 
 import { readFileSync, existsSync } from "fs";
 import VirtualMachine from "scratch-vm";
+import pkg from "scratch-storage";
+import AdmZip from "adm-zip";
 
-const sb3Path = process.argv[2] || "/tmp/validate.sb3";
+const { ScratchStorage, AssetType, DataFormat } = pkg;
 
-if (!existsSync(sb3Path)) {
-  console.error(`File not found: ${sb3Path}`);
+const sb3Path = process.argv[2];
+
+if (!sb3Path || !existsSync(sb3Path)) {
+  console.error(`Usage: node validate.mjs <path-to-sb3>`);
   process.exit(1);
 }
 
-const vm = new VirtualMachine();
+// ── Read zip and build asset map ───────────────────────────────────
 const sb3Data = readFileSync(sb3Path);
+const zip = new AdmZip(sb3Data);
+const projectJson = JSON.parse(zip.readAsText("project.json"));
+
+const storage = new ScratchStorage();
+
+for (const entry of zip.getEntries()) {
+  const name = entry.entryName;
+  if (name === "project.json") continue;
+
+  const isVector = name.endsWith(".svg");
+  const assetType = isVector ? AssetType.ImageVector : AssetType.ImageBitmap;
+  const dataFormat = isVector ? DataFormat.SVG : DataFormat.PNG;
+
+  storage.createAsset(
+    assetType,
+    DataFormat.PNG,     // dataFormat
+    entry.getData(),    // data
+    null,               // id (auto-generate)
+    true,               // generateId
+  );
+}
+
+// ── Validate ───────────────────────────────────────────────────────
+const vm = new VirtualMachine();
+vm.attachStorage(storage);
 
 let success = false;
 let errors = [];
-
-vm.runtime.targets = [];
 
 try {
   await vm.loadProject(sb3Data);
   success = true;
 } catch (e) {
-  // Catch structured error from scratch-vm
   if (typeof e === "object" && e !== null) {
     const data = e.validationError ? e : JSON.parse(e.message || e);
     errors = data.sb3Errors || [];
