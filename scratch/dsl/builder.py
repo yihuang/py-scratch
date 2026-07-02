@@ -97,10 +97,44 @@ def _chain_impl(
     if parent_id and chain_ids:
         blocks[chain_ids[0]].parent = parent_id
 
+    # Post-process: set parent on reporter blocks referenced by inputs
+    _resolve_input_parents(blocks)
+
+    # Post-process: resolve variable fields on all blocks (incl. reporters)
+    if var_map:
+        _resolve_variable_fields(blocks, var_map)
+
     entry_id = chain_ids[0] if chain_ids else None
     exit_id = chain_ids[-1] if chain_ids else None
 
     return blocks, entry_id, exit_id
+
+
+def _resolve_input_parents(blocks: dict[str, Block]) -> None:
+    """Set parent on blocks referenced by other blocks' inputs.
+
+    When block A has inputs={'X': [2, 'blockB_id']}, block B's parent
+    should be A.  Required for valid Scratch JSON.
+    """
+    for bid, block in blocks.items():
+        for inp in block.inputs.values():
+            val = inp.value
+            if isinstance(val, str) and val in blocks:
+                child = blocks[val]
+                if child.parent is None:
+                    child.parent = bid
+
+
+def _resolve_variable_fields(
+    blocks: dict[str, Block], var_map: dict[str, str]
+) -> None:
+    """Resolve VARIABLE field id for all blocks, including reporters."""
+    for block in blocks.values():
+        for field in block.fields.values():
+            if isinstance(field, Field) and field.name == 'VARIABLE':
+                mapped = var_map.get(str(field.value))
+                if mapped and field.id is None:
+                    field.id = mapped
 def chain(
     exprs: list[StackExpr],
     parent_id: str | None = None,
@@ -174,6 +208,13 @@ class Script:
         # Update target blocks
         target.blocks[hat_id] = hat_block
         target.blocks.update(body_blocks)
+
+        # Post-process: fix reporter parents across all blocks
+        _resolve_input_parents(target.blocks)
+
+        # Post-process: resolve variable fields on all blocks (incl. reporters)
+        if self.var_map:
+            _resolve_variable_fields(target.blocks, self.var_map)
 
         # Invalidate hat cache so runtime picks up new hats
         target.invalidate_hat_cache()

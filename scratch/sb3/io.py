@@ -509,16 +509,27 @@ def _serialize_block(block: Block) -> dict[str, Any]:
 def _serialize_input(inp: Input) -> list[Any]:
     """Serialize an Input to Scratch ``[shadow_flag, value]`` format.
 
-    * Literal values (``is_literal=True``) use SHADOW_FLAG (1).
+    * Literal values (``is_literal=True``) use SHADOW_FLAG (1) with a
+      compact primitive ``[type_code, value]`` array.
     * Block ID references use BLOCK_REF_FLAG (2).
     * Shadow inputs use SHADOW_FLAG (1) regardless.
     """
     if inp.shadow or inp.is_literal:
         flag = SHADOW_FLAG
+        val = inp.value
+        if inp.is_literal and not isinstance(val, list):
+            # Wrap in compact primitive format: [type_code, value]
+            if isinstance(val, str):
+                val = [PrimitiveType.TEXT, val]
+            elif isinstance(val, bool):
+                val = [PrimitiveType.NUMBER, int(val)]
+            elif isinstance(val, (int, float)):
+                val = [PrimitiveType.NUMBER, val]
+            # else leave as-is (already a list = compact primitive, or unknown)
     else:
         flag = BLOCK_REF_FLAG
-    return [flag, inp.value]
-
+        val = inp.value
+    return [flag, val]
 
 def _serialize_field(fld: Field) -> list[Any]:
     """Serialize a Field to Scratch ``[value, id]`` format."""

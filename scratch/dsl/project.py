@@ -52,7 +52,7 @@ class ProjectTarget:
         self.direction: float = 90.0
         self.size: float = 100.0
         self.visible: bool = True
-        self.layer_order: int = 0
+        self.layer_order: int = 1 if not is_stage else 0
 
     def var(self, name: str, default: Any = 0) -> None:
         """Declare a variable.  Raises ``ValueError`` on duplicate name."""
@@ -147,10 +147,10 @@ class Project:
             pygame.image.save(surf, buf, "PNG")
             png_bytes = buf.getvalue()
 
-            sha1 = hashlib.sha1(png_bytes).hexdigest()
+            md5 = hashlib.md5(png_bytes).hexdigest()
             costume.data_format = "png"
-            costume.asset_id = sha1
-            costume.md5ext = f"{sha1}.png"
+            costume.asset_id = md5
+            costume.md5ext = f"{md5}.png"
             costume.data = png_bytes
             costume.surface = surf
 
@@ -167,8 +167,8 @@ class Project:
             target.direction = pt.direction
             target.size = pt.size
             target.visible = pt.visible
+            target.layer_order = pt.layer_order
             target.costumes = list(pt._costumes)
-
             # If no costumes, add a minimal placeholder
             if not target.costumes:
                 placeholder = _make_placeholder_costume(pt.name)
@@ -217,15 +217,15 @@ def _make_placeholder_costume(name: str) -> Costume:
     pygame.image.save(surf, buf, "PNG")
     png_bytes = buf.getvalue()
 
-    sha1 = hashlib.sha1(png_bytes).hexdigest()
+    md5 = hashlib.md5(png_bytes).hexdigest()
     return Costume(
         name=name or "costume1",
         data_format="png",
         bitmap_resolution=1,
         rotation_center_x=25,
         rotation_center_y=25,
-        asset_id=sha1,
-        md5ext=f"{sha1}.png",
+        asset_id=md5,
+        md5ext=f"{md5}.png",
         data=png_bytes,
         surface=surf,
     )
