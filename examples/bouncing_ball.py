@@ -8,12 +8,16 @@ Usage::
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from scratch.dsl import Project, control, motion
+
+HERE = Path(__file__).parent
 
 project = Project('Bouncing Ball')
 ball = project.sprite('Ball')
 
-ball.costume('ball')
+ball.costume('ball', path=str(HERE / 'ball.svg'))
 ball.x = 0
 ball.y = 100
 ball.direction = 45

@@ -21,7 +21,6 @@ from .target import Target
 from .thread import Thread, ThreadStatus, Wait, YIELD
 from .types import Block, Input, Sound
 from .constants import (
-    BOUNCE_REFLECT_ANGLE,
     BUBBLE_DECIMAL_THRESHOLD,
     BUBBLE_MAX_CHARS,
     DEFAULT_TEMPO_BPM,
@@ -461,38 +460,63 @@ def motion_turnleft(rt: Runtime, tgt: Target, block: Block) -> None:
 
 
 def motion_ifonedgebounce(rt: Runtime, tgt: Target, block: Block) -> None:
-    if not tgt.costume or tgt.costume.surface is None:
+    """Bounce off stage edges, matching official Scratch behaviour.
+
+    Official implementation:
+    https://github.com/LLK/scratch-vm/blob/develop/src/blocks/scratch3_motion.js
+
+    Instead of simple angle reflection, it finds the *nearest* edge and forces
+    the new direction to point away from it with a minimum push of 0.2.
+    """
+    bounds = tgt.scratch_bounds()
+    if bounds == (0, 0, 0, 0):
         return
-    surf = tgt.costume.surface
-    w, h = surf.get_width(), surf.get_height()
-    left = STAGE_LEFT + w / 2
-    right = STAGE_RIGHT - w / 2
-    top = STAGE_TOP - h / 2
-    bottom = STAGE_BOTTOM + h / 2
-    bounced = False
-    if tgt.x > right:
-        tgt.x = right
-        bounced = True
-    elif tgt.x < left:
-        tgt.x = left
-        bounced = True
-    if tgt.y > top:
-        tgt.y = top
-        bounced = True
-    elif tgt.y < bottom:
-        tgt.y = bottom
-        bounced = True
-    if bounced:
-        tgt.direction = BOUNCE_REFLECT_ANGLE - tgt.direction
-    # keepInFence: clamp position to fence bounds unconditionally
-    if tgt.x < left:
-        tgt.x = left
-    elif tgt.x > right:
-        tgt.x = right
-    if tgt.y < bottom:
-        tgt.y = bottom
-    elif tgt.y > top:
-        tgt.y = top
+
+    left, top, right, bottom = bounds
+    # World-coordinate edges of the sprite
+    world_left = tgt.x + left
+    world_top = tgt.y + top
+    world_right = tgt.x + right
+    world_bottom = tgt.y + bottom
+
+    # Distance to each stage edge (0 when overlapping / beyond)
+    dist_left = max(0.0, world_left + STAGE_RIGHT)
+    dist_top = max(0.0, STAGE_TOP - world_top)
+    dist_right = max(0.0, STAGE_RIGHT - world_right)
+    dist_bottom = max(0.0, world_bottom + STAGE_TOP)
+
+    # Find the nearest edge
+    nearest_edge = ''
+    min_dist = float('inf')
+    for edge, d in [
+        ('left', dist_left),
+        ('top', dist_top),
+        ('right', dist_right),
+        ('bottom', dist_bottom),
+    ]:
+        if d < min_dist:
+            min_dist = d
+            nearest_edge = edge
+
+    if min_dist > 0:
+        return  # Not touching any edge
+
+    # Point away from the nearest edge
+    radians = math.radians(90 - tgt.direction)
+    dx = math.cos(radians)
+    dy = -math.sin(radians)
+
+    if nearest_edge == 'left':
+        dx = max(0.2, abs(dx))
+    elif nearest_edge == 'top':
+        dy = max(0.2, abs(dy))
+    elif nearest_edge == 'right':
+        dx = 0 - max(0.2, abs(dx))
+    elif nearest_edge == 'bottom':
+        dy = 0 - max(0.2, abs(dy))
+
+    new_direction = math.degrees(math.atan2(dy, dx)) + 90
+    tgt.direction = new_direction
 
 
 def motion_setrotationstyle(rt: Runtime, tgt: Target, block: Block) -> None:

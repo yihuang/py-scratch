@@ -15,26 +15,46 @@ Usage::
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from scratch.dsl import Project, data, looks, motion, operators
 
-project = Project('Key Mover')
-player = project.sprite('Player')
+HERE = Path(__file__).parent
 
-player.costume('ball')
+project = Project('Key Mover')
+
+# ── Stage ─────────────────────────────────────────────────────────────
+project.stage.var('score', 0)
+project.stage.var('moves', 0)
+
+# ── Player sprite ────────────────────────────────────────────────────
+player = project.sprite('Player')
+player.costume('ball', path=str(HERE / 'ball.svg'))
 player.x = 0
 player.y = 0
+
+player.var('speed', 3)
 player.var('score', 0)
 
-# Move with arrow keys
-player.when_key_pressed('right')(motion.change_x(10))
-player.when_key_pressed('left')(motion.change_x(-10))
-player.when_key_pressed('up')(motion.change_y(10))
-player.when_key_pressed('down')(motion.change_y(-10))
+player.when_flag_clicked(
+    looks.say('Use arrow keys to move!'),
+)
 
-# Score on green flag: increment score every time space is pressed
-player.when_key_pressed('space')(
-    data.set_variable('score', operators.add(data.variable('score'), 1)),
-    looks.say(operators.join('Score: ', data.variable('score'))),
+player.when_key_pressed('up arrow')(
+    motion.change_y(data.variable('speed')),
+    data.change_variable('moves', 1),
+)
+player.when_key_pressed('down arrow')(
+    motion.change_y(operators.sub(0, data.variable('speed'))),
+    data.change_variable('moves', 1),
+)
+player.when_key_pressed('left arrow')(
+    motion.change_x(operators.sub(0, data.variable('speed'))),
+    data.change_variable('moves', 1),
+)
+player.when_key_pressed('right arrow')(
+    motion.change_x(data.variable('speed')),
+    data.change_variable('moves', 1),
 )
 
 

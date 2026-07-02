@@ -4,6 +4,8 @@ Renderer — pygame-based stage and sprite drawing.
 
 from __future__ import annotations
 
+import io
+import math
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
@@ -135,18 +137,26 @@ def _load_costume_surface(costume: Costume) -> pygame.Surface | None:
     once the ``Renderer`` has initialised).  The SVG is loaded at its intrinsic
     size; the renderer handles display-pixel scaling via bilinear interpolation
     (matching official Scratch's WebGL ``GL_LINEAR`` texture filtering).
+
+    Returns ``None`` when no surface can be produced — no fallback placeholder
+    is created, making missing costumes visible during development.
     """
     if costume.surface is not None:
         surf = costume.surface
         assert isinstance(surf, pygame.Surface)
         return surf
 
-    # Placeholder
-    surf = pygame.Surface((50, 50), pygame.SRCALPHA)
-    surf.fill((0, 0, 255, 128))
-    pygame.draw.rect(surf, (100, 100, 255), (5, 5, 40, 40), 2)
-    costume.surface = surf
-    return surf
+    # Deferred SVG rasterisation
+    if costume.data_format == 'svg' and costume.data:
+        try:
+            buf = io.BytesIO(costume.data)
+            surf = pygame.image.load(buf, 'svg')
+            costume.surface = surf
+            return surf
+        except Exception:  # noqa: BLE001
+            return None
+
+    return None
 
 
 # ── Pen layer cache ──────────────────────────────────────────────────────
@@ -388,19 +398,14 @@ class Renderer:
         - Rotation and scaling combined in one pass via ``rotozoom`` for less aliasing.
         """
         if not sprite.costume:
-            # Draw placeholder
-            sx, sy = scratch_to_screen(sprite.x, sprite.y)
-            sz = max(
-                PLACEHOLDER_MIN_SIZE, int(sprite.size * STAGE_SCALE / 100 * PLACEHOLDER_SIZE_FACTOR)
-            )
-            rect = pygame.Rect(int(sx - sz / 2), int(sy - sz / 2), sz, sz)
-            pygame.draw.ellipse(self.screen, COLOR_RED, rect)
-            pygame.draw.ellipse(self.screen, COLOR_BLACK, rect, PLACEHOLDER_STROKE_WIDTH)
-            return
+            return  # no costume — nothing to draw
 
         costume = sprite.costume
         if costume.surface is None:
             _load_costume_surface(costume)
+
+        if costume.surface is None:
+            return  # could not load the surface
 
         base = costume.surface
 
@@ -437,7 +442,20 @@ class Renderer:
 
         # Position (scratch_to_screen already includes STAGE_SCALE)
         sx, sy = scratch_to_screen(sprite.x, sprite.y)
-        rect = scaled.get_rect(center=(int(sx), int(sy)))
+
+        # Apply rotation centre offset so the costume's rotation centre
+        # aligns with the sprite's (x, y) position.
+        ox = costume.rotation_center_x * render_scale
+        oy = costume.rotation_center_y * render_scale
+        if angle != 0 and sprite.rotation_style not in (ROTATION_DONT_ROTATE,):
+            a = math.radians(angle)
+            cos_a = math.cos(a)
+            sin_a = math.sin(a)
+            ox, oy = ox * cos_a - oy * sin_a, ox * sin_a + oy * cos_a
+
+        rect = scaled.get_rect()
+        rect.x = int(sx - ox)
+        rect.y = int(sy - oy)
         self.screen.blit(scaled, rect)
 
     # ── Speech bubble drawing ─────────────────────────────────────────
@@ -684,12 +702,6 @@ class Renderer:
             surface=surf,
         )
 
-
-# Placeholder sprite
-COLOR_RED = (255, 0, 0)
-PLACEHOLDER_SIZE_FACTOR = 20
-PLACEHOLDER_MIN_SIZE = 4
-PLACEHOLDER_STROKE_WIDTH = 2
 
 # Overlay / debug info
 OVERLAY_FONT_SIZE = 24

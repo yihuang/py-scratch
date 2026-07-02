@@ -11,7 +11,11 @@ Usage::
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from scratch.dsl import Project, control, motion, pen
+
+HERE = Path(__file__).parent
 
 project = Project('All-in-One Demo')
 
@@ -20,7 +24,7 @@ project.stage.var('Score', 0)
 
 # ── Sprite 1: Bouncing ball ───────────────────────────────────────────
 ball = project.sprite('Ball')
-ball.costume('ball')
+ball.costume('ball', path=str(HERE / 'ball.svg'))
 ball.x = 0
 ball.y = 100
 ball.direction = 45
@@ -35,7 +39,7 @@ ball.when_flag_clicked(
 
 # ── Sprite 2: Square that follows a target ────────────────────────────
 square = project.sprite('Square')
-square.costume('square')
+square.costume('square', path=str(HERE / 'square.svg'))
 square.x = 100
 square.y = 0
 square.layer_order = 1
@@ -49,7 +53,7 @@ square.when_flag_clicked(
 
 # ── Sprite 3: Triangle that walks in a circle ─────────────────────────
 tri = project.sprite('Triangle')
-tri.costume('triangle')
+tri.costume('triangle', path=str(HERE / 'triangle.svg'))
 tri.x = 0
 tri.y = 0
 tri.direction = 0
@@ -67,7 +71,7 @@ tri.when_flag_clicked(
 
 # ── Sprite 4: Pen writer ──────────────────────────────────────────────
 writer = project.sprite('PenWriter')
-writer.costume('pen')
+writer.costume('pen', path=str(HERE / 'pen.svg'))
 writer.x = -200
 writer.y = -150
 writer.direction = 90

@@ -18,11 +18,13 @@ Usage::
 from __future__ import annotations
 
 import hashlib
-import io as _io_module
-import pygame
+import io
+import re
 import uuid
 from pathlib import Path
 from typing import Any, Callable
+
+import pygame
 
 from scratch.sb3.io import save_project
 from scratch.vm.opcodes import OPCODE_MAP
@@ -65,15 +67,69 @@ class ProjectTarget:
         self,
         name: str,
         *,
+        path: str | None = None,
         data_format: str = 'png',
         asset_id: str = '',
         md5ext: str = '',
+        rotation_center_x: float | None = None,
+        rotation_center_y: float | None = None,
     ) -> None:
-        """Add a costume to this target."""
+        """Add a costume to this target.
+
+        If *path* is given, the costume data is loaded from that file and
+        the format is inferred from the extension (``.svg``, ``.png``, etc.).
+        For SVG files the rotation centre defaults to the viewBox centre;
+        pass ``rotation_center_x`` / ``rotation_center_y`` to override.
+        """
+        rc_x: float = rotation_center_x or 0
+        rc_y: float = rotation_center_y or 0
+
+        if path is not None:
+            data = Path(path).read_bytes()
+            fmt = Path(path).suffix.lstrip('.')
+            md5 = hashlib.md5(data).hexdigest()
+
+            # For SVG, default rotation centre = centre of viewBox
+            if fmt == 'svg' and rotation_center_x is None:
+                m = re.search(
+                    r'viewBox="[\d.]+\s+[\d.]+\s+([\d.]+)\s+([\d.]+)"', data.decode('utf-8')
+                )
+                if m:
+                    vb_w = float(m.group(1))
+                    vb_h = float(m.group(2))
+                    rc_x = rc_x or (vb_w / 2)
+                    rc_y = rc_y or (vb_h / 2)
+
+            # Load surface immediately so scratch_bounds work for bounce etc.
+            surface = None
+            if fmt == 'svg':
+                try:
+                    surface = pygame.image.load(io.BytesIO(data), 'svg')
+                except Exception:  # noqa: BLE001
+                    pass
+
+            self._costumes.append(
+                Costume(
+                    name=name,
+                    data_format=fmt,
+                    data=data,
+                    surface=surface,
+                    rotation_center_x=rc_x,
+                    rotation_center_y=rc_y,
+                    asset_id=md5,
+                    md5ext=f'{md5}.{fmt}',
+                )
+            )
+            return
+
+        rc_x = rotation_center_x or 0
+        rc_y = rotation_center_y or 0
         self._costumes.append(
             Costume(
                 name=name,
                 data_format=data_format,
+                rotation_center_x=rc_x,
+                rotation_center_y=rc_y,
                 asset_id=asset_id,
                 md5ext=md5ext,
             )
@@ -124,44 +180,13 @@ class Project:
         return self._stage
 
     def _ensure_costume_data(self, pt: ProjectTarget) -> None:
-        """Ensure all costumes have valid image data for .sb3 export.
-
-        Costumes with empty ``md5ext`` get a minimal placeholder PNG
-        generated via pygame so the .sb3 file is valid for the Scratch editor.
-        """
-        for costume in pt._costumes:
-            if costume.md5ext:
-                continue  # already has asset data
-
-            # Derive color from costume name
-            name_hash = hashlib.md5(costume.name.encode()).hexdigest()
-            r = (int(name_hash[0:2], 16) % 156) + 100
-            g = (int(name_hash[2:4], 16) % 156) + 100
-            b = (int(name_hash[4:6], 16) % 156) + 100
-
-            surf = pygame.Surface((50, 50), pygame.SRCALPHA)
-            surf.fill((r, g, b, 255))
-            pygame.draw.circle(surf, (r - 20, g - 20, b - 20), (25, 25), 22)
-            pygame.draw.circle(surf, (r - 80, g - 80, b - 80), (25, 25), 22, 2)
-
-            buf = _io_module.BytesIO()
-            pygame.image.save(surf, buf, 'PNG')
-            png_bytes = buf.getvalue()
-
-            md5 = hashlib.md5(png_bytes).hexdigest()
-            costume.data_format = 'png'
-            costume.asset_id = md5
-            costume.md5ext = f'{md5}.png'
-            costume.data = png_bytes
-            costume.surface = surf
+        """No-op — placeholder costumes are no longer generated."""
 
     def build_runtime(self) -> Runtime:
         """Construct a Runtime from all ProjectTargets and build scripts."""
         rt = Runtime()
 
         for pt in [self._stage, *self._sprites]:
-            self._ensure_costume_data(pt)
-
             target = Target(name=pt.name, is_stage=pt.is_stage)
             target.x = pt.x
             target.y = pt.y
@@ -170,10 +195,10 @@ class Project:
             target.visible = pt.visible
             target.layer_order = pt.layer_order
             target.costumes = list(pt._costumes)
-            # If no costumes, add a minimal placeholder
-            if not target.costumes:
-                placeholder = _make_placeholder_costume(pt.name)
-                target.costumes = [placeholder]
+
+            # Stage must have at least one backdrop (Scratch 3 schema requirement).
+            if target.is_stage and not target.costumes:
+                _add_white_backdrop(target)
 
             # Generate variable UUIDs and register on target
             var_map = pt._make_var_map()
@@ -193,43 +218,29 @@ class Project:
 
         return rt
 
-    def save(self, path: str | Path | _io_module.IOBase) -> None:
+    def save(self, path: str | Path | io.IOBase) -> None:
         """Construct the Runtime and save as .sb3."""
         rt = self.build_runtime()
         save_project(rt, path)
 
 
-def _make_placeholder_costume(name: str) -> Costume:
-    """Generate a minimal placeholder costume with a colored circle.
-
-    Used when a target has no costumes at all, ensuring the .sb3 is
-    valid for the Scratch editor.  The color varies by target name
-    so different targets produce distinct image assets.
-    """
-    # Derive color from target name to avoid identical placeholders
-    name_hash = hashlib.md5(name.encode()).hexdigest()
-    r = (int(name_hash[0:2], 16) % 156) + 100
-    g = (int(name_hash[2:4], 16) % 156) + 100
-    b = (int(name_hash[4:6], 16) % 156) + 100
-
-    surf = pygame.Surface((50, 50), pygame.SRCALPHA)
-    surf.fill((r, g, b, 255))
-    pygame.draw.circle(surf, (r - 20, g - 20, b - 20), (25, 25), 22)
-    pygame.draw.circle(surf, (r - 80, g - 80, b - 80), (25, 25), 22, 2)
-
-    buf = _io_module.BytesIO()
-    pygame.image.save(surf, buf, 'PNG')
-    png_bytes = buf.getvalue()
-
-    md5 = hashlib.md5(png_bytes).hexdigest()
-    return Costume(
-        name=name or 'costume1',
-        data_format='png',
-        bitmap_resolution=1,
-        rotation_center_x=25,
-        rotation_center_y=25,
-        asset_id=md5,
-        md5ext=f'{md5}.png',
-        data=png_bytes,
-        surface=surf,
+def _add_white_backdrop(target: Target) -> None:
+    """Add a minimal white 480x360 SVG backdrop to *target*."""
+    svg = (
+        '<svg xmlns="http://www.w3.org/2000/svg"'
+        ' viewBox="0 0 480 360" width="480" height="360">'
+        '<rect width="480" height="360" fill="white"/></svg>'
+    ).encode('utf-8')
+    md5 = hashlib.md5(svg).hexdigest()
+    target.costumes.append(
+        Costume(
+            name='Stage',
+            data_format='svg',
+            data=svg,
+            surface=pygame.image.load(io.BytesIO(svg), 'svg'),
+            rotation_center_x=240,
+            rotation_center_y=180,
+            asset_id=md5,
+            md5ext=f'{md5}.svg',
+        )
     )

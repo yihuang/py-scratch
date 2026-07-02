@@ -11,7 +11,11 @@ Usage::
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from scratch.dsl import Project, control, motion
+
+HERE = Path(__file__).parent
 
 project = Project('Cat Chase Mouse')
 
@@ -20,7 +24,7 @@ project.stage.var('score', 0)
 
 # ── Cat ───────────────────────────────────────────────────────────────
 cat = project.sprite('Cat')
-cat.costume('cat')
+cat.costume('cat', path=str(HERE / 'cat.svg'))
 cat.x = -100
 cat.y = 0
 cat.direction = 90
@@ -35,7 +39,7 @@ cat.when_flag_clicked(
 
 # ── Mouse ─────────────────────────────────────────────────────────────
 mouse = project.sprite('Mouse')
-mouse.costume('mouse')
+mouse.costume('mouse', path=str(HERE / 'mouse.svg'))
 mouse.x = 100
 mouse.y = 0
 mouse.direction = -90

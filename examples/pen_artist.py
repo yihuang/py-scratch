@@ -8,19 +8,23 @@ Usage::
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from scratch.dsl import Project, control, motion, pen
+
+HERE = Path(__file__).parent
 
 project = Project('Pen Artist')
 writer = project.sprite('PenWriter')
 
-writer.costume('pen')
+writer.costume('pen', path=str(HERE / 'pen.svg'), rotation_center_x=50, rotation_center_y=95)
 writer.x = -200
 writer.y = -150
 writer.direction = 90
 writer.layer_order = 3
 
 writer.when_flag_clicked(
-    pen.pen_clear(),  # not a valid call in __init__: these are register calls
+    pen.pen_clear(),
     pen.pen_down(),
     pen.pen_color('#0000FF'),
     control.forever()(

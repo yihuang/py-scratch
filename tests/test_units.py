@@ -1457,16 +1457,17 @@ class TestMotion:
         """Bounce off edge: sprite at x=240 with a 10px-wide costume bounces to x=235."""
         t = _stack('motion_gotoxy', 'motion_ifonedgebounce')
         _set(t, 'b0', inputs={'X': Input(value=240), 'Y': Input(value=0)})
-        # Add a 10×10 costume so bounds are -235..235
+        # Add a 10×10 costume so bounds are 0,0,10,10 (rotation_center defaults to 0,0)
         surf = pygame.Surface((10, 10))
         t.costumes.append(Costume(name='c', surface=surf))
         t.costume_index = 0
         t.direction = 90.0  # facing right
         t._rebuild_hat_cache()
         rt = _run(t)
-        # Bounced: x clamped to 235, direction reflected 180-90=-90 (facing down)
-        assert t.x == 235.0
-        assert t.direction == 90.0  # 180 - 90 = 90 → still 90 because bounce uses 180 - direction
+        # New bounce: direction points away from nearest edge (right → left = -90° = down)
+        # Position is NOT clamped (only direction changes).
+        assert t.x == 240.0
+        assert t.direction == -90.0
 
     # ── set rotation style ─────────────────────────────────────────────
 

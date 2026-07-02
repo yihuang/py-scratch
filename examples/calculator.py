@@ -11,26 +11,24 @@ Usage::
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from scratch.dsl import Project, control, data, motion, operators
+
+HERE = Path(__file__).parent
 
 project = Project('Calculator')
 
 # ── Sprite with variables for operands ────────────────────────────────
 sprite = project.sprite('Calc')
-sprite.costume('ball')
+sprite.costume('ball', path=str(HERE / 'ball.svg'))
 sprite.var('a', 10)
 sprite.var('b', 3)
 sprite.var('result', 0)
 
 # On green flag, compute some expressions using reporter nesting.
-# Each data.variable("a") creates a reporter block that reads the
-# variable at runtime.  operators.add(...) wraps them in an operator
-# reporter.  The outermost data.set_variable uses the add reporter
-# as its VALUE input.
 sprite.when_flag_clicked(
-    # result = a + b  (reporter nesting)
     data.set_variable('result', operators.add(data.variable('a'), data.variable('b'))),
-    # Move to keep the sprite animated
     control.forever()(
         motion.move(3),
         motion.if_on_edge_bounce(),

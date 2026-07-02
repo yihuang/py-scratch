@@ -8,24 +8,24 @@ Usage::
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from scratch.dsl import Project, control, motion
 
+HERE = Path(__file__).parent
+
 project = Project('Mouse Follower')
-square = project.sprite('Square')
 
-square.costume('square')
-square.x = 100
+square = project.sprite('Follower')
+square.costume('square', path=str(HERE / 'square.svg'))
+square.x = 0
 square.y = 0
-square.layer_order = 1
 
-# The runtime doesn't have active mouse-tracking reporters wired
-# into the DSL reporters yet, so this uses static positions.
-# Once the runtime supports sensing_mousex/y, replace with:
-#   motion.goto(x=sensing.mouse_x(), y=sensing.mouse_y())
 square.when_flag_clicked(
     control.forever()(
-        motion.goto(x=100, y=0),  # static target for now
-        control.wait(0.05),
+        motion.point_towards('_mouse_'),
+        motion.move(5),
+        control.wait(0.02),
     ),
 )
 

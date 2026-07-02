@@ -10,18 +10,20 @@ Usage::
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from scratch.dsl import Project, control, motion
 
-project = Project('Circle Walker')
-tri = project.sprite('Triangle')
+HERE = Path(__file__).parent
 
-tri.costume('triangle')
+project = Project('Circle Walker')
+
+tri = project.sprite('Triangle')
+tri.costume('triangle', path=str(HERE / 'triangle.svg'))
 tri.x = 0
 tri.y = 0
 tri.direction = 0
-tri.layer_order = 2
 
-# Declare a variable to track the turning angle
 tri.var('angle', 0.0)
 
 tri.when_flag_clicked(

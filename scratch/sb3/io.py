@@ -414,9 +414,12 @@ def _read_asset_data(
 
 def _load_bitmap(costume: Costume, data: bytes) -> None:
     costume.data = data
-    buf = io.BytesIO(data)
-    surf = pygame.image.load(buf)
-    costume.surface = surf
+    try:
+        buf = io.BytesIO(data)
+        surf = pygame.image.load(buf)
+        costume.surface = surf
+    except Exception as exc:
+        logger.warning('Failed to load image for %s: %s', costume.name, exc)
 
 
 def _rasterise_svg(costume: Costume, data: bytes) -> None:
@@ -427,12 +430,10 @@ def _rasterise_svg(costume: Costume, data: bytes) -> None:
 
 
 def _make_placeholder(costume: Costume) -> None:
-    """Assign a visible placeholder surface so the costume shows up
-    in the renderer even without image data."""
-    surf = pygame.Surface((50, 50), pygame.SRCALPHA)
-    surf.fill((180, 180, 200, 200))
-    pygame.draw.rect(surf, (100, 100, 120), surf.get_rect(), 2)
-    costume.surface = surf
+    """Mark the costume as having no usable data — no fallback surface."""
+    # No placeholder surface is created; missing costumes are visible as
+    # invisible sprites, which makes debugging easier.
+    costume.surface = None
 
 
 def _load_sounds(runtime: Runtime, zf: zipfile.ZipFile, asset_dir: str | Path | None) -> None:

@@ -463,7 +463,7 @@ class TestCategoryPen:
     def test_pen_down_up(self) -> None:
         assert pen.pen_down().opcode == 'pen_penDown'
         assert pen.pen_up().opcode == 'pen_penUp'
-        assert pen.pen_clear().opcode == 'pen_penClear'
+        assert pen.pen_clear().opcode == 'pen_clear'
         assert pen.stamp().opcode == 'pen_stamp'
 
 
