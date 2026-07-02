@@ -434,7 +434,6 @@ class TestTranscribeIntegration:
             assert (out_dir / 'main.py').exists()
             assert (out_dir / 'assets' / 'a.png').exists()
 
-
     def test_transcribed_code_has_expected_content(self) -> None:
         """Verify the generated Python code contains expected DSL patterns."""
         sb3_data = _build_test_sb3()

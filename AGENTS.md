@@ -1,5 +1,16 @@
 # Project Rules
 
+## Lint / Format Before Finishing
+
+After completing a task (before committing, creating a PR, or declaring work done),
+run the following commands and fix any issues they report:
+
+```
+uv run ruff check
+uv run ruff format
+uv run mypy --explicit-package-bases scratch/
+```
+
 ## Use Constants Over Hardcoded Strings
 
 Never use raw string literals for values that have a corresponding constant defined in `scratch/vm/constants.py`. Always import and use the constant instead.

@@ -414,27 +414,16 @@ def _read_asset_data(
 
 def _load_bitmap(costume: Costume, data: bytes) -> None:
     costume.data = data
-    try:
-        buf = io.BytesIO(data)
-        surf = pygame.image.load(buf)
-        costume.surface = surf
-    except (pygame.error, Exception) as exc:
-        logger.warning('Failed to load image for %s: %s', costume.name, exc)
-        _make_placeholder(costume)
+    buf = io.BytesIO(data)
+    surf = pygame.image.load(buf)
+    costume.surface = surf
 
 
 def _rasterise_svg(costume: Costume, data: bytes) -> None:
     costume.data = data
-    try:
-        import cairosvg  # type: ignore[import-untyped]  # noqa: PLC0415  — optional dep
-
-        png_data = cairosvg.svg2png(bytestring=data, scale=1)
-        buf = io.BytesIO(png_data)
-        surf = pygame.image.load(buf)
-        costume.surface = surf
-    except Exception as exc:
-        logger.warning('Failed to rasterise SVG %s: %s', costume.name, exc)
-        _make_placeholder(costume)
+    buf = io.BytesIO(data)
+    surf = pygame.image.load(buf, 'svg')
+    costume.surface = surf
 
 
 def _make_placeholder(costume: Costume) -> None:

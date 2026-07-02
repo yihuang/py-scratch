@@ -89,25 +89,27 @@ def _assert_runtimes_equal(rt_a: Runtime, rt_b: Runtime) -> None:
         snap_a = _get_target_snapshot(tgt_a)
         snap_b = _get_target_snapshot(tgt_b)
 
-        assert snap_a['name'] == snap_b['name'], f"name mismatch: {snap_a['name']} != {snap_b['name']}"
+        assert snap_a['name'] == snap_b['name'], (
+            f'name mismatch: {snap_a["name"]} != {snap_b["name"]}'
+        )
         assert snap_a['is_stage'] == snap_b['is_stage']
         assert snap_a['variables'] == snap_b['variables'], (
-            f"vars mismatch for {snap_a['name']}: {snap_a['variables']} != {snap_b['variables']}"
+            f'vars mismatch for {snap_a["name"]}: {snap_a["variables"]} != {snap_b["variables"]}'
         )
         assert snap_a['lists'] == snap_b['lists'], (
-            f"lists mismatch for {snap_a['name']}: {snap_a['lists']} != {snap_b['lists']}"
+            f'lists mismatch for {snap_a["name"]}: {snap_a["lists"]} != {snap_b["lists"]}'
         )
         assert snap_a['costumes'] == snap_b['costumes'], (
-            f"costumes mismatch for {snap_a['name']}: {snap_a['costumes']} != {snap_b['costumes']}"
+            f'costumes mismatch for {snap_a["name"]}: {snap_a["costumes"]} != {snap_b["costumes"]}'
         )
         assert snap_a['opcode_chains'] == snap_b['opcode_chains'], (
-            f"opcode chains mismatch for {snap_a['name']}: "
-            f"{snap_a['opcode_chains']} != {snap_b['opcode_chains']}"
+            f'opcode chains mismatch for {snap_a["name"]}: '
+            f'{snap_a["opcode_chains"]} != {snap_b["opcode_chains"]}'
         )
         # Properties
         for prop in ('x', 'y', 'direction', 'size', 'visible', 'layer_order', 'rotation_style'):
             assert snap_a[prop] == snap_b[prop], (
-                f"{prop} mismatch for {snap_a['name']}: {snap_a[prop]} != {snap_b[prop]}"
+                f'{prop} mismatch for {snap_a["name"]}: {snap_a[prop]} != {snap_b[prop]}'
             )
 
 

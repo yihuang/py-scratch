@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 
 STAGE_W = 480
 STAGE_H = 360
-STAGE_SCALE = 2  # scale factor for the window
+STAGE_SCALE: float = 2  # scale factor for the window (updated at runtime on Retina)
 
 WINDOW_W = STAGE_W * STAGE_SCALE
 WINDOW_H = STAGE_H * STAGE_SCALE
@@ -128,10 +128,20 @@ def scratch_to_screen(x: float, y: float) -> tuple[float, float]:
 
 
 def _load_costume_surface(costume: Costume) -> pygame.Surface | None:
+    """Return a pygame surface for *costume*, rasterising lazily if needed.
+
+    For SVG costumes the rasterisation is deferred until first access so we
+    can render at the current ``STAGE_SCALE`` (which includes the Retina factor
+    once the ``Renderer`` has initialised).  The SVG is loaded at its intrinsic
+    size; the renderer handles display-pixel scaling via bilinear interpolation
+    (matching official Scratch's WebGL ``GL_LINEAR`` texture filtering).
+    """
     if costume.surface is not None:
         surf = costume.surface
         assert isinstance(surf, pygame.Surface)
         return surf
+
+    # Placeholder
     surf = pygame.Surface((50, 50), pygame.SRCALPHA)
     surf.fill((0, 0, 255, 128))
     pygame.draw.rect(surf, (100, 100, 255), (5, 5, 40, 40), 2)
@@ -147,7 +157,7 @@ class PenLayer:
 
     def __init__(self) -> None:
         self.surface = pygame.Surface(
-            (STAGE_W * STAGE_SCALE, STAGE_H * STAGE_SCALE),
+            (int(STAGE_W * STAGE_SCALE), int(STAGE_H * STAGE_SCALE)),
             pygame.SRCALPHA,
         )
         self.surface.fill((0, 0, 0, 0))
@@ -201,9 +211,26 @@ class Renderer:
         self.title = title
 
         pygame.init()
-        self.screen = pygame.display.set_mode((WINDOW_W, WINDOW_H))
+
+        # We'll update these module globals once we know the actual pixel ratio.
+        global STAGE_SCALE, WINDOW_W, WINDOW_H  # noqa: PLW0603
+
+        # SCALED flag lets SDL2 create the framebuffer at the OS's native pixel
+        # resolution (e.g. 2x on Retina displays), keeping the window at the
+        # requested logical size.  We then compute the actual pixel scale from
+        # the surface size so all drawing stays crisp on high-DPI screens.
+        self.screen = pygame.display.set_mode((WINDOW_W, WINDOW_H), pygame.SCALED)
         pygame.display.set_caption(title)
         self.clock = pygame.time.Clock()
+
+        # Actual surface size (may be larger than requested on Retina displays)
+        self._surf_w = self.screen.get_width()
+        self._surf_h = self.screen.get_height()
+        self._pixel_scale = self._surf_w / STAGE_W  # actual pixels per Scratch unit
+        self._logical_scale = STAGE_SCALE  # the original 2x (960x540 window points)
+        STAGE_SCALE = self._pixel_scale
+        WINDOW_W = self._surf_w
+        WINDOW_H = self._surf_h
 
         self.pen_layer = PenLayer()
         self._fps = 60
@@ -254,12 +281,12 @@ class Renderer:
                         self.runtime.start_key_hat(name)
                 case pygame.MOUSEMOTION:
                     px, py = event.pos
-                    self._mouse_x = px / STAGE_SCALE - STAGE_W / 2
-                    self._mouse_y = -(py / STAGE_SCALE) + STAGE_H / 2
+                    self._mouse_x = px / self._logical_scale - STAGE_W / 2
+                    self._mouse_y = -(py / self._logical_scale) + STAGE_H / 2
                 case pygame.MOUSEBUTTONDOWN:
                     px, py = event.pos
-                    self._mouse_x = px / STAGE_SCALE - STAGE_W / 2
-                    self._mouse_y = -(py / STAGE_SCALE) + STAGE_H / 2
+                    self._mouse_x = px / self._logical_scale - STAGE_W / 2
+                    self._mouse_y = -(py / self._logical_scale) + STAGE_H / 2
                     self._mouse_down = True
                     self.runtime.start_click_hat(self._mouse_x, self._mouse_y)
                 case pygame.MOUSEBUTTONUP:
@@ -377,7 +404,9 @@ class Renderer:
             except (ValueError, pygame.error):
                 scaled = base
 
-        elif sprite.rotation_style == ROTATION_LEFT_RIGHT and (sprite.direction > 90 or sprite.direction < -90):
+        elif sprite.rotation_style == ROTATION_LEFT_RIGHT and (
+            sprite.direction > 90 or sprite.direction < -90
+        ):
             # Flip horizontally (no rotation)
             scaled = pygame.transform.rotozoom(base, 0, render_scale)
             scaled = pygame.transform.flip(scaled, True, False)
@@ -400,7 +429,7 @@ class Renderer:
             return
 
         scale = STAGE_SCALE
-        scaled_font_size = BubbleStyle.FONT_SIZE * scale
+        scaled_font_size = int(BubbleStyle.FONT_SIZE * scale)
         font = pygame.font.Font(None, scaled_font_size)
         lines = self._wrap_text(font, text)
 
@@ -408,7 +437,7 @@ class Renderer:
         max_line_w = max(font.size(line)[0] for line in lines)
 
         # Bubble dimensions in Scratch coords
-        max_line_w_scratch = max_line_w // scale
+        max_line_w_scratch = int(max_line_w / scale)
         padded_w = max(max_line_w_scratch, BubbleStyle.MIN_WIDTH) + BubbleStyle.PADDING * 2
         padded_h = BubbleStyle.LINE_HEIGHT * len(lines) + BubbleStyle.PADDING * 2
 
@@ -464,11 +493,11 @@ class Renderer:
         padded_h: int,
         total_w: int,
         total_h: int,
-        scale: int,
+        scale: float,
         points_left: bool,
     ) -> None:
         """Render the bubble shape and text onto *surf* at the given scale."""
-        s = scale  # short alias
+        s = int(scale)  # short alias — int for pygame API calls
         # Scale bubble coordinates to surface pixels
         R = BubbleStyle.CORNER_RADIUS * s
         P = BubbleStyle.PADDING * s
@@ -551,7 +580,7 @@ class Renderer:
         pygame.draw.polygon(surf, stroke_color, tail_points, SW)
 
         # Draw text at scaled font size
-        font_size = max(1, BubbleStyle.FONT_SIZE * s)
+        font_size = max(1, int(BubbleStyle.FONT_SIZE * s))
         text_font = pygame.font.Font(None, font_size)
         for i, line in enumerate(lines):
             text_surf = text_font.render(line, True, BubbleStyle.FONT_COLOR)

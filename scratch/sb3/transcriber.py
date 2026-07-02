@@ -581,7 +581,9 @@ def _generate_source(rt: Runtime, asset_dir: Path) -> list[str]:
     lines.append('    import argparse')
     lines.append('')
     lines.append('    parser = argparse.ArgumentParser(description=__doc__)')
-    lines.append('    parser.add_argument("--save", "-o", type=str, help="Save project to .sb3 file")')
+    lines.append(
+        '    parser.add_argument("--save", "-o", type=str, help="Save project to .sb3 file")'
+    )
     lines.append('    args = parser.parse_args()')
     lines.append('')
     lines.append('    if args.save:')
