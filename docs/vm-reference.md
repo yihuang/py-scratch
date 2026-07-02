@@ -129,18 +129,18 @@ Blocks in Scratch are categorized by shape, which determines where they can be p
 
 A node in the block tree. Blocks form a **linked list** via `next`/`parent` for sequential execution (`block.next` chains), and reference child blocks (reporters, substacks) through `inputs`.
 
-| Field | JS Type | Meaning |
-|-------|---------|---------|
-| `id` | `string` | Unique block identifier (UUID). |
-| `opcode` | `string` | Maps to handler (e.g. `"motion_movesteps"`). |
-| `next` | `string \| null` | Block ID of the next block in the chain; `null` = end. |
-| `parent` | `string \| null` | Block ID of the containing block. |
-| `inputs` | `Object<string, InputInfo>` | Named input slots, each `{name, block, shadow}`. |
-| `fields` | `Object<string, Field>` | Named field slots — dropdowns, variable pickers. |
-| `shadow` | `boolean` | Whether this is a shadow (editor placeholder / menu block). |
-| `topLevel` | `boolean` | Whether this block sits on the editor canvas. |
-| `mutation` | `object \| null` | Procedure metadata (proccode, argument ids/names/defaults, warp). |
-| `x`, `y` | `number \| null` | Editor position (topLevel only). |
+| Field | Python Type | Meaning |
+|-------|-------------|---------|
+| `id` | `str` | Unique block identifier (UUID). |
+| `opcode` | `str` | Maps to handler (e.g. `"motion_movesteps"`). |
+| `next` | `str \| None` | Block ID of the next block in the chain; `null` = end. |
+| `parent` | `str \| None` | Block ID of the containing block. |
+| `inputs` | `dict[str, Input]` | Named input slots, each wrapping a literal, block ID, or compact primitive. |
+| `fields` | `dict[str, Field]` | Named field slots — dropdowns, variable pickers. |
+| `shadow` | `bool` | Whether this is a shadow (editor placeholder / menu block). |
+| `topLevel` | `bool` | Whether this block sits on the editor canvas. |
+| `mutation` | `Mutation \| None` | Procedure metadata (proccode, argument ids/names/defaults, warp). |
+| `x`, `y` | `float \| None` | Editor position (topLevel only). |
 
 > **Why "hat"?** Hat blocks have a rounded top in the editor, shaped like a hat. Stack blocks snap into the notch below. The term is used throughout: `startHats()`, `getHats()`, `edgeActivatedHats`. Hats have `"topLevel": true`.
 
@@ -153,15 +153,31 @@ event_whenflagclicked (topLevel=true)
              inputs.SUBSTACK → {block: motion_movesteps}
 ```
 
-### InputInfo
+### Input (py-scratch model)
 
-Each input slot is a `{name, block, shadow}` object in the runtime. In SB3 JSON it serializes as `[shadowFlag, blockId, ?shadowId]`.
+Each input slot wraps a single value in our Python model (simplified from the JS VM's separate `block`/`shadow` IDs). The SB3 JSON is parsed into one of these forms:
 
 | Field | Type | Meaning |
 |-------|------|---------|
-| `name` | `string` | Logical slot name (e.g. `"STEPS"`, `"SUBSTACK"`). |
-| `block` | `string \| null` | Block ID of the reporter or substack block plugged into this input. |
-| `shadow` | `string \| null` | Block ID of the shadow block (the editor's default placeholder). |
+| `name` | `str` | Logical slot name (e.g. `"STEPS"`, `"SUBSTACK"`). Stored as the dict key; also present in the object for debugging. |
+| `value` | `Any` | The raw value — see below. |
+| `shadow` | `bool` | Whether this input is a shadow (default placeholder). Set when the SB3 shadow flag is 1 or 3. |
+
+**What `value` can be:**
+- A **literal** (int, float, str, bool) — a shadow's default value.
+- A **block ID** string (e.g. `"abc123"`) — a reference to another block in the same target's blocks dict.
+- A **compact primitive array** `[type_code, value, ...]` — an inlined shadow/menu block (types 4–13; see Input Format in opcode-reference.md). Resolved at runtime by `resolve_input()`.
+
+### Field (py-scratch model)
+
+A dropdown/field on a block (variable name, operator choice, colour picker, etc.).
+
+| Field | Type | Meaning |
+|-------|------|---------|
+| `name` | `str` | Field key (e.g. `"VARIABLE"`, `"EFFECT"`, `"STYLE"`). Stored as the dict key; also present in the object for debugging. |
+| `value` | `Any` | The selected value. |
+| `id` | `str \| None` | Variable/list/broadcast ID for cross-referencing (e.g. to look up a variable by UUID). |
+| `variable_type` | `str \| None` | Inferred from the field name: `""` (scalar for `VARIABLE`), `"list"` (for `LIST`), `"broadcast_msg"` (for `BROADCAST_OPTION`), or `None` for plain fields. Not serialized; recovered by field name convention on load. |
 
 ### Field
 

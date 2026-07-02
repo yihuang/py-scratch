@@ -140,11 +140,11 @@ def _parse_block(block_id: str, data: dict[str, Any]) -> Block:
     """Convert a single block dict into a Block instance."""
     inputs: dict[str, Input] = {}
     for name, inp_data in data.get('inputs', {}).items():
-        inputs[name] = _parse_input(inp_data)
+        inputs[name] = _parse_input(name, inp_data)
 
     fields: dict[str, Field] = {}
     for name, fld_data in data.get('fields', {}).items():
-        fields[name] = _parse_field(fld_data)
+        fields[name] = _parse_field(name, fld_data)
 
     return Block(
         id=block_id,
@@ -161,15 +161,22 @@ def _parse_block(block_id: str, data: dict[str, Any]) -> Block:
     )
 
 
-def _parse_input(data: list[Any]) -> Input:
+def _parse_input(name: str, data: list[Any]) -> Input:
     """Parse a block input array ``[shadow_flag, value, ...]``.
 
     Scratch 3.0 input format:
-        [1, literal]           — shadow with literal value
+        [1, literal]           — shadow with literal value (or compact primitive)
         [2, block_id]          — reference to another block
-        [3, value, block_id]   — obsolete shadow+block pair (value is
+        [3, literal, block_id] — obsolete shadow+block pair (literal is
                                  the shadow's default; block_id is the
                                  actual reporter block reference)
+
+    The resulting ``Input.value`` stores the raw second/third element:
+      * a literal (int/float/str/bool) for ``[1, 42]``,
+      * a block ID string for ``[2, 'blockId']``,
+      * a compact primitive ``[type_code, value, ...]`` for ``[1, [4, 10]]``,
+      * a block ID string for ``[3, literal, 'blockId']``.
+    Runtime resolution via ``resolve_input()`` dispatches on the value's type.
     """
     shadow_flag = data[0] if len(data) > 0 else 0
     is_shadow = shadow_flag in (SHADOW_FLAG, OBSOLETE_FLAG)
@@ -180,8 +187,7 @@ def _parse_input(data: list[Any]) -> Input:
     else:
         value = data[1] if len(data) > 1 else None
 
-    inp = Input(name='', value=value, shadow=is_shadow)
-    return inp
+    return Input(name=name, value=value, shadow=is_shadow)
 
 
 def _parse_mutation(data: dict[str, Any] | None) -> Mutation | None:
@@ -199,20 +205,34 @@ def _parse_mutation(data: dict[str, Any] | None) -> Mutation | None:
     )
 
 
-def _parse_field(data: list[Any]) -> Field:
-    """Parse a field array ``[value, id_or_none]``."""
+def _parse_field(name: str, data: list[Any]) -> Field:
+    """Parse a field array ``[value, id_or_none]``.
+
+    ``variable_type`` is inferred from the field name to match the JS VM's
+    ``deserializeFields()`` convention:
+      - ``BROADCAST_OPTION`` → ``'broadcast_msg'``
+      - ``VARIABLE``         → ``''`` (scalar)
+      - ``LIST``             → ``'list'``
+      - everything else      → ``None`` (plain dropdown, no variable ref)
+    """
     value = data[0] if len(data) > 0 else ''
     field_id = data[1] if len(data) > 1 else None
-    var_type = None
 
-    # Field id carries type info when it's a reference
-    if field_id is not None:
-        if isinstance(field_id, str) and field_id.startswith('_'):
-            var_type = field_id
-        else:
-            var_type = ''  # variable reference
+    # variable_type inferred from field name (matching JS VM convention)
+    if name == 'BROADCAST_OPTION':
+        var_type = 'broadcast_msg'
+    elif name == 'VARIABLE':
+        var_type = ''
+    elif name == 'LIST':
+        var_type = 'list'
+    else:
+        var_type = None
 
-    return Field(name='', value=value, id=field_id, variable_type=var_type)
+    return Field(name=name, value=value, id=field_id, variable_type=var_type)
+
+
+
+
 
 
 # ═══════════════════════════════════════════════════════════════════════

@@ -62,26 +62,40 @@ class Clock:
 
 
 def _unwrap_shadow(value: Any) -> Any:
-    """If *value* is a shadow pair ``[block_id, literal]``, return the literal.
-    Otherwise return *value* unchanged."""
+    """Fallback: if *value* is a ``[string, scalar]`` pair, return the scalar.
+
+    This handles edge cases where a value looks like ``['block_id', 42]``
+    but the first element isn't a known primitive type code (4-13) — the
+    literal second element is the actual shadow default.
+
+    Compact primitive arrays ``[4, value]`` through ``[13, value]`` are
+    NOT affected since they're handled by ``resolve_input``'s type_code branch.
+    """
     if (
         isinstance(value, (list, tuple))
         and len(value) == 2
+        # Exclude compact primitives (type codes 4-13)
+        and not (isinstance(value[0], int) and 4 <= value[0] <= 13)
         and isinstance(value[1], (int, float, str, bool))
     ):
         return value[1]
     return value
 
 
+
 def _input_raw(block: Block, name: str) -> Any:
-    """Unwrap a block input to its raw value (literal or block-id string).
+    """Unwrap a block input to its raw value (literal, block-id string, or
+    compact primitive array).
 
     Returns ``None`` if *name* is not present.
+    The caller loses the ``shadow`` flag — use ``_resolve_input`` for
+    full resolution (or pass ``is_shadow`` directly).
     """
     inp = block.inputs.get(name)
     if inp is None:
         return None
     return inp.value if isinstance(inp, Input) else inp
+
 
 
 # ── Runtime ──────────────────────────────────────────────────────────────
@@ -229,50 +243,72 @@ class Runtime:
             return None
         return handler(self, target, block)
 
-    def resolve_input(self, target: Target, value: Any) -> Any:
-        """Resolve a raw value (literal, block reference, or inlined primitive) to a concrete value.
+    def resolve_input(self, target: Target, value: Any, is_shadow: bool = False) -> Any:
+        """Resolve a raw value to a concrete runtime value.
 
         The caller is responsible for stripping the ``Input`` wrapper first
-        via ``_input_raw``.
+        via ``_input_raw``.  If the original ``Input.shadow`` is known,
+        pass ``is_shadow=True`` to avoid incorrectly resolving a shadow's
+        string literal as a block reference.
+
+        Resolution rules:
+        1. String in ``target.blocks`` → evaluate as reporter block
+           (skipped if ``is_shadow=True`` — shadow literals aren't references).
+        2. ``[type_code, value, ...]`` → inlined primitive (4-13).
+        3. ``[string, scalar]`` shadow pair → return the scalar.
+        4. Anything else (literal number/string/bool/None) → return as-is.
         """
-        if isinstance(value, str) and value in target.blocks:
+        if isinstance(value, str) and not is_shadow and value in target.blocks:
             return self.evaluate(target, value)
 
         # Scratch inlined primitive: [type_code, value, ...]
         if isinstance(value, (list, tuple)) and len(value) >= 2 and isinstance(value[0], int):
             type_code = value[0]
             ref = value[1]
-            if type_code == PrimitiveType.VARIABLE:  # Variable reference
+            if type_code == PrimitiveType.VARIABLE:  # 12 — Variable reference
                 var = target.lookup_variable(ref) or (
                     self.stage and self.stage.lookup_variable(ref)
                 )
                 return var.value if var else 0
-            if type_code == PrimitiveType.LIST:  # List reference
+            if type_code == PrimitiveType.LIST:  # 13 — List reference
                 lst = target.lookup_list(ref) or (self.stage and self.stage.lookup_list(ref))
                 return lst.contents if lst else []
             # Literal primitives (4-10) and broadcast (11) — return the value directly
             return ref
 
-        # Shadow pair: [block_id, literal] — use the literal.
+        # Fallback: shadow pair [block_id, literal] → literal
         return _unwrap_shadow(value)
 
-    def resolve_bool(self, target: Target, inp: Input | Any) -> bool:
-        """Resolve a boolean-typed input."""
-        v = self.resolve_input(target, inp)
+    def resolve_bool(self, target: Target, value: Any) -> bool:
+        """Resolve a value to a Scratch boolean."""
+        v = self.resolve_input(target, value)
         if isinstance(v, str):
             return v.lower() not in ('', 'false', '0')
         return bool(v)
 
-    def resolve_num(self, target: Target, inp: Input | Any) -> float:
-        """Resolve a numeric input — non-numeric values coerce to 0."""
+    def resolve_num(self, target: Target, value: Any) -> float:
+        """Resolve a value to a number — non-numeric values coerce to 0."""
         try:
-            return float(self.resolve_input(target, inp) or 0)
+            return float(self.resolve_input(target, value) or 0)
         except (ValueError, TypeError):
             return 0.0
 
+    def _input_value(self, block: Block, name: str) -> tuple[Any, bool]:
+        """Get raw value and shadow flag for a named input on *block*.
+
+        Returns ``(raw_value, is_shadow)``.
+        """
+        inp = block.inputs.get(name)
+        if inp is None:
+            return None, False
+        if isinstance(inp, Input):
+            return inp.value, inp.shadow
+        return inp, False
+
     def num(self, target: Target, block: Block, name: str) -> float:
         """Resolve a named numeric input from *block*."""
-        return self.resolve_num(target, _input_raw(block, name))
+        value, _is_shadow = self._input_value(block, name)
+        return self.resolve_num(target, value)
 
     def num_int(self, target: Target, block: Block, name: str) -> int:
         """Resolve a named numeric input and round to nearest int (Scratch-style round-half-up)."""
@@ -280,11 +316,16 @@ class Runtime:
 
     def truthy(self, target: Target, block: Block, name: str) -> bool:
         """Resolve a named boolean input from *block*."""
-        return self.resolve_bool(target, _input_raw(block, name))
+        value, is_shadow = self._input_value(block, name)
+        v = self.resolve_input(target, value, is_shadow=is_shadow)
+        if isinstance(v, str):
+            return v.lower() not in ('', 'false', '0')
+        return bool(v)
 
     def val(self, target: Target, block: Block, name: str) -> Any:
         """Resolve a named arbitrary input from *block*."""
-        return self.resolve_input(target, _input_raw(block, name))
+        value, is_shadow = self._input_value(block, name)
+        return self.resolve_input(target, value, is_shadow=is_shadow)
 
     # ── Thread lifecycle ──────────────────────────────────────────────
 

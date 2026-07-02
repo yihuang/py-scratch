@@ -1,21 +1,21 @@
 """Unit tests — scheduler, thread lifecycle, and every opcode category."""
 
 from __future__ import annotations
-from scratch.vm.runtime import _input_raw
+from scratch.vm.runtime import _input_raw, _unwrap_shadow
 
 from itertools import count
 from typing import Any
 
 import datetime
 import math
+
 import pytest
 import pygame
-
+from scratch.sb3.io import _parse_block, _parse_field, _parse_input, _serialize_field, _serialize_input
 from scratch.vm import BroadcastMsg, ListVar, Runtime, Target, Variable, make_block
 from scratch.vm.opcodes import OPCODE_MAP
 from scratch.vm.types import Block, Costume, Field, Input, Sound
 
-# ═══════════════════════════════════════════════════════════════════════
 #  Helpers
 # ═══════════════════════════════════════════════════════════════════════
 
@@ -97,21 +97,21 @@ def _run(target: Target, *, steps: int = 20) -> Runtime:
     return rt
 
 
-def _eval_reporter(
-    opcode: str,
-    inputs: dict[str, Any] | None = None,
-    fields: dict[str, Any] | None = None,
-    costumes: list[Costume] | None = None,
-) -> Any:
-    """Evaluate a single reporter block and return its value."""
-    t = _make_tgt()
-    if costumes is not None:
-        t.costumes = costumes
-    bid = _id()
-    t.blocks[bid] = _op(opcode, inputs, fields)
-    t._rebuild_hat_cache()
-    rt = _rt(t)
-    return rt.evaluate(t, bid)
+def _make_with_reporter(block_id: str, value: Any) -> tuple[Runtime, Target]:
+    """Build Runtime + Target with a reusable reporter block."""
+    rt = Runtime()
+    rt._real_time = False
+    rt.add_target(Target(name='Stage', is_stage=True))
+    rt.register_all(OPCODE_MAP)
+    t = Target(name='Sprite')
+    t.blocks[block_id] = Block(
+        id=block_id,
+        opcode='data_variable',
+        fields={'VARIABLE': Field(name='VARIABLE', value='myVar')},
+    )
+    t.variables['v1'] = Variable(name='myVar', value=value)
+    rt.add_target(t)
+    return rt, t
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -3653,6 +3653,180 @@ class TestValueResolution:
         )
         val = rt.val(t, t.blocks['b'], 'VALUE')
         assert val == 42
+
+
+
+class TestInputFieldFormat:
+    """Test SB3 input/field parsing, name preservation, and serialize round-trip."""
+
+    def test_parse_input_preserves_name(self) -> None:
+        """_parse_input stores the input name."""
+        inp = _parse_input('STEPS', [1, 10])
+        assert inp.name == 'STEPS'
+        assert inp.value == 10
+        assert inp.shadow is True
+
+    def test_parse_input_block_ref(self) -> None:
+        """[2, block_id] → value is the block ID string."""
+        inp = _parse_input('VALUE', [2, 'reporter_block'])
+        assert inp.value == 'reporter_block'
+        assert inp.shadow is False
+
+    def test_parse_input_obsolete_format(self) -> None:
+        """[3, literal, block_id] → value is the block_id."""
+        inp = _parse_input('VALUE', [3, 42, 'reporter_block'])
+        assert inp.value == 'reporter_block'  # block_id, not the literal
+        assert inp.shadow is True
+
+    def test_parse_input_compact_primitive(self) -> None:
+        """[1, [type_code, value]] stores the nested array as-is."""
+        inp = _parse_input('STEPS', [1, [4, 10]])
+        assert inp.value == [4, 10]  # nested array preserved
+        assert inp.shadow is True
+
+    def test_parse_input_variable_primitive(self) -> None:
+        """[1, [12, name, id]] — compact variable reference."""
+        inp = _parse_input('VARIABLE', [1, [12, 'score', 'v1']])
+        assert inp.value == [12, 'score', 'v1']
+        assert inp.shadow is True
+
+    def test_parse_input_list_primitive(self) -> None:
+        """[1, [13, name, id]] — compact list reference."""
+        inp = _parse_input('LIST', [1, [13, 'items', 'l1']])
+        assert inp.value == [13, 'items', 'l1']
+        assert inp.shadow is True
+
+    # ── Field parsing ─────────────────────────────────────────────
+
+    def test_parse_field_preserves_name(self) -> None:
+        """_parse_field stores the field name."""
+        fld = _parse_field('VARIABLE', ['score', 'v1'])
+        assert fld.name == 'VARIABLE'
+        assert fld.value == 'score'
+        assert fld.id == 'v1'
+
+    def test_parse_field_no_id(self) -> None:
+        fld = _parse_field('EFFECT', ['color'])
+        assert fld.value == 'color'
+        assert fld.id is None
+
+    def test_parse_field_variable_type_variable(self) -> None:
+        """VARIABLE field → variable_type = '' (scalar)."""
+        fld = _parse_field('VARIABLE', ['score', 'v1'])
+        assert fld.variable_type == ''
+
+    def test_parse_field_variable_type_list(self) -> None:
+        """LIST field → variable_type = 'list'."""
+        fld = _parse_field('LIST', ['items', 'l1'])
+        assert fld.variable_type == 'list'
+
+    def test_parse_field_variable_type_broadcast(self) -> None:
+        """BROADCAST_OPTION field → variable_type = 'broadcast_msg'."""
+        fld = _parse_field('BROADCAST_OPTION', ['message1', 'm1'])
+        assert fld.variable_type == 'broadcast_msg'
+
+    def test_parse_field_plain_dropdown(self) -> None:
+        """Plain field like EFFECT, STYLE → variable_type = None."""
+        fld = _parse_field('EFFECT', ['color'])
+        assert fld.variable_type is None
+
+    # ── Serialize round-trip ──────────────────────────────────────
+
+    def test_serialize_input_roundtrip_shadow(self) -> None:
+        """Input(shadow=True) → [1, value]."""
+        inp = Input(name='STEPS', value=10, shadow=True)
+        assert _serialize_input(inp) == [1, 10]
+
+    def test_serialize_input_roundtrip_block_ref(self) -> None:
+        """Input(shadow=False) → [2, value]."""
+        inp = Input(name='VALUE', value='block_abc', shadow=False)
+        assert _serialize_input(inp) == [2, 'block_abc']
+
+    def test_serialize_field_roundtrip_with_id(self) -> None:
+        """Field with id → [value, id]."""
+        fld = Field(name='VARIABLE', value='score', id='v1')
+        assert _serialize_field(fld) == ['score', 'v1']
+
+    def test_serialize_field_roundtrip_no_id(self) -> None:
+        """Field without id → [value, None]."""
+        fld = Field(name='EFFECT', value='color')
+        assert _serialize_field(fld) == ['color', None]
+
+    # ── Full block parse round-trip ───────────────────────────────
+
+    def test_parse_block_with_inputs_and_fields(self) -> None:
+        """Parse a block with inputs and fields preserves all names."""
+        data = {
+            'opcode': 'data_setvariableto',
+            'next': None,
+            'parent': 'hat1',
+            'shadow': False,
+            'topLevel': False,
+            'inputs': {'VALUE': [1, 42]},
+            'fields': {'VARIABLE': ['score', 'v1']},
+        }
+        block = _parse_block('b1', data)
+        assert block.id == 'b1'
+        assert block.opcode == 'data_setvariableto'
+        assert block.inputs['VALUE'].name == 'VALUE'
+        assert block.inputs['VALUE'].value == 42
+        assert block.inputs['VALUE'].shadow is True
+        assert block.fields['VARIABLE'].name == 'VARIABLE'
+        assert block.fields['VARIABLE'].value == 'score'
+        assert block.fields['VARIABLE'].id == 'v1'
+        assert block.fields['VARIABLE'].variable_type == ''
+
+    # ── resolve_input with is_shadow flag ─────────────────────────
+
+    def test_resolve_input_shadow_string_literal(self) -> None:
+        """Shadow string literal should NOT be evaluated as a block reference."""
+        rt, t = _make_with_reporter('reporter', 99)
+        # If is_shadow=True, the string is treated as a literal, not a block ref
+        val = rt.resolve_input(t, 'reporter', is_shadow=True)
+        assert val == 'reporter'  # treated as literal string, not evaluated
+
+    def test_resolve_input_non_shadow_string(self) -> None:
+        """Non-shadow string matching a block ID → evaluate the reporter."""
+        rt, t = _make_with_reporter('reporter', 99)
+        val = rt.resolve_input(t, 'reporter', is_shadow=False)
+        assert val == 99  # evaluated as reporter
+
+    def test_resolve_input_broadcast_primitive(self) -> None:
+        """[11, 'msg'] → broadcast primitive returns the message string."""
+        rt, t = _make_with_reporter('reporter', 99)
+        val = rt.resolve_input(t, [11, 'broadcast_msg'])
+        assert val == 'broadcast_msg'
+
+    def test_resolve_input_none(self) -> None:
+        """None value falls through to _unwrap_shadow (no-op)."""
+        rt, t = _make_with_reporter('reporter', 99)
+        val = rt.resolve_input(t, None)
+        assert val is None
+
+    def test_resolve_input_empty_list(self) -> None:
+        """Empty list falls through to _unwrap_shadow (no-op)."""
+        rt, t = _make_with_reporter('reporter', 99)
+        val = rt.resolve_input(t, [])
+        assert val == []
+
+    def test_resolve_input_zero(self) -> None:
+        """Integer 0 is a literal, not a block reference."""
+        rt, t = _make_with_reporter('reporter', 99)
+        val = rt.resolve_input(t, 0)
+        assert val == 0
+
+    def test_unwrap_shadow_string_pair(self) -> None:
+        """['block_id', literal] → literal is returned."""
+        val = _unwrap_shadow(['reporter', 42])
+        assert val == 42
+
+    def test_unwrap_shadow_no_match(self) -> None:
+        """Non-pair values pass through unchanged."""
+        assert _unwrap_shadow(42) == 42
+        assert _unwrap_shadow('hello') == 'hello'
+        assert _unwrap_shadow(None) is None
+        assert _unwrap_shadow([1, 2, 3]) == [1, 2, 3]
+        assert _unwrap_shadow([4, 10]) == [4, 10]  # type_code array is NOT a shadow pair
 
 
 class TestSound:

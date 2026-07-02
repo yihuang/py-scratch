@@ -603,17 +603,42 @@ Lists stored on targets keyed by ID. `LIST_ITEM_LIMIT = 200000`.
 
 ## Input Format (SB3 JSON)
 
-Input values in the SB3 JSON are arrays with a shadow-flag prefix:
+Input values in the SB3 JSON are arrays with a **shadow-flag prefix**:
 
 | Format | Meaning |
 |--------|---------|
-| `[1, literal]` | Shadow with literal value (number, string, boolean) |
-| `[2, block_id]` | Reference to another block (reporter) |
-| `[3, literal, block_id]` | Obsolete: shadow + block reference |
-| `[1, [5, var_id]]` | Shadow with variable reference (type 5 = variable) |
-| `[1, [12, list_name]]` | Shadow with list reference (type 12 = list) |
+| `[1, value]` | **Same block+shadow** — block and shadow are the same block (unobscured shadow). `value` is a literal or a compact primitive array. |
+| `[2, value]` | **Block, no shadow** — a reporter block reference. `value` is a block ID or compact primitive array. |
+| `[3, block, shadow]` | **Different block and shadow** — an obscured shadow. `block` is the reporter block ID, `shadow` is the shadow block ID/primitive. |
 
-### Type codes for variable/list references (inside input values):
-- `4` — broadcast message
-- `5` — variable
-- `12` — list
+Where `value` / `block` / `shadow` can be:
+
+- A **literal** (number, string, boolean) — the shadow's default value
+- A **block ID string** (e.g. `"abc123"`) — reference to a top-level block
+- A **compact primitive array** `[type_code, value, ...]` — an inlined primitive block (see below)
+
+### Compact primitive type codes
+
+These type codes replace full block objects for common primitives. The first element is the type code, the second is the field value:
+
+| Code | Constant name | Opcode | Field | Extra elements |
+|------|--------------|--------|-------|---------------|
+| `4` | `MATH_NUM_PRIMITIVE` | `math_number` | `NUM` = value | — |
+| `5` | `POSITIVE_NUM_PRIMITIVE` | `math_positive_number` | `NUM` = value | — |
+| `6` | `WHOLE_NUM_PRIMITIVE` | `math_whole_number` | `NUM` = value | — |
+| `7` | `INTEGER_NUM_PRIMITIVE` | `math_integer` | `NUM` = value | — |
+| `8` | `ANGLE_NUM_PRIMITIVE` | `math_angle` | `NUM` = value | — |
+| `9` | `COLOR_PICKER_PRIMITIVE` | `colour_picker` | `COLOUR` = value | — |
+| `10` | `TEXT_PRIMITIVE` | `text` | `TEXT` = value | — |
+| `11` | `BROADCAST_PRIMITIVE` | `event_broadcast_menu` | `BROADCAST_OPTION` = value | `[3]: id` |
+| `12` | `VAR_PRIMITIVE` | `data_variable` | `VARIABLE` = name, `id` = id | `[3]: id`, `[4]: x`, `[5]: y` (topLevel only) |
+| `13` | `LIST_PRIMITIVE` | `data_listcontents` | `LIST` = name, `id` = id | `[3]: id`, `[4]: x`, `[5]: y` (topLevel only) |
+
+Examples:
+```
+[1, 10]              → shadow with literal value 10 (a math_number)
+[1, [4, 10]]         → shadow with compact math_number(value=10)
+[2, "block_abc"]     → reference to block "block_abc", no shadow
+[2, [12, "score", "v1"]]  → reference to variable "score" (id=v1)
+[3, "block_abc", [4, 0]]  → reporter "block_abc" with shadow math_number(default=0)
+```
