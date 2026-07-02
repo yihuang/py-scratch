@@ -43,9 +43,8 @@ EXAMPLES = [
 def _generate_sb3(example_name: str) -> bytes:
     """Import an example module and save its project to BytesIO."""
     mod = importlib.import_module(f"examples.{example_name}")
-    project = mod.project  # type: ignore[attr-defined]
     buf = io.BytesIO()
-    project.save(buf)
+    mod.project.save(buf)
     return buf.getvalue()
 
 
