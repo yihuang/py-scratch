@@ -122,8 +122,7 @@ Blocks in Scratch are categorized by shape, which determines where they can be p
 | Motion blocks | Not available | Available |
 | `isStage` | `true` | `false` |
 | Toolbox | Event, control, sensing, operators, data, pen, looks (backdrop-specific) | All categories |
-
-## 1. Key Data Structures
+| **`layerOrder`** | `0` (ignored by renderer) | **≥ 1** (SB3 schema enforces minimum 1) |
 
 ### Block
 
@@ -740,6 +739,91 @@ Codes 4–13 intentionally overlap with 1–3 (disjoint contexts).
   "comment": "blockId_comment"
 }
 ```
+
+### SB3 Validation Constraints
+
+The Scratch editor and `scratch-vm` validate `.sb3` projects against a JSON schema.
+The following constraints are commonly violated by custom project generators.
+
+#### Inputs and compact primitives
+
+Literal values in inputs must be wrapped in a compact primitive array when
+(de)serializing to SB3 JSON::
+
+```json
+// Correct — compact primitive NUMBER with value 10:
+{"STEPS": [1, [4, 10]]}
+
+// Correct — compact primitive TEXT with value "hello":
+{"MESSAGE": [1, [10, "hello"]]}
+
+// WRONG — bare literal in input slot (fails schema validation):
+{"STEPS": [1, 10]}
+```
+
+The SB3 schema defines the second element of an input array as
+``optionalString`` (string or null).  Bare numbers or booleans in that
+position are schema violations.
+
+#### Reporter parent linking
+
+When a reporter block is referenced by another block's input, the reporter's
+``parent`` field must be set to the block that references it.  Without this,
+the block tree is disconnected and the VM rejects the project::
+
+```json
+{
+  "moveBlock": {
+    "opcode": "motion_movesteps",
+    "inputs": {"STEPS": [2, "addReporter"]},
+    "parent": "hatBlock"
+  },
+  "addReporter": {
+    "opcode": "operator_add",
+    "parent": "moveBlock",   // <-- REQUIRED: parent must point to moveBlock
+    "shadow": true
+  }
+}
+```
+
+All reporter blocks reachable through input references must form a connected
+tree rooted at a hat or stack block.  Orphaned reporters (``parent = null``)
+are a validation error.
+
+#### Variable field IDs
+
+Blocks with ``VARIABLE`` fields (``data_setvariableto``, ``data_variable``,
+``data_changevariableby``, etc.) must have the field's ``id`` set to the
+variable's UUID::
+
+```json
+// Correct — id matches the variable entry key:
+{"VARIABLE": ["score", "a1b2c3d4"]}
+
+// WRONG — missing id:
+{"VARIABLE": ["score", null]}
+```
+
+This applies to ALL blocks with ``VARIABLE`` fields, including **reporter**
+blocks (``data_variable``).  Omitting the id on reporters is a common mistake.
+
+#### Costume asset IDs
+
+The ``assetId`` field in costume entries must be a **32-character hex string**
+(MD5 hash of the image data)::
+
+```json
+{"assetId": "cc492fe71e3e282d7d5a32c841465dff"}  // 32 hex chars
+```
+
+Using SHA1 (40 hex chars) or any other length fails the SB3 schema's ``assetId``
+pattern (``^[a-fA-F0-9]{32}$``).  The ``md5ext`` filename in the zip must match
+the same MD5: ``{assetId}.png``.
+
+#### layerOrder
+
+Sprites must have ``layerOrder >= 1``.  The stage can be ``0``.  This is
+enforced by the SB3 schema's sprite definition.
 
 ### Compression Pipeline (`serializeBlocks`)
 
