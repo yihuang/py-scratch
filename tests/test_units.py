@@ -15,6 +15,7 @@ from scratch.sb3.io import _parse_block, _parse_field, _parse_input, _serialize_
 from scratch.vm import BroadcastMsg, ListVar, Runtime, Target, Variable, make_block
 from scratch.vm.opcodes import OPCODE_MAP
 from scratch.vm.types import Block, Costume, Field, Input, Sound
+from scratch.vm.constants import PrimitiveType
 
 #  Helpers
 # ═══════════════════════════════════════════════════════════════════════
@@ -3657,44 +3658,117 @@ class TestValueResolution:
 
 
 class TestInputFieldFormat:
-    """Test SB3 input/field parsing, name preservation, and serialize round-trip."""
+    """Test SB3 input/field parsing, name preservation, normalization, and serialize round-trip."""
 
-    def test_parse_input_preserves_name(self) -> None:
-        """_parse_input stores the input name."""
-        inp = _parse_input('STEPS', [1, 10])
+    # ── Input parsing: bare literal normalization ──────────────────
+    #
+    # The SB3 schema requires inputs[1] to be string-or-null (a block ID
+    # reference) or an array (compact primitive [type_code, value, ...]).
+    # Bare literals like [1, 42] are schema violations.  _parse_input
+    # normalizes them into the compact primitive format so all downstream
+    # code deals with a single canonical form.
+
+    def test_parse_input_normalizes_number(self) -> None:
+        """[1, 42] → normalized to [4, 42] (NUMBER)."""
+        inp = _parse_input('STEPS', [1, 42])
         assert inp.name == 'STEPS'
-        assert inp.value == 10
+        assert inp.value == [PrimitiveType.NUMBER, 42]
         assert inp.shadow is True
 
+    def test_parse_input_normalizes_float(self) -> None:
+        """[1, 0.5] → normalized to [4, 0.5] (NUMBER)."""
+        inp = _parse_input('DURATION', [1, 0.5])
+        assert inp.value == [PrimitiveType.NUMBER, 0.5]
+        assert inp.shadow is True
+
+    def test_parse_input_normalizes_string(self) -> None:
+        """[1, "hello"] → normalized to [10, "hello"] (TEXT)."""
+        inp = _parse_input('MESSAGE', [1, 'hello'])
+        assert inp.value == [PrimitiveType.TEXT, 'hello']
+        assert inp.shadow is True
+
+    def test_parse_input_normalizes_bool(self) -> None:
+        """[1, true] → normalized to [4, 1] (NUMBER)."""
+        inp = _parse_input('FLAG', [1, True])
+        assert inp.value == [PrimitiveType.NUMBER, 1]
+        assert inp.shadow is True
+
+    def test_parse_input_preserves_compact_primitive(self) -> None:
+        """[1, [4, 10]] passes through unchanged (already canonical)."""
+        inp = _parse_input('STEPS', [1, [4, 10]])
+        assert inp.value == [4, 10]
+        assert inp.shadow is True
+
+    def test_parse_input_preserves_variable_primitive(self) -> None:
+        """[1, [12, name, id]] passes through — already compact."""
+        inp = _parse_input('VARIABLE', [1, [12, 'score', 'v1']])
+        assert inp.value == [12, 'score', 'v1']
+        assert inp.shadow is True
+
+    def test_parse_input_preserves_text_primitive(self) -> None:
+        """[1, [10, "text"]] passes through."""
+        inp = _parse_input('MESSAGE', [1, [10, 'text']])
+        assert inp.value == [10, 'text']
+        assert inp.shadow is True
+
+    # ── Input parsing: block references (unchanged) ─────────────────
+
     def test_parse_input_block_ref(self) -> None:
-        """[2, block_id] → value is the block ID string."""
+        """[2, block_id] → value is the block ID string (not normalized)."""
         inp = _parse_input('VALUE', [2, 'reporter_block'])
         assert inp.value == 'reporter_block'
         assert inp.shadow is False
 
     def test_parse_input_obsolete_format(self) -> None:
-        """[3, literal, block_id] → value is the block_id."""
+        """[3, literal, block_id] → value is the block_id, not the literal."""
         inp = _parse_input('VALUE', [3, 42, 'reporter_block'])
-        assert inp.value == 'reporter_block'  # block_id, not the literal
+        assert inp.value == 'reporter_block'
         assert inp.shadow is True
 
-    def test_parse_input_compact_primitive(self) -> None:
-        """[1, [type_code, value]] stores the nested array as-is."""
-        inp = _parse_input('STEPS', [1, [4, 10]])
-        assert inp.value == [4, 10]  # nested array preserved
-        assert inp.shadow is True
+    # ── resolve_input with compact primitives ──────────────────────
+    #
+    # resolve_input should handle the canonical compact primitive format
+    # correctly.  Once _parse_input normalizes bare literals, this is
+    # the only path for literal values.
 
-    def test_parse_input_variable_primitive(self) -> None:
-        """[1, [12, name, id]] — compact variable reference."""
-        inp = _parse_input('VARIABLE', [1, [12, 'score', 'v1']])
-        assert inp.value == [12, 'score', 'v1']
-        assert inp.shadow is True
+    def test_resolve_number_primitive(self) -> None:
+        """[4, 42] → 42."""
+        rt = Runtime()
+        t = Target('Test')
+        rt.add_target(t)
+        assert rt.resolve_input(t, [PrimitiveType.NUMBER, 42]) == 42
 
-    def test_parse_input_list_primitive(self) -> None:
-        """[1, [13, name, id]] — compact list reference."""
-        inp = _parse_input('LIST', [1, [13, 'items', 'l1']])
-        assert inp.value == [13, 'items', 'l1']
-        assert inp.shadow is True
+    def test_resolve_text_primitive(self) -> None:
+        """[10, "hello"] → "hello"."""
+        rt = Runtime()
+        t = Target('Test')
+        rt.add_target(t)
+        assert rt.resolve_input(t, [PrimitiveType.TEXT, 'hello']) == 'hello'
+
+    def test_resolve_variable_primitive(self) -> None:
+        """[12, "varName", "varId"] returns the variable's value."""
+        rt = Runtime()
+        t = Target('Test')
+        t.variables['v1'] = Variable('score', 42)
+        rt.add_target(t)
+        assert rt.resolve_input(t, [PrimitiveType.VARIABLE, 'score', 'v1']) == 42
+
+    def test_resolve_list_primitive(self) -> None:
+        """[13, "listName", "listId"] returns the list contents."""
+        rt = Runtime()
+        t = Target('Test')
+        t.lists['l1'] = ListVar('items', ['a', 'b'])
+        rt.add_target(t)
+        assert rt.resolve_input(t, [PrimitiveType.LIST, 'items', 'l1']) == ['a', 'b']
+
+    def test_resolve_bare_literal_fallback(self) -> None:
+        """Bare literal (not wrapped in compact primitive) still resolves
+        via the _unwrap_shadow fallback for backward compatibility."""
+        rt = Runtime()
+        t = Target('Test')
+        rt.add_target(t)
+        assert rt.resolve_input(t, 42) == 42
+        assert rt.resolve_input(t, 'bare string') == 'bare string'
 
     # ── Field parsing ─────────────────────────────────────────────
 
@@ -3769,7 +3843,7 @@ class TestInputFieldFormat:
         assert block.id == 'b1'
         assert block.opcode == 'data_setvariableto'
         assert block.inputs['VALUE'].name == 'VALUE'
-        assert block.inputs['VALUE'].value == 42
+        assert block.inputs['VALUE'].value == [PrimitiveType.NUMBER, 42]
         assert block.inputs['VALUE'].shadow is True
         assert block.fields['VARIABLE'].name == 'VARIABLE'
         assert block.fields['VARIABLE'].value == 'score'

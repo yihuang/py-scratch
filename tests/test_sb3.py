@@ -72,7 +72,7 @@ def _make_project_json() -> dict[str, Any]:
                         'opcode': 'motion_movesteps',
                         'next': 'b3',
                         'parent': 'b1',
-                        'inputs': {'STEPS': [1, 10]},
+                        'inputs': {'STEPS': [1, [4, 10]]},
                         'fields': {},
                         'shadow': False,
                         'topLevel': False,
@@ -81,7 +81,7 @@ def _make_project_json() -> dict[str, Any]:
                         'opcode': 'data_setvariableto',
                         'next': None,
                         'parent': 'b2',
-                        'inputs': {'VALUE': [1, 42]},
+                        'inputs': {'VALUE': [1, [4, 42]]},
                         'fields': {'VARIABLE': ['score', 'v1']},
                         'shadow': False,
                         'topLevel': False,
@@ -215,12 +215,12 @@ class TestRoundTrip:
         assert len(cat.blocks) == 3
         b2 = cat.blocks['b2']
         assert b2.opcode == 'motion_movesteps'
-        assert b2.inputs['STEPS'].value == 10
+        assert b2.inputs['STEPS'].value == [4, 10]
         assert b2.next == 'b3'
         b3 = cat.blocks['b3']
         assert b3.opcode == 'data_setvariableto'
         assert b3.fields['VARIABLE'].value == 'score'
-        assert b3.inputs['VALUE'].value == 42
+        assert b3.inputs['VALUE'].value == [4, 42]
 
     def test_costume_data_preserved(self) -> None:
         """Costume metadata and raw image bytes survive."""

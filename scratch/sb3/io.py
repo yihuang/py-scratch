@@ -251,16 +251,15 @@ def _parse_input(name: str, data: list[Any]) -> Input:
     Scratch 3.0 input format:
         [1, literal]           — shadow with literal value (or compact primitive)
         [2, block_id]          — reference to another block
-        [3, literal, block_id] — obsolete shadow+block pair (literal is
-                                 the shadow's default; block_id is the
-                                 actual reporter block reference)
+        [3, literal, block_id] — obsolete shadow+block pair
 
-    The resulting ``Input.value`` stores the raw second/third element:
-      * a literal (int/float/str/bool) for ``[1, 42]``,
-      * a block ID string for ``[2, 'blockId']``,
-      * a compact primitive ``[type_code, value, ...]`` for ``[1, [4, 10]]``,
-      * a block ID string for ``[3, literal, 'blockId']``.
-    Runtime resolution via ``resolve_input()`` dispatches on the value's type.
+    Bare literals (``[1, 42]``) are schema violations — the SB3 schema
+    requires ``inputs[N][1]`` to be either a string (block ID) or a compact
+    primitive array ``[type_code, value]``.  This parser **normalizes** bare
+    literals into the compact primitive form::
+
+        [1, 42]       → [1, [4, 42]]      (NUMBER)
+        [1, "hello"]  → [1, [10, "hello"]]  (TEXT)
     """
     shadow_flag = data[0] if len(data) > 0 else 0
     is_shadow = shadow_flag in (SHADOW_FLAG, OBSOLETE_FLAG)
@@ -271,8 +270,17 @@ def _parse_input(name: str, data: list[Any]) -> Input:
     else:
         value = data[1] if len(data) > 1 else None
 
-    return Input(name=name, value=value, shadow=is_shadow)
+    # Normalize bare literals to compact primitives to match SB3 schema
+    if shadow_flag == SHADOW_FLAG and not isinstance(value, (list, tuple)):
+        if isinstance(value, str):
+            value = [PrimitiveType.TEXT, value]
+        elif isinstance(value, bool):
+            value = [PrimitiveType.NUMBER, int(value)]
+        elif isinstance(value, (int, float)):
+            value = [PrimitiveType.NUMBER, value]
+        # else leave as-is (None, etc.)
 
+    return Input(name=name, value=value, shadow=is_shadow)
 
 def _parse_mutation(data: dict[str, Any] | None) -> Mutation | None:
     """Parse the mutation dict from a block, or ``None`` if absent."""
