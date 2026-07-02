@@ -40,3 +40,15 @@ jobs:
 
       - name: Pytest
         run: uv run python -m pytest tests/ -v
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install scratch-vm for sb3 validation
+        run: npm install
+        working-directory: tests/verifier
+
+      - name: Validate .sb3 files against scratch-vm
+        run: uv run python -m pytest tests/test_sb3_validation.py -v
