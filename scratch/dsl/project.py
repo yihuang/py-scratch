@@ -25,6 +25,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from scratch.sb3.io import save_project
+from scratch.vm.opcodes import OPCODE_MAP
 from scratch.vm.runtime import Runtime
 from scratch.vm.target import Target, Variable
 from scratch.vm.types import Costume
@@ -187,6 +188,8 @@ class Project:
                 script.build(target)
 
             rt.add_target(target)
+
+        rt.register_all(OPCODE_MAP)
 
         return rt
 
