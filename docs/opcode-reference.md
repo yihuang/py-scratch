@@ -642,3 +642,5 @@ Examples:
 [2, [12, "score", "v1"]]  → reference to variable "score" (id=v1)
 [3, "block_abc", [4, 0]]  → reporter "block_abc" with shadow math_number(default=0)
 ```
+
+> **Top-level entries:** A compact primitive array may also appear **directly as a value in a target's `blocks` dict** (not wrapped in an input), e.g. `{"varBlockId": [12, "score", "v1", 150, 50]}`. Only codes `12`/`13` survive serialization as top-level entries — floating variable/list monitors. `deserializeBlocks` expands these into full block objects under a fresh `uid()` (the original key is discarded); other codes appearing at top level are deleted as an orphaned-shadow workaround (scratch-vm#1011). See *Top-level primitive blocks* in vm-reference.md.

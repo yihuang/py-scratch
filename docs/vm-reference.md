@@ -741,24 +741,64 @@ Codes 4–13 intentionally overlap with 1–3 (disjoint contexts).
 }
 ```
 
-### Compression Pipeline
+### Compression Pipeline (`serializeBlocks`)
 
-1. **Serialize each block**. Primitives → compact arrays.
-2. **Compress** (`compressInputTree`): replace block IDs in inputs with inline primitive arrays. Delete orphaned primitive entries.
-3. **Cleanup**: delete orphaned top-level primitive arrays (except VAR/LIST, which can be top-level).
+Serialization of the `blocks` object runs three passes:
 
-Deserialization reverses this via `deserializeInputDesc`.
+1. **Serialize** — each block is converted to a plain object via `serializeBlock`. Primitive shadow blocks (math_number, text, variable getters, etc.) serialize to compact arrays `[typeCode, value, ...]`.
+2. **Compress** (`compressInputTree`) — for each input, any block/shadow ID that points to a compact-array entry is replaced **inline** with that array, and the now-orphaned array entry is deleted from `blocks`. This folds primitive shadows into the inputs that reference them.
+3. **Cleanup** — any remaining top-level entry that is still a compact array AND is not a `VAR_PRIMITIVE` (12) or `LIST_PRIMITIVE` (13) is deleted with a warning. This is a workaround for `LLK/scratch-vm#1011` (orphaned shadow blocks left at the top level). `VAR`/`LIST` arrays are intentionally kept — they are floating variable/list monitors on the workspace.
+
+After this pipeline the `blocks` dict contains only block objects, plus optionally a few top-level `VAR`/`LIST` primitive arrays (the monitors).
+
+### Top-level primitive blocks (`deserializeBlocks`)
+
+Deserialization reverses the compression. A target's `blocks` dict may thus contain two entry shapes:
+
+1. A normal block object (`{ "opcode": ..., "inputs": {...}, ... }`).
+2. A **compact primitive array** `[type_code, value, ...]` — an inlined primitive. Only codes `12` (`data_variable`) and `13` (`data_listcontents`) legitimately survive the serialize cleanup as top-level entries (floating monitors); other codes appearing here are the #1011 bug.
+
+`deserializeBlocks` makes a first pass over the dict:
+
+- **Array entry** → `delete blocks[blockId]`, then `deserializeInputDesc(array, null, false, blocks)`. (The `false` is the `isShadow` argument.)
+- **Object entry** → stamp `block.id = blockId` (id was stripped during serialize), then `deserializeInputs` / `deserializeFields`. Two normalizations: an obscured shadow serialized at top level (Blockly rejects top-level shadows) is demoted with `block.topLevel = false` when `block.shadow && block.topLevel`; and `block.comment` is rewritten to `` `${block.id}_comment` `` (pre-Blockly v12 used arbitrary comment IDs; newer versions derive them from the block id).
+
+`deserializeInputDesc` builds a full block object under a **fresh `uid()`** (the original array key is not preserved):
+
+```
+{ id: newId, next: null, parent: null, shadow: isShadow, inputs: {},
+  opcode, fields: {...}, topLevel, x, y }
+```
+
+The opcode/fields are set from the type code (see table below); `blocks[newId] = primitiveObj` and the function returns `newId`. When called from the top-level pass the return value is discarded — the expanded block simply lives under its fresh uid.
+
+Per type code:
+
+| Code | Opcode | Field | `variableType` | `topLevel` / extras |
+|------|--------|-------|----------------|---------------------|
+| 4–8 | `math_number` / `math_positive_number` / `math_whole_number` / `math_integer` / `math_angle` | `NUM` = value | — | `false` |
+| 9 | `colour_picker` | `COLOUR` = value | — | `false` |
+| 10 | `text` | `TEXT` = value | — | `false` |
+| 11 | `event_broadcast_menu` | `BROADCAST_OPTION` = value, `id` = data[2] | `broadcast_msg` | `false` |
+| 12 | `data_variable` | `VARIABLE` = name, `id` = data[2] | `''` (`SCALAR_TYPE`) | `true` if `length > 3`; `x` = data[3], `y` = data[4] |
+| 13 | `data_listcontents` | `LIST` = name, `id` = data[2] | `list` (`LIST_TYPE`) | `true` if `length > 3`; `x` = data[3], `y` = data[4] |
+| other | — | — | — | `log.error` and return `null` (block dropped; old key already deleted) |
+
+`Variable.SCALAR_TYPE === ''`, `Variable.LIST_TYPE === 'list'`, `Variable.BROADCAST_MESSAGE_TYPE === 'broadcast_msg'`.
+
+Two more passes follow: a **procedures prototype** pass (see below) strips `argument_reporter_*` children and converts old-format prototypes; a **shadow repair** pass (see below) recreates broken or missing shadow blocks.
+
+### Procedures Prototype
+
+The second pass walks `procedures_prototype` blocks: sets `shadow = false` (old-format prototypes were saved as shadows), clears the stale shadow reference in the parent definition's `custom_block` input, and **deletes all of the prototype's input child blocks** (the `argument_reporter_*` reporters, which Blockly's `domToMutation` recreates from mutation data), then empties `block.inputs = {}`.
 
 ### Shadow Repair
 
-After deserialization, a third pass repairs missing/broken shadows:
+The third pass repairs missing/broken shadows:
 - Detects `shadowIsBroken` (ID points to nonexistent block) and `shadowIsMissing` (null when it shouldn't be).
 - Finds a peer block (same opcode + input) with a working shadow via `findPeerShadow`.
 - Rebuilds the shadow using `buildShadowFields(shadowOpcode, template)`.
 
-### Procedures Prototype
-
-`procedures_prototype` input children (`argument_reporter_*`) are deleted during deserialization. Blockly recreates them from mutation data.
 
 ### Examples
 

@@ -24,6 +24,7 @@ from ..vm.constants import (
     BLOCK_REF_FLAG,
     OBSOLETE_FLAG,
     PROJECT_SEMVER,
+    PrimitiveType,
     SHADOW_FLAG,
     VM_AGENT,
     VM_VERSION,
@@ -126,7 +127,10 @@ def _parse_target(data: dict[str, Any]) -> Target:
 
     # Blocks
     for block_id, block_data in data.get('blocks', {}).items():
-        target.blocks[block_id] = _parse_block(block_id, block_data)
+        if isinstance(block_data, list):
+            target.blocks[block_id] = _parse_primitive_block(block_id, block_data)
+        else:
+            target.blocks[block_id] = _parse_block(block_id, block_data)
 
     return target
 
@@ -158,6 +162,86 @@ def _parse_block(block_id: str, data: dict[str, Any]) -> Block:
         x=data.get('x'),
         y=data.get('y'),
         mutation=_parse_mutation(data.get('mutation')),
+    )
+
+
+# Opcodes/field names for literal primitive types (4–10).
+_LITERAL_PRIMITIVES: dict[PrimitiveType, tuple[str, str]] = {
+    PrimitiveType.NUMBER: ('math_number', 'NUM'),
+    PrimitiveType.POSITIVE_NUMBER: ('math_positive_number', 'NUM'),
+    PrimitiveType.WHOLE_NUMBER: ('math_whole_number', 'NUM'),
+    PrimitiveType.INTEGER: ('math_integer', 'NUM'),
+    PrimitiveType.ANGLE: ('math_angle', 'NUM'),
+    PrimitiveType.COLOR_PICKER: ('colour_picker', 'COLOUR'),
+    PrimitiveType.TEXT: ('text', 'TEXT'),
+}
+
+
+def _parse_primitive_block(block_id: str, data: list[Any]) -> Block:
+    """Expand an inlined primitive array into a full :class:`Block`.
+
+    Scratch 3.0 stores some primitive blocks as compact arrays directly in
+    the ``blocks`` dict instead of as full block objects.  The layout is::
+
+        [type_code, value, id?, x?, y?]
+
+    Only variable (12) and list (13) primitives may carry ``x``/``y`` and
+    stand as top-level workspace reporters; literal primitives are nested
+    inside inputs.  Mirrors the JS VM's ``deserializeInputDesc``.
+    """
+    type_code = data[0] if data else 0
+    try:
+        ptype = PrimitiveType(type_code)
+    except ValueError:
+        logger.warning('Unknown primitive type %r in block %r; skipping', type_code, block_id)
+        return Block(id=block_id, opcode='', shadow=True)
+
+    fields: dict[str, Field] = {}
+    top_level = False
+    x: Any = None
+    y: Any = None
+
+    if ptype is PrimitiveType.BROADCAST:
+        opcode = 'event_broadcast_menu'
+        fields['BROADCAST_OPTION'] = Field(
+            name='BROADCAST_OPTION',
+            value=data[1] if len(data) > 1 else '',
+            id=data[2] if len(data) > 2 else None,
+            variable_type='broadcast_msg',
+        )
+    elif ptype is PrimitiveType.VARIABLE:
+        opcode = 'data_variable'
+        fields['VARIABLE'] = Field(
+            name='VARIABLE',
+            value=data[1] if len(data) > 1 else '',
+            id=data[2] if len(data) > 2 else None,
+            variable_type='',
+        )
+        if len(data) > 3:
+            top_level, x, y = True, data[3], data[4]
+    elif ptype is PrimitiveType.LIST:
+        opcode = 'data_listcontents'
+        fields['LIST'] = Field(
+            name='LIST',
+            value=data[1] if len(data) > 1 else '',
+            id=data[2] if len(data) > 2 else None,
+            variable_type='list',
+        )
+        if len(data) > 3:
+            top_level, x, y = True, data[3], data[4]
+    else:
+        opcode, field_name = _LITERAL_PRIMITIVES[ptype]
+        fields[field_name] = Field(name=field_name, value=data[1] if len(data) > 1 else None)
+
+    return Block(
+        id=block_id,
+        opcode=opcode,
+        inputs={},
+        fields=fields,
+        shadow=False,
+        top_level=top_level,
+        x=x,
+        y=y,
     )
 
 
