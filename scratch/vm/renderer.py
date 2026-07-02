@@ -349,10 +349,16 @@ class Renderer:
 
         base = costume.surface
 
-        # Apply size
+        # Skin size = texture pixels / bitmap_resolution
+        # e.g. 100x100 image with resolution=2 => skin is 50x50 Scratch units
+        resolution = costume.bitmap_resolution or 1
+        skin_w = base.get_width() / resolution
+        skin_h = base.get_height() / resolution
+
+        # Apply size percentage
         scale = sprite.size / 100.0
-        w = max(1, int(base.get_width() * scale))
-        h = max(1, int(base.get_height() * scale))
+        w = max(1, int(skin_w * scale))
+        h = max(1, int(skin_h * scale))
 
         try:
             scaled = pygame.transform.smoothscale(base, (w, h))
@@ -547,6 +553,11 @@ class Renderer:
             surf.blit(text_surf, (tx, ty))
 
     def _draw_costume(self, target: Target, is_stage: bool = False) -> None:
+        """Draw a costume (backdrop) at its actual skin size, centered on stage.
+
+        Matches official Scratch behavior: renders at ``texture_size / bitmap_resolution``,
+        *not* stretched to fill the window.
+        """
         if target.costume is None:
             return
         if target.costume.surface is None:
@@ -555,11 +566,26 @@ class Renderer:
             return
         base = target.costume.surface
 
+        # Skin size = texture pixels / bitmap_resolution
+        # e.g. 100x100 image with resolution=2 => skin is 50x50 Scratch units
+        resolution = target.costume.bitmap_resolution or 1
+        skin_w = base.get_width() / resolution
+        skin_h = base.get_height() / resolution
+
+        # Convert to screen pixels
+        screen_w = max(1, int(skin_w * STAGE_SCALE))
+        screen_h = max(1, int(skin_h * STAGE_SCALE))
+
         try:
-            scaled = pygame.transform.scale(base, (WINDOW_W, WINDOW_H))
+            scaled = pygame.transform.smoothscale(base, (screen_w, screen_h))
         except (ValueError, pygame.error):
             scaled = base
-        self.screen.blit(scaled, (0, 0))
+
+        # Center at stage origin (Scratch 0,0 => screen center)
+        sx = WINDOW_W // 2
+        sy = WINDOW_H // 2
+        rect = scaled.get_rect(center=(sx, sy))
+        self.screen.blit(scaled, rect)
 
     def _draw_info(self) -> None:
         """Overlay: FPS, thread count, help."""
