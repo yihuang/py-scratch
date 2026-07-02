@@ -7,6 +7,11 @@ from __future__ import annotations
 from scratch.vm.types import Field
 
 from .expr import Reporter, StackExpr, _resolve_inputs
+
+
+# ── Commands ──────────────────────────────────────────────────────────────
+
+
 def ask_and_wait(question: str | Reporter = "") -> StackExpr:
     """``sensing_askandwait``."""
     ins, shadows = _resolve_inputs({"QUESTION": question})
@@ -50,8 +55,6 @@ def key_pressed(key: str | Reporter = "space") -> Reporter:
         ins, shadows = _resolve_inputs({"KEY_OPTION": key})
         return Reporter(opcode="sensing_keypressed", inputs=ins, shadow_reporters=shadows)
     else:
-        from scratch.vm.types import Field
-
         return Reporter(
             opcode="sensing_keypressed",
             fields={"KEY_OPTION": Field(name="KEY_OPTION", value=key)},
@@ -67,8 +70,6 @@ def touching(object: str | Reporter = "mouse pointer") -> Reporter:
         ins, shadows = _resolve_inputs({"TOUCHINGOBJECTMENU": object})
         return Reporter(opcode="sensing_touchingobject", inputs=ins, shadow_reporters=shadows)
     else:
-        from scratch.vm.types import Field
-
         return Reporter(
             opcode="sensing_touchingobject",
             fields={"TOUCHINGOBJECTMENU": Field(name="TOUCHINGOBJECTMENU", value=object)},
@@ -99,8 +100,6 @@ def distance_to(object: str | Reporter = "mouse pointer") -> Reporter:
         ins, shadows = _resolve_inputs({"DISTANCETOMENU": object})
         return Reporter(opcode="sensing_distanceto", inputs=ins, shadow_reporters=shadows)
     else:
-        from scratch.vm.types import Field
-
         return Reporter(
             opcode="sensing_distanceto",
             fields={"DISTANCETOMENU": Field(name="DISTANCETOMENU", value=object)},
@@ -117,7 +116,6 @@ def current(unit: str = "year") -> Reporter:
 
     *unit* is "year", "month", "date", "dayofweek", "hour", "minute", "second".
     """
-
     return Reporter(
         opcode="sensing_current",
         fields={"CURRENTMENU": Field(name="CURRENTMENU", value=unit)},

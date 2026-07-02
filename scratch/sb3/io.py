@@ -507,9 +507,17 @@ def _serialize_block(block: Block) -> dict[str, Any]:
 
 
 def _serialize_input(inp: Input) -> list[Any]:
-    """Serialize an Input to Scratch ``[shadow_flag, value]`` format."""
-    shadow_flag = SHADOW_FLAG if inp.shadow else BLOCK_REF_FLAG
-    return [shadow_flag, inp.value]
+    """Serialize an Input to Scratch ``[shadow_flag, value]`` format.
+
+    * Literal values (``is_literal=True``) use SHADOW_FLAG (1).
+    * Block ID references use BLOCK_REF_FLAG (2).
+    * Shadow inputs use SHADOW_FLAG (1) regardless.
+    """
+    if inp.shadow or inp.is_literal:
+        flag = SHADOW_FLAG
+    else:
+        flag = BLOCK_REF_FLAG
+    return [flag, inp.value]
 
 
 def _serialize_field(fld: Field) -> list[Any]:

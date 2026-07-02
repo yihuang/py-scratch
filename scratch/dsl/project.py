@@ -17,6 +17,9 @@ Usage::
 
 from __future__ import annotations
 
+import hashlib
+import io as _io_module
+import pygame
 import uuid
 from pathlib import Path
 from typing import Any, Callable
@@ -49,6 +52,7 @@ class ProjectTarget:
         self.direction: float = 90.0
         self.size: float = 100.0
         self.visible: bool = True
+        self.layer_order: int = 0
 
     def var(self, name: str, default: Any = 0) -> None:
         """Declare a variable.  Raises ``ValueError`` on duplicate name."""
@@ -118,11 +122,45 @@ class Project:
     def stage(self) -> ProjectTarget:
         return self._stage
 
+    def _ensure_costume_data(self, pt: ProjectTarget) -> None:
+        """Ensure all costumes have valid image data for .sb3 export.
+
+        Costumes with empty ``md5ext`` get a minimal placeholder PNG
+        generated via pygame so the .sb3 file is valid for the Scratch editor.
+        """
+        for costume in pt._costumes:
+            if costume.md5ext:
+                continue  # already has asset data
+
+            # Derive color from costume name
+            name_hash = hashlib.md5(costume.name.encode()).hexdigest()
+            r = (int(name_hash[0:2], 16) % 156) + 100
+            g = (int(name_hash[2:4], 16) % 156) + 100
+            b = (int(name_hash[4:6], 16) % 156) + 100
+
+            surf = pygame.Surface((50, 50), pygame.SRCALPHA)
+            surf.fill((r, g, b, 255))
+            pygame.draw.circle(surf, (r - 20, g - 20, b - 20), (25, 25), 22)
+            pygame.draw.circle(surf, (r - 80, g - 80, b - 80), (25, 25), 22, 2)
+
+            buf = _io_module.BytesIO()
+            pygame.image.save(surf, buf, "PNG")
+            png_bytes = buf.getvalue()
+
+            sha1 = hashlib.sha1(png_bytes).hexdigest()
+            costume.data_format = "png"
+            costume.asset_id = sha1
+            costume.md5ext = f"{sha1}.png"
+            costume.data = png_bytes
+            costume.surface = surf
+
     def build_runtime(self) -> Runtime:
         """Construct a Runtime from all ProjectTargets and build scripts."""
         rt = Runtime()
 
         for pt in [self._stage, *self._sprites]:
+            self._ensure_costume_data(pt)
+
             target = Target(name=pt.name, is_stage=pt.is_stage)
             target.x = pt.x
             target.y = pt.y
@@ -130,6 +168,11 @@ class Project:
             target.size = pt.size
             target.visible = pt.visible
             target.costumes = list(pt._costumes)
+
+            # If no costumes, add a minimal placeholder
+            if not target.costumes:
+                placeholder = _make_placeholder_costume(pt.name)
+                target.costumes = [placeholder]
 
             # Generate variable UUIDs and register on target
             var_map = pt._make_var_map()
@@ -145,12 +188,44 @@ class Project:
 
             rt.add_target(target)
 
-        # Register opcode handlers so the runtime can execute
-        from scratch.vm import opcodes as _opcodes  # noqa: F401
-
         return rt
 
-    def save(self, path: str | Path) -> None:
+    def save(self, path: str | Path | _io_module.IOBase) -> None:
         """Construct the Runtime and save as .sb3."""
         rt = self.build_runtime()
         save_project(rt, path)
+
+def _make_placeholder_costume(name: str) -> Costume:
+    """Generate a minimal placeholder costume with a colored circle.
+
+    Used when a target has no costumes at all, ensuring the .sb3 is
+    valid for the Scratch editor.  The color varies by target name
+    so different targets produce distinct image assets.
+    """
+    # Derive color from target name to avoid identical placeholders
+    name_hash = hashlib.md5(name.encode()).hexdigest()
+    r = (int(name_hash[0:2], 16) % 156) + 100
+    g = (int(name_hash[2:4], 16) % 156) + 100
+    b = (int(name_hash[4:6], 16) % 156) + 100
+
+    surf = pygame.Surface((50, 50), pygame.SRCALPHA)
+    surf.fill((r, g, b, 255))
+    pygame.draw.circle(surf, (r - 20, g - 20, b - 20), (25, 25), 22)
+    pygame.draw.circle(surf, (r - 80, g - 80, b - 80), (25, 25), 22, 2)
+
+    buf = _io_module.BytesIO()
+    pygame.image.save(surf, buf, "PNG")
+    png_bytes = buf.getvalue()
+
+    sha1 = hashlib.sha1(png_bytes).hexdigest()
+    return Costume(
+        name=name or "costume1",
+        data_format="png",
+        bitmap_resolution=1,
+        rotation_center_x=25,
+        rotation_center_y=25,
+        asset_id=sha1,
+        md5ext=f"{sha1}.png",
+        data=png_bytes,
+        surface=surf,
+    )

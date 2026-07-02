@@ -130,5 +130,5 @@ def _resolve_inputs(kwargs: dict[str, Any]) -> tuple[dict[str, Input], dict[str,
             inputs[name] = Input(name=name, value=val.as_input())
             shadows[name] = val
         else:
-            inputs[name] = Input(name=name, value=val)
+            inputs[name] = Input(name=name, value=val, is_literal=True)
     return inputs, shadows

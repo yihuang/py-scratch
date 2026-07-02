@@ -35,6 +35,7 @@ class Input:
     name: str
     value: Any
     shadow: bool = False  # whether the block in this slot is a shadow
+    is_literal: bool = False  # True when value is a literal, not a block ID
 
 
 # ── Mutation (for procedures / custom blocks) ────────────────────────────
