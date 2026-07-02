@@ -111,7 +111,7 @@ class Target:
 
     @x.setter
     def x(self, val: float) -> None:
-        self._x = round(val)
+        self._x = val
 
     @property
     def y(self) -> float:
@@ -119,7 +119,7 @@ class Target:
 
     @y.setter
     def y(self, val: float) -> None:
-        self._y = round(val)
+        self._y = val
 
     def set_xy(self, x: float, y: float) -> None:
         self.x = x
