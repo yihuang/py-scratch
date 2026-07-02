@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any
 
 import pygame
 
+from .constants import ROTATION_DONT_ROTATE, ROTATION_LEFT_RIGHT
 from .runtime import Runtime
 from .target import Target
 from .types import Costume
@@ -332,7 +333,13 @@ class Renderer:
         pygame.display.flip()
 
     def _draw_sprite(self, sprite: Target) -> None:
-        """Draw a sprite at its position with rotation and size."""
+        """Draw a sprite at its position with rotation and size.
+
+        Matches official Scratch rendering pipeline:
+        - Skin size = texture pixels / bitmap_resolution (in Scratch units)
+        - Rendered size = skin_size * (size/100) * STAGE_SCALE (screen pixels)
+        - Rotation and scaling combined in one pass via ``rotozoom`` for less aliasing.
+        """
         if not sprite.costume:
             # Draw placeholder
             sx, sy = scratch_to_screen(sprite.x, sprite.y)
@@ -342,8 +349,9 @@ class Renderer:
             rect = pygame.Rect(int(sx - sz / 2), int(sy - sz / 2), sz, sz)
             pygame.draw.ellipse(self.screen, COLOR_RED, rect)
             pygame.draw.ellipse(self.screen, COLOR_BLACK, rect, PLACEHOLDER_STROKE_WIDTH)
+            return
+
         costume = sprite.costume
-        assert costume is not None  # checked above
         if costume.surface is None:
             _load_costume_surface(costume)
 
@@ -352,34 +360,33 @@ class Renderer:
         # Skin size = texture pixels / bitmap_resolution
         # e.g. 100x100 image with resolution=2 => skin is 50x50 Scratch units
         resolution = costume.bitmap_resolution or 1
-        skin_w = base.get_width() / resolution
-        skin_h = base.get_height() / resolution
 
-        # Apply size percentage
-        scale = sprite.size / 100.0
-        w = max(1, int(skin_w * scale))
-        h = max(1, int(skin_h * scale))
-
-        try:
-            scaled = pygame.transform.smoothscale(base, (w, h))
-        except ValueError:
-            scaled = base
-
-        # Apply rotation
         # Scratch: 0=up, 90=right. Costumes are designed facing right.
-        # pygame.transform.rotate rotates counter-clockwise.
+        # pygame rotates counter-clockwise (same as rotozoom).
         angle = 90 - sprite.direction
-        if angle != 0:
-            if sprite.rotation_style == 'left-right':
-                # Flip horizontally when sprite faces left (direction outside [-90, 90])
-                if sprite.direction > 90 or sprite.direction < -90:
-                    scaled = pygame.transform.flip(scaled, True, False)
-            elif sprite.rotation_style == "don't rotate":
-                pass  # no rotation
-            else:  # 'all around'
-                scaled = pygame.transform.rotate(scaled, angle)
 
-        # Position
+        # Combined scale: sprite size % + convert Scratch units → screen pixels
+        render_scale = (sprite.size / 100.0) * STAGE_SCALE / resolution
+
+        if sprite.rotation_style == ROTATION_DONT_ROTATE:
+            # No rotation — just scale
+            w = max(1, int(base.get_width() * render_scale))
+            h = max(1, int(base.get_height() * render_scale))
+            try:
+                scaled = pygame.transform.smoothscale(base, (w, h))
+            except (ValueError, pygame.error):
+                scaled = base
+
+        elif sprite.rotation_style == ROTATION_LEFT_RIGHT and (sprite.direction > 90 or sprite.direction < -90):
+            # Flip horizontally (no rotation)
+            scaled = pygame.transform.rotozoom(base, 0, render_scale)
+            scaled = pygame.transform.flip(scaled, True, False)
+
+        else:
+            # 'all around' — rotate & scale in one pass for less aliasing
+            scaled = pygame.transform.rotozoom(base, angle, render_scale)
+
+        # Position (scratch_to_screen already includes STAGE_SCALE)
         sx, sy = scratch_to_screen(sprite.x, sprite.y)
         rect = scaled.get_rect(center=(int(sx), int(sy)))
         self.screen.blit(scaled, rect)
