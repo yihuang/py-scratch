@@ -161,6 +161,8 @@ class Target:
     pen_brightness: float = DEFAULT_PEN_BRIGHTNESS
     # Renderer-internal (set by pen opcodes)
     _pen_clear_requested: bool = False
+    _pen_prev_x: float | None = None
+    _pen_prev_y: float | None = None
     _stamp_queue: list[Any] = field(default_factory=list)
 
     # ── Scratch JSON properties (carried for completeness) ────────────

@@ -322,6 +322,26 @@ class Renderer:
 
         # Step all threads
         self.runtime.step()
+
+        # Pen drawing: after each step, draw lines for any sprite that moved
+        # while pen_down is True (matching official Scratch behaviour).
+        for t in self.runtime.sprite_targets():
+            if not t.pen_down:
+                t._pen_prev_x = None
+                t._pen_prev_y = None
+                continue
+            if t._pen_prev_x is not None and t._pen_prev_y is not None:
+                if t._pen_prev_x != t.x or t._pen_prev_y != t.y:
+                    self.pen_layer.draw_line(
+                        t._pen_prev_x,
+                        t._pen_prev_y,
+                        t.x,
+                        t.y,
+                        t.pen_color,
+                        t.pen_size,
+                    )
+            t._pen_prev_x = t.x
+            t._pen_prev_y = t.y
         # Clear expired say/think bubbles
         tick = self.runtime.clock._tick
         for t in self.runtime.sprite_targets():

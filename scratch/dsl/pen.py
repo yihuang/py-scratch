@@ -21,7 +21,7 @@ def pen_up() -> StackExpr:
 
 def pen_clear() -> StackExpr:
     """``pen_penClear``."""
-    return StackExpr(opcode='pen_penClear')
+    return StackExpr(opcode='pen_clear')
 
 
 def stamp() -> StackExpr:
