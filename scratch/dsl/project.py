@@ -41,7 +41,7 @@ class ProjectTarget:
     ``scratch.vm.target.Target`` during ``Project.build_runtime()``.
     """
 
-    def __init__(self, name: str = "Sprite", is_stage: bool = False) -> None:
+    def __init__(self, name: str = 'Sprite', is_stage: bool = False) -> None:
         self.name = name
         self.is_stage = is_stage
         self._scripts: list[Script] = []
@@ -64,9 +64,9 @@ class ProjectTarget:
         self,
         name: str,
         *,
-        data_format: str = "png",
-        asset_id: str = "",
-        md5ext: str = "",
+        data_format: str = 'png',
+        asset_id: str = '',
+        md5ext: str = '',
     ) -> None:
         """Add a costume to this target."""
         self._costumes.append(
@@ -107,9 +107,9 @@ class Project:
     Manages the stage, sprites, and produces an .sb3 file.
     """
 
-    def __init__(self, name: str = "Project") -> None:
+    def __init__(self, name: str = 'Project') -> None:
         self.name = name
-        self._stage = ProjectTarget(name="Stage", is_stage=True)
+        self._stage = ProjectTarget(name='Stage', is_stage=True)
         self._sprites: list[ProjectTarget] = []
 
     def sprite(self, name: str) -> ProjectTarget:
@@ -144,13 +144,13 @@ class Project:
             pygame.draw.circle(surf, (r - 80, g - 80, b - 80), (25, 25), 22, 2)
 
             buf = _io_module.BytesIO()
-            pygame.image.save(surf, buf, "PNG")
+            pygame.image.save(surf, buf, 'PNG')
             png_bytes = buf.getvalue()
 
             md5 = hashlib.md5(png_bytes).hexdigest()
-            costume.data_format = "png"
+            costume.data_format = 'png'
             costume.asset_id = md5
-            costume.md5ext = f"{md5}.png"
+            costume.md5ext = f'{md5}.png'
             costume.data = png_bytes
             costume.surface = surf
 
@@ -195,6 +195,7 @@ class Project:
         rt = self.build_runtime()
         save_project(rt, path)
 
+
 def _make_placeholder_costume(name: str) -> Costume:
     """Generate a minimal placeholder costume with a colored circle.
 
@@ -214,18 +215,18 @@ def _make_placeholder_costume(name: str) -> Costume:
     pygame.draw.circle(surf, (r - 80, g - 80, b - 80), (25, 25), 22, 2)
 
     buf = _io_module.BytesIO()
-    pygame.image.save(surf, buf, "PNG")
+    pygame.image.save(surf, buf, 'PNG')
     png_bytes = buf.getvalue()
 
     md5 = hashlib.md5(png_bytes).hexdigest()
     return Costume(
-        name=name or "costume1",
-        data_format="png",
+        name=name or 'costume1',
+        data_format='png',
         bitmap_resolution=1,
         rotation_center_x=25,
         rotation_center_y=25,
         asset_id=md5,
-        md5ext=f"{md5}.png",
+        md5ext=f'{md5}.png',
         data=png_bytes,
         surface=surf,
     )

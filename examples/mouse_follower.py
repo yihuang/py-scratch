@@ -10,10 +10,10 @@ from __future__ import annotations
 
 from scratch.dsl import Project, control, motion
 
-project = Project("Mouse Follower")
-square = project.sprite("Square")
+project = Project('Mouse Follower')
+square = project.sprite('Square')
 
-square.costume("square")
+square.costume('square')
 square.x = 100
 square.y = 0
 square.layer_order = 1
@@ -30,20 +30,19 @@ square.when_flag_clicked(
 )
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     import argparse
 
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--save", "-o", type=str, help="Save project to .sb3 file")
+    parser.add_argument('--save', '-o', type=str, help='Save project to .sb3 file')
     args = parser.parse_args()
 
     if args.save:
         project.save(args.save)
-        print(f"Saved to {args.save}")
+        print(f'Saved to {args.save}')
     else:
         rt = project.build_runtime()
         from scratch.vm.renderer import Renderer
 
         renderer = Renderer(rt, title=project.name)
         renderer.run()
-

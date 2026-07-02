@@ -123,9 +123,7 @@ def _resolve_input_parents(blocks: dict[str, Block]) -> None:
                     child.parent = bid
 
 
-def _resolve_variable_fields(
-    blocks: dict[str, Block], var_map: dict[str, str]
-) -> None:
+def _resolve_variable_fields(blocks: dict[str, Block], var_map: dict[str, str]) -> None:
     """Resolve VARIABLE field id for all blocks, including reporters."""
     for block in blocks.values():
         for fname, field in block.fields.items():

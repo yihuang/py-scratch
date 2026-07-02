@@ -206,6 +206,4 @@ VM_AGENT: str = 'py-scratch'
 #  Hat opcodes used internally by the runtime
 # ═════════════════════════════════════════════════════════════════════════
 
-CLONE_START_HATS: tuple[str, ...] = (
-    'control_start_as_clone',
-)
+CLONE_START_HATS: tuple[str, ...] = ('control_start_as_clone',)

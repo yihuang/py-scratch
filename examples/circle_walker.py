@@ -12,17 +12,17 @@ from __future__ import annotations
 
 from scratch.dsl import Project, control, motion
 
-project = Project("Circle Walker")
-tri = project.sprite("Triangle")
+project = Project('Circle Walker')
+tri = project.sprite('Triangle')
 
-tri.costume("triangle")
+tri.costume('triangle')
 tri.x = 0
 tri.y = 0
 tri.direction = 0
 tri.layer_order = 2
 
 # Declare a variable to track the turning angle
-tri.var("angle", 0.0)
+tri.var('angle', 0.0)
 
 tri.when_flag_clicked(
     control.forever()(
@@ -33,20 +33,19 @@ tri.when_flag_clicked(
 )
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     import argparse
 
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--save", "-o", type=str, help="Save project to .sb3 file")
+    parser.add_argument('--save', '-o', type=str, help='Save project to .sb3 file')
     args = parser.parse_args()
 
     if args.save:
         project.save(args.save)
-        print(f"Saved to {args.save}")
+        print(f'Saved to {args.save}')
     else:
         rt = project.build_runtime()
         from scratch.vm.renderer import Renderer
 
         renderer = Renderer(rt, title=project.name)
         renderer.run()
-

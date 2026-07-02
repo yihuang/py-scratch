@@ -279,6 +279,7 @@ def _parse_input(name: str, data: list[Any]) -> Input:
 
     return Input(value=value, shadow=is_shadow)
 
+
 def _parse_mutation(data: dict[str, Any] | None) -> Mutation | None:
     """Parse the mutation dict from a block, or ``None`` if absent."""
     if not data or not isinstance(data, dict):
@@ -318,10 +319,6 @@ def _parse_field(name: str, data: list[Any]) -> Field:
         var_type = None
 
     return Field(value=value, id=field_id, variable_type=var_type)
-
-
-
-
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -535,6 +532,7 @@ def _serialize_input(inp: Input) -> list[Any]:
         flag = BLOCK_REF_FLAG
         val = inp.value
     return [flag, val]
+
 
 def _serialize_field(fld: Field) -> list[Any]:
     """Serialize a Field to Scratch ``[value, id]`` format."""

@@ -82,7 +82,6 @@ def _unwrap_shadow(value: Any) -> Any:
     return value
 
 
-
 def _input_raw(block: Block, name: str) -> Any:
     """Unwrap a block input to its raw value (literal, block-id string, or
     compact primitive array).
@@ -95,7 +94,6 @@ def _input_raw(block: Block, name: str) -> Any:
     if inp is None:
         return None
     return inp.value
-
 
 
 # ── Runtime ──────────────────────────────────────────────────────────────
@@ -220,7 +218,6 @@ class Runtime:
         for opcode in CLONE_START_HATS:
             self.start_threads(clone, clone.get_hat_next_blocks(opcode))
         return clone
-
 
     def remove_clone(self, clone: Target) -> None:
         """Remove a clone from the runtime."""

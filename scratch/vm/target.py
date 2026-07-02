@@ -208,9 +208,9 @@ class Target:
             yield self.blocks[bid]
 
     def get_hat_next_blocks(self, opcode: str) -> Iterable[str]:
-        '''
+        """
         Return list of executable blocks that follows the hat block
-        '''
+        """
         for block in self.get_hat_blocks(opcode):
             if block.next is not None:
                 yield block.next
