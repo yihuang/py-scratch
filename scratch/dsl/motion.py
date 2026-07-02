@@ -45,7 +45,7 @@ def glide_to(random_position: str | None = None) -> StackExpr:
 
     return StackExpr(
         opcode="motion_glideto",
-        fields={"TO": Field(name="TO", value=random_position or "random position")},
+        fields={"TO": Field(value=random_position or "random position")},
     )
 
 
@@ -83,7 +83,7 @@ def set_rotation_style(style: str = "all around") -> StackExpr:
 
     return StackExpr(
         opcode="motion_setrotationstyle",
-        fields={"STYLE": Field(name="STYLE", value=style)},
+        fields={"STYLE": Field(value=style)},
     )
 
 
@@ -98,7 +98,7 @@ def point_towards(towards: str = "mouse pointer") -> StackExpr:
 
     return StackExpr(
         opcode="motion_pointtowards",
-        fields={"TOWARDS": Field(name="TOWARDS", value=towards)},
+        fields={"TOWARDS": Field(value=towards)},
     )
 
 

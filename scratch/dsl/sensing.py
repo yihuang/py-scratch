@@ -57,7 +57,7 @@ def key_pressed(key: str | Reporter = "space") -> Reporter:
     else:
         return Reporter(
             opcode="sensing_keypressed",
-            fields={"KEY_OPTION": Field(name="KEY_OPTION", value=key)},
+            fields={"KEY_OPTION": Field(value=key)},
         )
 
 
@@ -72,7 +72,7 @@ def touching(object: str | Reporter = "mouse pointer") -> Reporter:
     else:
         return Reporter(
             opcode="sensing_touchingobject",
-            fields={"TOUCHINGOBJECTMENU": Field(name="TOUCHINGOBJECTMENU", value=object)},
+            fields={"TOUCHINGOBJECTMENU": Field(value=object)},
         )
 
 
@@ -102,7 +102,7 @@ def distance_to(object: str | Reporter = "mouse pointer") -> Reporter:
     else:
         return Reporter(
             opcode="sensing_distanceto",
-            fields={"DISTANCETOMENU": Field(name="DISTANCETOMENU", value=object)},
+            fields={"DISTANCETOMENU": Field(value=object)},
         )
 
 
@@ -118,7 +118,7 @@ def current(unit: str = "year") -> Reporter:
     """
     return Reporter(
         opcode="sensing_current",
-        fields={"CURRENTMENU": Field(name="CURRENTMENU", value=unit)},
+        fields={"CURRENTMENU": Field(value=unit)},
     )
 
 

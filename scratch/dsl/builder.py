@@ -52,13 +52,11 @@ def _chain_impl(
 
         # Resolve variable fields if var_map is provided
         if var_map:
-            for field_name in list(block.fields.keys()):
-                field = block.fields[field_name]
-                if isinstance(field, Field) and field.name == 'VARIABLE':
+            for field_name, field in list(block.fields.items()):
+                if isinstance(field, Field) and field_name == 'VARIABLE':
                     mapped = var_map.get(str(field.value))
                     if mapped:
                         field.id = mapped
-
         # Register reporter blocks from shadow reporters (shared visited)
         _register_reporters(blocks, expr, reporter_visited)
 
@@ -72,7 +70,7 @@ def _chain_impl(
             )
             blocks.update(sub_blocks)
             if sub_entry:
-                block.inputs['SUBSTACK'] = Input(name='SUBSTACK', value=sub_entry)
+                block.inputs['SUBSTACK'] = Input(value=sub_entry)
 
         # Handle SUBSTACK2 (else branch)
         if expr._body2:
@@ -84,7 +82,7 @@ def _chain_impl(
             )
             blocks.update(sub2_blocks)
             if sub2_entry:
-                block.inputs['SUBSTACK2'] = Input(name='SUBSTACK2', value=sub2_entry)
+                block.inputs['SUBSTACK2'] = Input(value=sub2_entry)
 
     # Link sequential chain (next pointers)
     for i in range(len(chain_ids) - 1):
@@ -130,11 +128,13 @@ def _resolve_variable_fields(
 ) -> None:
     """Resolve VARIABLE field id for all blocks, including reporters."""
     for block in blocks.values():
-        for field in block.fields.values():
-            if isinstance(field, Field) and field.name == 'VARIABLE':
+        for fname, field in block.fields.items():
+            if isinstance(field, Field) and fname == 'VARIABLE':
                 mapped = var_map.get(str(field.value))
                 if mapped and field.id is None:
                     field.id = mapped
+
+
 def chain(
     exprs: list[StackExpr],
     parent_id: str | None = None,

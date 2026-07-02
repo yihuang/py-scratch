@@ -127,8 +127,8 @@ def _resolve_inputs(kwargs: dict[str, Any]) -> tuple[dict[str, Input], dict[str,
     shadows: dict[str, Reporter] = {}
     for name, val in kwargs.items():
         if isinstance(val, Reporter):
-            inputs[name] = Input(name=name, value=val.as_input())
+            inputs[name] = Input(value=val.as_input())
             shadows[name] = val
         else:
-            inputs[name] = Input(name=name, value=val, is_literal=True)
+            inputs[name] = Input(value=val, is_literal=True)
     return inputs, shadows

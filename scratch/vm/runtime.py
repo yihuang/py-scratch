@@ -94,7 +94,7 @@ def _input_raw(block: Block, name: str) -> Any:
     inp = block.inputs.get(name)
     if inp is None:
         return None
-    return inp.value if isinstance(inp, Input) else inp
+    return inp.value
 
 
 

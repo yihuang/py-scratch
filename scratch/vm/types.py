@@ -16,7 +16,6 @@ import uuid
 class Field:
     """A dropdown/field on a block (e.g. variable name, operator choice)."""
 
-    name: str
     value: Any
     variable_type: str | None = None  # '' for broadcast, 'list' for list var
     id: str | None = None
@@ -32,7 +31,6 @@ class Input:
     * an ``[id, value]`` shadow pair — an obsolete/backward-compat form.
     """
 
-    name: str
     value: Any
     shadow: bool = False  # whether the block in this slot is a shadow
     is_literal: bool = False  # True when value is a literal, not a block ID
@@ -70,16 +68,13 @@ class Block:
     opcode: str
     next: str | None = None  # next block in the stack
     parent: str | None = None  # block that contains this one
-    inputs: dict[str, Any] = field(default_factory=dict)
-    fields: dict[str, Any] = field(default_factory=dict)
+    inputs: dict[str, Input] = field(default_factory=dict)
+    fields: dict[str, Field] = field(default_factory=dict)
     shadow: bool = False
     top_level: bool = False
     mutation: Mutation | None = None
     x: float | None = None  # editor position (top_level only)
     y: float | None = None
-
-    def __repr__(self) -> str:
-        return f'Block({self.opcode!r}, id={self.id!r})'
 
 # ── Costume & Sound ──────────────────────────────────────────────────────
 
@@ -129,8 +124,8 @@ class Sound:
 def make_block(
     opcode: str,
     block_id: str | None = None,
-    inputs: dict[str, Any] | None = None,
-    fields: dict[str, Any] | None = None,
+    inputs: dict[str, Input | Any] | None = None,
+    fields: dict[str, Field | Any] | None = None,
     next_: str | None = None,
     parent: str | None = None,
     top_level: bool = False,
@@ -143,20 +138,20 @@ def make_block(
     """
 
     bid = block_id or str(uuid.uuid4())[:8]
-    parsed_inputs = {}
+    parsed_inputs: dict[str, Input] = {}
     if inputs:
         for name, val in inputs.items():
             if isinstance(val, Input):
                 parsed_inputs[name] = val
             else:
-                parsed_inputs[name] = Input(name=name, value=val)
-    parsed_fields = {}
+                parsed_inputs[name] = Input(value=val)
+    parsed_fields: dict[str, Field] = {}
     if fields:
         for name, val in fields.items():
             if isinstance(val, Field):
                 parsed_fields[name] = val
             else:
-                parsed_fields[name] = Field(name=name, value=val)
+                parsed_fields[name] = Field(value=val)
     return Block(
         id=bid,
         opcode=opcode,

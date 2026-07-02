@@ -128,7 +128,7 @@ def sqrt(n: int | float | Reporter) -> Reporter:
     return Reporter(
         opcode="operator_mathop",
         inputs=ins,
-        fields={"OPERATOR": Field(name="OPERATOR", value="sqrt")},
+        fields={"OPERATOR": Field(value="sqrt")},
         shadow_reporters=shadows,
     )
 
@@ -140,7 +140,7 @@ def abs_(n: int | float | Reporter) -> Reporter:
     return Reporter(
         opcode="operator_mathop",
         inputs=ins,
-        fields={"OPERATOR": Field(name="OPERATOR", value="abs")},
+        fields={"OPERATOR": Field(value="abs")},
         shadow_reporters=shadows,
     )
 
@@ -152,7 +152,7 @@ def floor_(n: int | float | Reporter) -> Reporter:
     return Reporter(
         opcode="operator_mathop",
         inputs=ins,
-        fields={"OPERATOR": Field(name="OPERATOR", value="floor")},
+        fields={"OPERATOR": Field(value="floor")},
         shadow_reporters=shadows,
     )
 
@@ -164,7 +164,7 @@ def ceil_(n: int | float | Reporter) -> Reporter:
     return Reporter(
         opcode="operator_mathop",
         inputs=ins,
-        fields={"OPERATOR": Field(name="OPERATOR", value="ceil")},
+        fields={"OPERATOR": Field(value="ceil")},
         shadow_reporters=shadows,
     )
 
@@ -178,7 +178,7 @@ def _mathop(name: str, n: int | float | Reporter) -> Reporter:
     return Reporter(
         opcode="operator_mathop",
         inputs=ins,
-        fields={"OPERATOR": Field(name="OPERATOR", value=name)},
+        fields={"OPERATOR": Field(value=name)},
         shadow_reporters=shadows,
     )
 

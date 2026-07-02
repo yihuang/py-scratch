@@ -60,20 +60,39 @@ def _set(
     inputs: dict[str, Any] | None = None,
     fields: dict[str, Any] | None = None,
 ) -> None:
-    """Set inputs/fields on a block created by ``_stack`` in place."""
+    """Set inputs/fields on a block created by ``_stack`` in place.
+    Raw values are auto-wrapped into Input/Field objects.
+    """
     block = target.blocks[block_id]
     if inputs:
-        block.inputs = inputs
+        block.inputs = {
+            k: v if isinstance(v, Input) else Input(value=v)
+            for k, v in inputs.items()
+        }
     if fields:
-        block.fields = fields
+        block.fields = {
+            k: v if isinstance(v, Field) else Field(value=v)
+            for k, v in fields.items()
+        }
 
 
 def _op(
-    opcode: str, inputs: dict[str, Any] | None = None, fields: dict[str, Any] | None = None
+    opcode: str,
+    inputs: dict[str, Input | Any] | None = None,
+    fields: dict[str, Field | Any] | None = None,
 ) -> Block:
-    """Create a single block with no next/parent."""
-    return Block(id=_id(), opcode=opcode, inputs=inputs or {}, fields=fields or {})
-
+    """Create a single block with no next/parent.
+    Raw values are auto-wrapped into Input/Field objects.
+    """
+    parsed_inputs: dict[str, Input] = {}
+    if inputs:
+        for k, v in inputs.items():
+            parsed_inputs[k] = v if isinstance(v, Input) else Input(value=v)
+    parsed_fields: dict[str, Field] = {}
+    if fields:
+        for k, v in fields.items():
+            parsed_fields[k] = v if isinstance(v, Field) else Field(value=v)
+    return Block(id=_id(), opcode=opcode, inputs=parsed_inputs, fields=parsed_fields)
 
 def _rt(main: Target | list[Target]) -> Runtime:
     """Build a Runtime with a stage and one or more sprites, register opcodes."""
@@ -108,7 +127,7 @@ def _make_with_reporter(block_id: str, value: Any) -> tuple[Runtime, Target]:
     t.blocks[block_id] = Block(
         id=block_id,
         opcode='data_variable',
-        fields={'VARIABLE': Field(name='VARIABLE', value='myVar')},
+        fields={'VARIABLE': Field(value='myVar')},
     )
     t.variables['v1'] = Variable(name='myVar', value=value)
     rt.add_target(t)
@@ -130,7 +149,7 @@ class TestScheduler:
     def test_forever_stays_alive(self) -> None:
         """A forever loop keeps the thread alive."""
         t = _make_tgt()
-        t.blocks['f'] = make_block('control_forever', 'f', inputs={'SUBSTACK': 'b0'})
+        t.blocks['f'] = make_block('control_forever', 'f', inputs={'SUBSTACK': Input(value='b0')})
         t.blocks['b0'] = Block(id='b0', opcode='motion_movesteps')
         next(b for b in t.blocks.values() if b.opcode == 'event_whenflagclicked').next = 'f'
         t._rebuild_hat_cache()
@@ -141,7 +160,7 @@ class TestScheduler:
     def test_green_flag_resets(self) -> None:
         """Green flag stops old threads before starting new ones."""
         t = _make_tgt()
-        t.blocks['f'] = make_block('control_forever', 'f', inputs={'SUBSTACK': 'b0'})
+        t.blocks['f'] = make_block('control_forever', 'f', inputs={'SUBSTACK': Input(value='b0')})
         t.blocks['b0'] = Block(id='b0', opcode='motion_movesteps')
         next(b for b in t.blocks.values() if b.opcode == 'event_whenflagclicked').next = 'f'
         t._rebuild_hat_cache()
@@ -170,14 +189,14 @@ class TestScheduler:
 class TestWait:
     def test_wait_zero_is_instant(self) -> None:
         t = _stack('control_wait')
-        t.blocks['b0'] = _op('control_wait', inputs={'DURATION': 0})
+        t.blocks['b0'] = _op('control_wait', inputs={'DURATION': Input(value=0)})
         t._rebuild_hat_cache()
         rt = _run(t)
         assert len(rt.threads) == 0
 
     def test_wait_one_frame(self) -> None:
         t = _stack('control_wait')
-        _set(t, 'b0', inputs={'DURATION': 0.01})
+        _set(t, 'b0', inputs={'DURATION': Input(value=0.01)})
         rt = _rt(t)
         rt.green_flag()
         rt.step()  # enters WAITING (queued at tick ceil(0.01*60)=1)
@@ -187,8 +206,8 @@ class TestWait:
 
     def test_two_waits_in_sequence(self) -> None:
         t = _stack('control_wait', 'control_wait')
-        _set(t, 'b0', inputs={'DURATION': 0.1})  # 6 frames
-        _set(t, 'b1', inputs={'DURATION': 0.2})  # 12 frames
+        _set(t, 'b0', inputs={'DURATION': Input(value=0.1)})  # 6 frames
+        _set(t, 'b1', inputs={'DURATION': Input(value=0.2)})  # 12 frames
         rt = _rt(t)
         rt.green_flag()
         for _ in range(6):
@@ -202,7 +221,7 @@ class TestWait:
 
     def test_wait_until_polls(self) -> None:
         t = _stack('control_wait_until')
-        _set(t, 'b0', inputs={'CONDITION': False})
+        _set(t, 'b0', inputs={'CONDITION': Input(value=False)})
         rt = _rt(t)
         rt.green_flag()
         rt.step()
@@ -219,8 +238,8 @@ class TestWait:
 class TestControl:
     def test_repeat_loop(self) -> None:
         t = _make_tgt()
-        t.blocks['r'] = make_block('control_repeat', 'r', inputs={'TIMES': 3, 'SUBSTACK': 'b0'})
-        t.blocks['b0'] = Block(id='b0', opcode='motion_movesteps', inputs={'STEPS': 5})
+        t.blocks['r'] = make_block('control_repeat', 'r', inputs={'TIMES': Input(value=3), 'SUBSTACK': Input(value='b0')})
+        t.blocks['b0'] = Block(id='b0', opcode='motion_movesteps', inputs={'STEPS': Input(value=5)})
         next(b for b in t.blocks.values() if b.opcode == 'event_whenflagclicked').next = 'r'
         t._rebuild_hat_cache()
         rt = _run(t, steps=30)
@@ -229,8 +248,8 @@ class TestControl:
 
     def test_repeat_zero_times(self) -> None:
         t = _make_tgt()
-        t.blocks['r'] = make_block('control_repeat', 'r', inputs={'TIMES': 0, 'SUBSTACK': 'b0'})
-        t.blocks['b0'] = Block(id='b0', opcode='motion_movesteps', inputs={'STEPS': 10})
+        t.blocks['r'] = make_block('control_repeat', 'r', inputs={'TIMES': Input(value=0), 'SUBSTACK': Input(value='b0')})
+        t.blocks['b0'] = Block(id='b0', opcode='motion_movesteps', inputs={'STEPS': Input(value=10)})
         next(b for b in t.blocks.values() if b.opcode == 'event_whenflagclicked').next = 'r'
         t._rebuild_hat_cache()
         rt = _run(t, steps=10)
@@ -239,8 +258,8 @@ class TestControl:
 
     def test_forever_with_yield(self) -> None:
         t = _make_tgt()
-        t.blocks['f'] = make_block('control_forever', 'f', inputs={'SUBSTACK': 'b0'})
-        t.blocks['b0'] = Block(id='b0', opcode='motion_movesteps', inputs={'STEPS': 1})
+        t.blocks['f'] = make_block('control_forever', 'f', inputs={'SUBSTACK': Input(value='b0')})
+        t.blocks['b0'] = Block(id='b0', opcode='motion_movesteps', inputs={'STEPS': Input(value=1)})
         next(b for b in t.blocks.values() if b.opcode == 'event_whenflagclicked').next = 'f'
         t._rebuild_hat_cache()
         rt = _rt(t)
@@ -252,9 +271,9 @@ class TestControl:
 
     def test_if_true(self) -> None:
         t = _stack('control_if')
-        _set(t, 'b0', inputs={'CONDITION': True, 'SUBSTACK': 'b1'})
+        _set(t, 'b0', inputs={'CONDITION': Input(value=True), 'SUBSTACK': Input(value='b1')})
         t.blocks['b1'] = Block(
-            id='b1', opcode='motion_movesteps', inputs={'STEPS': 10}, parent='b0'
+            id='b1', opcode='motion_movesteps', inputs={'STEPS': Input(value=10)}, parent='b0'
         )
         t._rebuild_hat_cache()
         rt = _run(t, steps=10)
@@ -263,9 +282,9 @@ class TestControl:
 
     def test_if_false(self) -> None:
         t = _stack('control_if')
-        _set(t, 'b0', inputs={'CONDITION': False, 'SUBSTACK': 'b1'})
+        _set(t, 'b0', inputs={'CONDITION': Input(value=False), 'SUBSTACK': Input(value='b1')})
         t.blocks['b1'] = Block(
-            id='b1', opcode='motion_movesteps', inputs={'STEPS': 10}, parent='b0'
+            id='b1', opcode='motion_movesteps', inputs={'STEPS': Input(value=10)}, parent='b0'
         )
         t._rebuild_hat_cache()
         rt = _run(t, steps=10)
@@ -275,13 +294,13 @@ class TestControl:
     def test_if_else_true_branch(self) -> None:
         t = _stack('control_if_else')
         t.blocks['b0'] = _op(
-            'control_if_else', inputs={'CONDITION': True, 'SUBSTACK': 'b1', 'SUBSTACK2': 'b2'}
+            'control_if_else', inputs={'CONDITION': Input(value=True), 'SUBSTACK': Input(value='b1'), 'SUBSTACK2': 'b2'}
         )
         t.blocks['b1'] = Block(
-            id='b1', opcode='motion_movesteps', inputs={'STEPS': 10}, parent='b0'
+            id='b1', opcode='motion_movesteps', inputs={'STEPS': Input(value=10)}, parent='b0'
         )
         t.blocks['b2'] = Block(
-            id='b2', opcode='motion_turnright', inputs={'DEGREES': 90}, parent='b0'
+            id='b2', opcode='motion_turnright', inputs={'DEGREES': Input(value=90)}, parent='b0'
         )
         t._rebuild_hat_cache()
         rt = _run(t, steps=10)
@@ -291,12 +310,12 @@ class TestControl:
     def test_if_else_false_branch(self) -> None:
         t = _stack('control_if_else')
         t.blocks['b0'] = _op(
-            'control_if_else', inputs={'CONDITION': False, 'SUBSTACK': 'b1', 'SUBSTACK2': 'b2'}
+            'control_if_else', inputs={'CONDITION': Input(value=False), 'SUBSTACK': Input(value='b1'), 'SUBSTACK2': 'b2'}
         )
         t.blocks['b1'] = Block(
-            id='b1', opcode='motion_movesteps', inputs={'STEPS': 10}, parent='b0'
+            id='b1', opcode='motion_movesteps', inputs={'STEPS': Input(value=10)}, parent='b0'
         )
-        t.blocks['b2'] = Block(id='b2', opcode='motion_movesteps', inputs={'STEPS': 5}, parent='b0')
+        t.blocks['b2'] = Block(id='b2', opcode='motion_movesteps', inputs={'STEPS': Input(value=5)}, parent='b0')
         t._rebuild_hat_cache()
         rt = _run(t, steps=10)
         assert len(rt.threads) == 0
@@ -304,9 +323,9 @@ class TestControl:
 
     def test_repeat_until_true(self) -> None:
         t = _stack('control_repeat_until')
-        t.blocks['b0'] = _op('control_repeat_until', inputs={'CONDITION': True, 'SUBSTACK': 'b1'})
+        t.blocks['b0'] = _op('control_repeat_until', inputs={'CONDITION': Input(value=True), 'SUBSTACK': Input(value='b1')})
         t.blocks['b1'] = Block(
-            id='b1', opcode='motion_movesteps', inputs={'STEPS': 10}, parent='b0'
+            id='b1', opcode='motion_movesteps', inputs={'STEPS': Input(value=10)}, parent='b0'
         )
         t._rebuild_hat_cache()
         rt = _run(t, steps=10)
@@ -318,8 +337,8 @@ class TestControl:
     def test_repeat_rounded(self) -> None:
         """TIMES=3.7 rounds to 4 iterations."""
         t = _make_tgt()
-        t.blocks['r'] = make_block('control_repeat', 'r', inputs={'TIMES': 3.7, 'SUBSTACK': 'b0'})
-        t.blocks['b0'] = Block(id='b0', opcode='motion_movesteps', inputs={'STEPS': 5})
+        t.blocks['r'] = make_block('control_repeat', 'r', inputs={'TIMES': Input(value=3.7), 'SUBSTACK': Input(value='b0')})
+        t.blocks['b0'] = Block(id='b0', opcode='motion_movesteps', inputs={'STEPS': Input(value=5)})
         next(b for b in t.blocks.values() if b.opcode == 'event_whenflagclicked').next = 'r'
         t._rebuild_hat_cache()
         rt = _run(t, steps=60)
@@ -329,8 +348,8 @@ class TestControl:
     def test_repeat_negative_or_nan(self) -> None:
         """Negative TIMES rounds to 0 iterations (no-op)."""
         t = _make_tgt()
-        t.blocks['r'] = make_block('control_repeat', 'r', inputs={'TIMES': -1, 'SUBSTACK': 'b0'})
-        t.blocks['b0'] = Block(id='b0', opcode='motion_movesteps', inputs={'STEPS': 10})
+        t.blocks['r'] = make_block('control_repeat', 'r', inputs={'TIMES': Input(value=-1), 'SUBSTACK': Input(value='b0')})
+        t.blocks['b0'] = Block(id='b0', opcode='motion_movesteps', inputs={'STEPS': Input(value=10)})
         next(b for b in t.blocks.values() if b.opcode == 'event_whenflagclicked').next = 'r'
         t._rebuild_hat_cache()
         rt = _run(t, steps=10)
@@ -345,13 +364,11 @@ class TestControl:
         t.blocks['b0'] = make_block(
             'control_repeat_until',
             'b0',
-            inputs={'CONDITION': [12, 'done'], 'SUBSTACK': 'b1'},
+            inputs={'CONDITION': Input(value=[12, 'done']), 'SUBSTACK': Input(value='b1')},
         )
         t.blocks['b1'] = Block(
             id='b1',
-            opcode='data_setvariableto',
-            inputs={'VALUE': 1},
-            fields={'VARIABLE': 'done'},
+            opcode='data_setvariableto', inputs={'VALUE': Input(value=1)}, fields={'VARIABLE': Field(value='done')},
             parent='b0',
         )
         t.variables['done'] = Variable('done', 0)
@@ -371,9 +388,9 @@ class TestControl:
         t.blocks['w'] = make_block(
             'control_while',
             'w',
-            inputs={'CONDITION': True, 'SUBSTACK': 'b0'},
+            inputs={'CONDITION': Input(value=True), 'SUBSTACK': Input(value='b0')},
         )
-        t.blocks['b0'] = Block(id='b0', opcode='motion_movesteps', inputs={'STEPS': 1})
+        t.blocks['b0'] = Block(id='b0', opcode='motion_movesteps', inputs={'STEPS': Input(value=1)})
         hat = next(b for b in t.blocks.values() if b.opcode == 'event_whenflagclicked')
         hat.next = 'w'
         t._rebuild_hat_cache()
@@ -390,9 +407,9 @@ class TestControl:
         t.blocks['w'] = make_block(
             'control_while',
             'w',
-            inputs={'CONDITION': False, 'SUBSTACK': 'b0'},
+            inputs={'CONDITION': Input(value=False), 'SUBSTACK': Input(value='b0')},
         )
-        t.blocks['b0'] = Block(id='b0', opcode='motion_movesteps', inputs={'STEPS': 10})
+        t.blocks['b0'] = Block(id='b0', opcode='motion_movesteps', inputs={'STEPS': Input(value=10)})
         hat = next(b for b in t.blocks.values() if b.opcode == 'event_whenflagclicked')
         hat.next = 'w'
         t._rebuild_hat_cache()
@@ -405,8 +422,8 @@ class TestControl:
     def test_if_truthy_number_one(self) -> None:
         """if with CONDITION=1 (truthy) runs the substack."""
         t = _stack('control_if')
-        _set(t, 'b0', inputs={'CONDITION': 1, 'SUBSTACK': 'b1'})
-        t.blocks['b1'] = Block(id='b1', opcode='motion_movesteps', inputs={'STEPS': 5}, parent='b0')
+        _set(t, 'b0', inputs={'CONDITION': Input(value=1), 'SUBSTACK': Input(value='b1')})
+        t.blocks['b1'] = Block(id='b1', opcode='motion_movesteps', inputs={'STEPS': Input(value=5)}, parent='b0')
         t._rebuild_hat_cache()
         rt = _run(t, steps=10)
         assert len(rt.threads) == 0
@@ -415,8 +432,8 @@ class TestControl:
     def test_if_falsy_zero(self) -> None:
         """if with CONDITION=0 (falsy) skips the substack."""
         t = _stack('control_if')
-        _set(t, 'b0', inputs={'CONDITION': 0, 'SUBSTACK': 'b1'})
-        t.blocks['b1'] = Block(id='b1', opcode='motion_movesteps', inputs={'STEPS': 5}, parent='b0')
+        _set(t, 'b0', inputs={'CONDITION': Input(value=0), 'SUBSTACK': Input(value='b1')})
+        t.blocks['b1'] = Block(id='b1', opcode='motion_movesteps', inputs={'STEPS': Input(value=5)}, parent='b0')
         t._rebuild_hat_cache()
         rt = _run(t, steps=10)
         assert len(rt.threads) == 0
@@ -427,12 +444,12 @@ class TestControl:
         t = _stack('control_if_else')
         t.blocks['b0'] = _op(
             'control_if_else',
-            inputs={'CONDITION': '1', 'SUBSTACK': 'b1', 'SUBSTACK2': 'b2'},
+            inputs={'CONDITION': Input(value='1'), 'SUBSTACK': Input(value='b1'), 'SUBSTACK2': 'b2'},
         )
         t.blocks['b1'] = Block(
-            id='b1', opcode='motion_movesteps', inputs={'STEPS': 10}, parent='b0'
+            id='b1', opcode='motion_movesteps', inputs={'STEPS': Input(value=10)}, parent='b0'
         )
-        t.blocks['b2'] = Block(id='b2', opcode='motion_movesteps', inputs={'STEPS': 5}, parent='b0')
+        t.blocks['b2'] = Block(id='b2', opcode='motion_movesteps', inputs={'STEPS': Input(value=5)}, parent='b0')
         t._rebuild_hat_cache()
         rt = _run(t, steps=10)
         assert len(rt.threads) == 0
@@ -443,8 +460,8 @@ class TestControl:
     def test_wait_until_true_immediately(self) -> None:
         """Condition already true — no waiting, continues immediately."""
         t = _stack('control_wait_until', 'motion_movesteps')
-        _set(t, 'b0', inputs={'CONDITION': True})
-        _set(t, 'b1', inputs={'STEPS': 10})
+        _set(t, 'b0', inputs={'CONDITION': Input(value=True)})
+        _set(t, 'b1', inputs={'STEPS': Input(value=10)})
         t._rebuild_hat_cache()
         rt = _run(t, steps=10)
         assert len(rt.threads) == 0
@@ -456,13 +473,11 @@ class TestControl:
         t.blocks['w'] = make_block(
             'control_wait_until',
             'w',
-            inputs={'CONDITION': [12, 'ready']},
+            inputs={'CONDITION': Input(value=[12, 'ready'])},
         )
         t.blocks['set_ready'] = Block(
             id='set_ready',
-            opcode='data_setvariableto',
-            inputs={'VALUE': 1},
-            fields={'VARIABLE': 'ready'},
+            opcode='data_setvariableto', inputs={'VALUE': Input(value=1)}, fields={'VARIABLE': Field(value='ready')},
         )
         t.variables['ready'] = Variable('ready', 0)
         # Chain: hat → wait_until → set_ready
@@ -489,8 +504,8 @@ class TestControl:
     def test_forever_with_stop(self) -> None:
         """Forever keeps a thread alive; stop_all kills it."""
         t = _make_tgt()
-        t.blocks['f'] = make_block('control_forever', 'f', inputs={'SUBSTACK': 'b_move'})
-        t.blocks['b_move'] = Block(id='b_move', opcode='motion_movesteps', inputs={'STEPS': 1})
+        t.blocks['f'] = make_block('control_forever', 'f', inputs={'SUBSTACK': Input(value='b_move')})
+        t.blocks['b_move'] = Block(id='b_move', opcode='motion_movesteps', inputs={'STEPS': Input(value=1)})
         hat = next(b for b in t.blocks.values() if b.opcode == 'event_whenflagclicked')
         hat.next = 'f'
         t._rebuild_hat_cache()
@@ -514,10 +529,10 @@ class TestControl:
         t.blocks['f'] = make_block(
             'control_for_each',
             'f',
-            inputs={'FROM': 1, 'TO': 5, 'SUBSTACK': 'b0'},
-            fields={'VARIABLE': 'i'},
+            inputs={'FROM': Input(value=1), 'TO': Input(value=5), 'SUBSTACK': Input(value='b0')},
+            fields={'VARIABLE': Field(value='i')},
         )
-        t.blocks['b0'] = Block(id='b0', opcode='motion_movesteps', inputs={'STEPS': 10})
+        t.blocks['b0'] = Block(id='b0', opcode='motion_movesteps', inputs={'STEPS': Input(value=10)})
         t.variables['i'] = Variable('i', 0)
         hat = next(b for b in t.blocks.values() if b.opcode == 'event_whenflagclicked')
         hat.next = 'f'
@@ -534,10 +549,10 @@ class TestControl:
         t.blocks['f'] = make_block(
             'control_for_each',
             'f',
-            inputs={'FROM': 3, 'TO': 1, 'SUBSTACK': 'b0'},
-            fields={'VARIABLE': 'i'},
+            inputs={'FROM': Input(value=3), 'TO': Input(value=1), 'SUBSTACK': Input(value='b0')},
+            fields={'VARIABLE': Field(value='i')},
         )
-        t.blocks['b0'] = Block(id='b0', opcode='motion_movesteps', inputs={'STEPS': 10})
+        t.blocks['b0'] = Block(id='b0', opcode='motion_movesteps', inputs={'STEPS': Input(value=10)})
         t.variables['i'] = Variable('i', 0)
         hat = next(b for b in t.blocks.values() if b.opcode == 'event_whenflagclicked')
         hat.next = 'f'
@@ -554,11 +569,11 @@ class TestControl:
         """stop 'this script' terminates the current script, other scripts continue."""
         t = Target(name='Sprite', is_stage=False)
         t.blocks['stop_s'] = make_block(
-            'control_stop', 'stop_s', fields={'STOP_OPTION': 'this script'}
+            'control_stop', 'stop_s', fields={'STOP_OPTION': Field(value='this script')}
         )
         t.blocks['h1'] = make_block('event_whenflagclicked', 'h1', top_level=True, next_='b5')
-        t.blocks['b5'] = Block(id='b5', opcode='motion_movesteps', inputs={'STEPS': 5})
-        t.blocks['b10'] = Block(id='b10', opcode='motion_movesteps', inputs={'STEPS': 10})
+        t.blocks['b5'] = Block(id='b5', opcode='motion_movesteps', inputs={'STEPS': Input(value=5)})
+        t.blocks['b10'] = Block(id='b10', opcode='motion_movesteps', inputs={'STEPS': Input(value=10)})
         t.blocks['b5'].next = 'stop_s'
         t.blocks['stop_s'].next = 'b10'
         t._rebuild_hat_cache()
@@ -576,11 +591,11 @@ class TestControl:
         t = Target(name='Sprite', is_stage=False)
         # Script 1: forever loop
         t.blocks['h1'] = make_block('event_whenflagclicked', 'h1', top_level=True, next_='f')
-        t.blocks['f'] = make_block('control_forever', 'f', inputs={'SUBSTACK': 'b_move'})
-        t.blocks['b_move'] = Block(id='b_move', opcode='motion_movesteps', inputs={'STEPS': 1})
+        t.blocks['f'] = make_block('control_forever', 'f', inputs={'SUBSTACK': Input(value='b_move')})
+        t.blocks['b_move'] = Block(id='b_move', opcode='motion_movesteps', inputs={'STEPS': Input(value=1)})
         # Script 2: stop all
         t.blocks['h2'] = make_block('event_whenflagclicked', 'h2', top_level=True, next_='stop_a')
-        t.blocks['stop_a'] = make_block('control_stop', 'stop_a', fields={'STOP_OPTION': 'all'})
+        t.blocks['stop_a'] = make_block('control_stop', 'stop_a', fields={'STOP_OPTION': Field(value='all')})
         t._rebuild_hat_cache()
         rt = _rt(t)
         rt.green_flag()
@@ -593,16 +608,16 @@ class TestControl:
         t = Target(name='Sprite', is_stage=False)
         # Script 1: forever loop
         t.blocks['h1'] = make_block('event_whenflagclicked', 'h1', top_level=True, next_='f')
-        t.blocks['f'] = make_block('control_forever', 'f', inputs={'SUBSTACK': 'b_move'})
-        t.blocks['b_move'] = Block(id='b_move', opcode='motion_movesteps', inputs={'STEPS': 1})
+        t.blocks['f'] = make_block('control_forever', 'f', inputs={'SUBSTACK': Input(value='b_move')})
+        t.blocks['b_move'] = Block(id='b_move', opcode='motion_movesteps', inputs={'STEPS': Input(value=1)})
         # Script 2: stop other scripts → movesteps 10
         t.blocks['h2'] = make_block('event_whenflagclicked', 'h2', top_level=True, next_='stop_o')
         t.blocks['stop_o'] = make_block(
             'control_stop',
             'stop_o',
-            fields={'STOP_OPTION': 'other scripts in sprite'},
+            fields={'STOP_OPTION': Field(value='other scripts in sprite')},
         )
-        t.blocks['b_final'] = Block(id='b_final', opcode='motion_movesteps', inputs={'STEPS': 10})
+        t.blocks['b_final'] = Block(id='b_final', opcode='motion_movesteps', inputs={'STEPS': Input(value=10)})
         t.blocks['stop_o'].next = 'b_final'
         t._rebuild_hat_cache()
         rt = _rt(t)
@@ -619,9 +634,9 @@ class TestControl:
         """control_all_at_once runs its substack without yielding between blocks."""
         t = _make_tgt()
         # Substack: two sequential movesteps
-        t.blocks['a'] = make_block('control_all_at_once', 'a', inputs={'SUBSTACK': 'b0'})
-        t.blocks['b0'] = Block(id='b0', opcode='motion_movesteps', inputs={'STEPS': 10})
-        t.blocks['b1'] = Block(id='b1', opcode='motion_movesteps', inputs={'STEPS': 20})
+        t.blocks['a'] = make_block('control_all_at_once', 'a', inputs={'SUBSTACK': Input(value='b0')})
+        t.blocks['b0'] = Block(id='b0', opcode='motion_movesteps', inputs={'STEPS': Input(value=10)})
+        t.blocks['b1'] = Block(id='b1', opcode='motion_movesteps', inputs={'STEPS': Input(value=20)})
         t.blocks['b0'].next = 'b1'
         hat = next(b for b in t.blocks.values() if b.opcode == 'event_whenflagclicked')
         hat.next = 'a'
@@ -645,7 +660,7 @@ class TestControl:
         src.blocks['h_clone'] = make_block(
             'control_start_as_clone', 'h_clone', top_level=True, next_='b_move'
         )
-        src.blocks['b_move'] = Block(id='b_move', opcode='motion_movesteps', inputs={'STEPS': 5})
+        src.blocks['b_move'] = Block(id='b_move', opcode='motion_movesteps', inputs={'STEPS': Input(value=5)})
         src._rebuild_hat_cache()
 
         creator = Target(name='Creator', is_stage=False)
@@ -654,8 +669,7 @@ class TestControl:
         )
         creator.blocks['b_clone'] = Block(
             id='b_clone',
-            opcode='control_create_clone_of',
-            fields={'CLONE_OPTION': 'Target'},
+            opcode='control_create_clone_of', fields={'CLONE_OPTION': Field(value='Target')},
         )
         creator._rebuild_hat_cache()
 
@@ -682,7 +696,7 @@ class TestControl:
             'control_start_as_clone', 'h_clone', top_level=True, next_='b_move'
         )
         sprite_a.blocks['b_move'] = Block(
-            id='b_move', opcode='motion_movesteps', inputs={'STEPS': 10}
+            id='b_move', opcode='motion_movesteps', inputs={'STEPS': Input(value=10)}
         )
         sprite_a._rebuild_hat_cache()
 
@@ -692,8 +706,7 @@ class TestControl:
         )
         sprite_b.blocks['b_clone'] = Block(
             id='b_clone',
-            opcode='control_create_clone_of',
-            fields={'CLONE_OPTION': 'A'},
+            opcode='control_create_clone_of', fields={'CLONE_OPTION': Field(value='A')},
         )
         sprite_b._rebuild_hat_cache()
 
@@ -723,7 +736,7 @@ class TestEvent:
     def test_broadcast_starts_hat(self) -> None:
         t1 = Target(name='A', is_stage=False)
         t1.blocks['h'] = make_block('event_whenflagclicked', 'h', top_level=True, next_='b')
-        t1.blocks['b'] = make_block('event_broadcast', 'b', inputs={'BROADCAST_INPUT': 'msg'})
+        t1.blocks['b'] = make_block('event_broadcast', 'b', inputs={'BROADCAST_INPUT': Input(value='msg')})
         t1._rebuild_hat_cache()
 
         t2 = Target(name='B', is_stage=False)
@@ -731,10 +744,10 @@ class TestEvent:
             'event_whenbroadcastreceived',
             'h2',
             top_level=True,
-            fields={'BROADCAST_OPTION': 'msg'},
+            fields={'BROADCAST_OPTION': Field(value='msg')},
             next_='m',
         )
-        t2.blocks['m'] = Block(id='m', opcode='motion_movesteps', inputs={'STEPS': 5})
+        t2.blocks['m'] = Block(id='m', opcode='motion_movesteps', inputs={'STEPS': Input(value=5)})
         t2._rebuild_hat_cache()
 
         rt = _rt([t1, t2])
@@ -749,9 +762,9 @@ class TestEvent:
         t1 = Target(name='A', is_stage=False)
         t1.blocks['h1'] = make_block('event_whenflagclicked', 'h1', top_level=True, next_='b')
         t1.blocks['b'] = make_block(
-            'event_broadcastandwait', 'b', inputs={'BROADCAST_INPUT': 'msg'}, next_='s'
+            'event_broadcastandwait', 'b', inputs={'BROADCAST_INPUT': Input(value='msg')}, next_='s'
         )
-        t1.blocks['s'] = Block(id='s', opcode='motion_gotoxy', inputs={'X': 20, 'Y': 0})
+        t1.blocks['s'] = Block(id='s', opcode='motion_gotoxy', inputs={'X': Input(value=20), 'Y': Input(value=0)})
         t1._rebuild_hat_cache()
 
         t2 = Target(name='B', is_stage=False)
@@ -759,10 +772,10 @@ class TestEvent:
             'event_whenbroadcastreceived',
             'h2',
             top_level=True,
-            fields={'BROADCAST_OPTION': 'msg'},
+            fields={'BROADCAST_OPTION': Field(value='msg')},
             next_='m',
         )
-        t2.blocks['m'] = Block(id='m', opcode='motion_movesteps', inputs={'STEPS': 5})
+        t2.blocks['m'] = Block(id='m', opcode='motion_movesteps', inputs={'STEPS': Input(value=5)})
         t2._rebuild_hat_cache()
 
         rt = _rt([t1, t2])
@@ -779,7 +792,7 @@ class TestEvent:
         t1 = Target(name='A', is_stage=False)
         t1.broadcasts['bcast1'] = BroadcastMsg(name='my message')
         t1.blocks['h1'] = make_block('event_whenflagclicked', 'h1', top_level=True, next_='b')
-        t1.blocks['b'] = make_block('event_broadcast', 'b', inputs={'BROADCAST_INPUT': 'bcast1'})
+        t1.blocks['b'] = make_block('event_broadcast', 'b', inputs={'BROADCAST_INPUT': Input(value='bcast1')})
         t1._rebuild_hat_cache()
 
         t2 = Target(name='B', is_stage=False)
@@ -788,10 +801,10 @@ class TestEvent:
             'event_whenbroadcastreceived',
             'h2',
             top_level=True,
-            fields={'BROADCAST_OPTION': 'bcast1'},
+            fields={'BROADCAST_OPTION': Field(value='bcast1')},
             next_='m',
         )
-        t2.blocks['m'] = Block(id='m', opcode='motion_movesteps', inputs={'STEPS': 5})
+        t2.blocks['m'] = Block(id='m', opcode='motion_movesteps', inputs={'STEPS': Input(value=5)})
         t2._rebuild_hat_cache()
 
         rt = _rt([t1, t2])
@@ -814,7 +827,7 @@ class TestEvent:
         t1.blocks['b'] = make_block(
             'event_broadcast',
             'b',
-            inputs={'BROADCAST_INPUT': [11, '我的消息', 'h=dummy_id']},
+            inputs={'BROADCAST_INPUT': Input(value=[11, '我的消息', 'h=dummy_id'])},
         )
         t1._rebuild_hat_cache()
 
@@ -823,10 +836,10 @@ class TestEvent:
             'event_whenbroadcastreceived',
             'h2',
             top_level=True,
-            fields={'BROADCAST_OPTION': '我的消息'},
+            fields={'BROADCAST_OPTION': Field(value='我的消息')},
             next_='m',
         )
-        t2.blocks['m'] = Block(id='m', opcode='motion_movesteps', inputs={'STEPS': 5})
+        t2.blocks['m'] = Block(id='m', opcode='motion_movesteps', inputs={'STEPS': Input(value=5)})
         t2._rebuild_hat_cache()
 
         rt = _rt([t1, t2])
@@ -844,10 +857,10 @@ class TestEvent:
             'event_whenkeypressed',
             'h1',
             top_level=True,
-            fields={'KEY_OPTION': 'space'},
+            fields={'KEY_OPTION': Field(value='space')},
             next_='m',
         )
-        t1.blocks['m'] = Block(id='m', opcode='motion_gotoxy', inputs={'X': 10, 'Y': 0})
+        t1.blocks['m'] = Block(id='m', opcode='motion_gotoxy', inputs={'X': Input(value=10), 'Y': Input(value=0)})
         t1._rebuild_hat_cache()
 
         rt = _rt(t1)
@@ -864,10 +877,10 @@ class TestEvent:
             'event_whenkeypressed',
             'h1',
             top_level=True,
-            fields={'KEY_OPTION': 'any'},
+            fields={'KEY_OPTION': Field(value='any')},
             next_='m',
         )
-        t1.blocks['m'] = Block(id='m', opcode='motion_gotoxy', inputs={'X': 10, 'Y': 0})
+        t1.blocks['m'] = Block(id='m', opcode='motion_gotoxy', inputs={'X': Input(value=10), 'Y': Input(value=0)})
         t1._rebuild_hat_cache()
 
         rt = _rt(t1)
@@ -884,10 +897,10 @@ class TestEvent:
             'event_whenkeypressed',
             'h1',
             top_level=True,
-            fields={'KEY_OPTION': 'space'},
+            fields={'KEY_OPTION': Field(value='space')},
             next_='m',
         )
-        t1.blocks['m'] = Block(id='m', opcode='motion_gotoxy', inputs={'X': 10, 'Y': 0})
+        t1.blocks['m'] = Block(id='m', opcode='motion_gotoxy', inputs={'X': Input(value=10), 'Y': Input(value=0)})
         t1._rebuild_hat_cache()
 
         rt = _rt(t1)
@@ -906,7 +919,7 @@ class TestEvent:
             top_level=True,
             next_='m',
         )
-        t1.blocks['m'] = Block(id='m', opcode='motion_gotoxy', inputs={'X': 10, 'Y': 0})
+        t1.blocks['m'] = Block(id='m', opcode='motion_gotoxy', inputs={'X': Input(value=10), 'Y': Input(value=0)})
         t1._rebuild_hat_cache()
 
         rt = _rt(t1)
@@ -929,7 +942,7 @@ class TestEvent:
             top_level=True,
             next_='m',
         )
-        stage.blocks['m'] = Block(id='m', opcode='motion_gotoxy', inputs={'X': 15, 'Y': 0})
+        stage.blocks['m'] = Block(id='m', opcode='motion_gotoxy', inputs={'X': Input(value=15), 'Y': Input(value=0)})
         stage._rebuild_hat_cache()
 
         rt = Runtime()
@@ -953,10 +966,10 @@ class TestEvent:
             'event_whentouchingobject',
             'h1',
             top_level=True,
-            fields={'TOUCHINGOBJECTMENU': '_edge_'},
+            fields={'TOUCHINGOBJECTMENU': Field(value='_edge_')},
             next_='m',
         )
-        t1.blocks['m'] = Block(id='m', opcode='motion_gotoxy', inputs={'X': 50, 'Y': 0})
+        t1.blocks['m'] = Block(id='m', opcode='motion_gotoxy', inputs={'X': Input(value=50), 'Y': Input(value=0)})
         t1._rebuild_hat_cache()
 
         rt = _rt(t1)
@@ -978,11 +991,11 @@ class TestEvent:
             'event_whengreaterthan',
             'h1',
             top_level=True,
-            fields={'WHENGREATERTHANMENU': 'timer'},
-            inputs={'VALUE': 0.5},
+            fields={'WHENGREATERTHANMENU': Field(value='timer')},
+            inputs={'VALUE': Input(value=0.5)},
             next_='m',
         )
-        t1.blocks['m'] = Block(id='m', opcode='motion_gotoxy', inputs={'X': 50, 'Y': 0})
+        t1.blocks['m'] = Block(id='m', opcode='motion_gotoxy', inputs={'X': Input(value=50), 'Y': Input(value=0)})
         t1._rebuild_hat_cache()
 
         rt = _rt(t1)
@@ -1001,11 +1014,11 @@ class TestEvent:
             'event_whengreaterthan',
             'h1',
             top_level=True,
-            fields={'WHENGREATERTHANMENU': 'loudness'},
-            inputs={'VALUE': 0},
+            fields={'WHENGREATERTHANMENU': Field(value='loudness')},
+            inputs={'VALUE': Input(value=0)},
             next_='m',
         )
-        t1.blocks['m'] = Block(id='m', opcode='motion_gotoxy', inputs={'X': 50, 'Y': 0})
+        t1.blocks['m'] = Block(id='m', opcode='motion_gotoxy', inputs={'X': Input(value=50), 'Y': Input(value=0)})
         t1._rebuild_hat_cache()
 
         rt = _rt(t1)
@@ -1023,14 +1036,14 @@ class TestEvent:
 class TestMotion:
     def test_movesteps(self) -> None:
         t = _stack('motion_movesteps')
-        _set(t, 'b0', inputs={'STEPS': 10})
+        _set(t, 'b0', inputs={'STEPS': Input(value=10)})
         rt = _run(t)
         assert len(rt.threads) == 0
         assert t.x == 10.0  # direction 90 = positive x
 
     def test_gotoxy(self) -> None:
         t = _stack('motion_gotoxy')
-        _set(t, 'b0', inputs={'X': -100, 'Y': 200})
+        _set(t, 'b0', inputs={'X': Input(value=-100), 'Y': Input(value=200)})
         t._rebuild_hat_cache()
         rt = _run(t)
         assert t.x == -100
@@ -1038,8 +1051,8 @@ class TestMotion:
 
     def test_gox_goy(self) -> None:
         t = _stack('motion_gox', 'motion_goy')
-        _set(t, 'b0', inputs={'X': 50})
-        _set(t, 'b1', inputs={'Y': -30})
+        _set(t, 'b0', inputs={'X': Input(value=50)})
+        _set(t, 'b1', inputs={'Y': Input(value=-30)})
         t._rebuild_hat_cache()
         rt = _run(t)
         assert t.x == 50
@@ -1047,16 +1060,16 @@ class TestMotion:
 
     def test_turn(self) -> None:
         t = _stack('motion_turnright', 'motion_turnleft')
-        _set(t, 'b0', inputs={'DEGREES': 45})
-        _set(t, 'b1', inputs={'DEGREES': 90})
+        _set(t, 'b0', inputs={'DEGREES': Input(value=45)})
+        _set(t, 'b1', inputs={'DEGREES': Input(value=90)})
         t._rebuild_hat_cache()
         rt = _run(t)
         assert t.direction == 45.0  # 90 + 45 - 90 = 45
 
     def test_change_xy(self) -> None:
         t = _stack('motion_changexby', 'motion_changeyby')
-        _set(t, 'b0', inputs={'DX': 15})
-        _set(t, 'b1', inputs={'DY': -25})
+        _set(t, 'b0', inputs={'DX': Input(value=15)})
+        _set(t, 'b1', inputs={'DY': Input(value=-25)})
         t._rebuild_hat_cache()
         rt = _run(t)
         assert t.x == 15
@@ -1064,19 +1077,19 @@ class TestMotion:
 
     def test_set_direction(self) -> None:
         t = _stack('motion_setdirection')
-        _set(t, 'b0', inputs={'DIRECTION': 180})
+        _set(t, 'b0', inputs={'DIRECTION': Input(value=180)})
         rt = _run(t)
         assert t.direction == 180
 
     def test_xposition(self) -> None:
         t = _stack('motion_gotoxy', 'motion_xposition')
-        _set(t, 'b0', inputs={'X': 42, 'Y': 0})
+        _set(t, 'b0', inputs={'X': Input(value=42), 'Y': Input(value=0)})
         rt = _run(t)
         assert t.x == 42
 
     def test_glide_smoke(self) -> None:
         t = _stack('motion_glidesecstoxy')
-        _set(t, 'b0', inputs={'SECS': 0.1, 'X': 100, 'Y': 0})
+        _set(t, 'b0', inputs={'SECS': Input(value=0.1), 'X': Input(value=100), 'Y': Input(value=0)})
         rt = _rt(t)
         rt.green_flag()
         for _ in range(30):
@@ -1095,8 +1108,8 @@ class TestMotion:
     def test_movesteps_direction_0(self) -> None:
         """Direction 0 = up → movesteps with positive value moves +y."""
         t = _stack('motion_setdirection', 'motion_movesteps')
-        _set(t, 'b0', inputs={'DIRECTION': 0})
-        _set(t, 'b1', inputs={'STEPS': 10})
+        _set(t, 'b0', inputs={'DIRECTION': Input(value=0)})
+        _set(t, 'b1', inputs={'STEPS': Input(value=10)})
         t._rebuild_hat_cache()
         rt = _run(t)
         assert len(rt.threads) == 0
@@ -1106,8 +1119,8 @@ class TestMotion:
     def test_movesteps_direction_180(self) -> None:
         """Direction 180 = down → movesteps with positive value moves -y."""
         t = _stack('motion_setdirection', 'motion_movesteps')
-        _set(t, 'b0', inputs={'DIRECTION': 180})
-        _set(t, 'b1', inputs={'STEPS': 10})
+        _set(t, 'b0', inputs={'DIRECTION': Input(value=180)})
+        _set(t, 'b1', inputs={'STEPS': Input(value=10)})
         t._rebuild_hat_cache()
         rt = _run(t)
         assert len(rt.threads) == 0
@@ -1117,8 +1130,8 @@ class TestMotion:
     def test_movesteps_direction_neg90(self) -> None:
         """Direction -90 = left → movesteps with positive value moves -x."""
         t = _stack('motion_setdirection', 'motion_movesteps')
-        _set(t, 'b0', inputs={'DIRECTION': -90})
-        _set(t, 'b1', inputs={'STEPS': 10})
+        _set(t, 'b0', inputs={'DIRECTION': Input(value=-90)})
+        _set(t, 'b1', inputs={'STEPS': Input(value=10)})
         t._rebuild_hat_cache()
         rt = _run(t)
         assert len(rt.threads) == 0
@@ -1128,7 +1141,7 @@ class TestMotion:
     def test_movesteps_negative_steps(self) -> None:
         """Negative steps moves opposite to current direction."""
         t = _stack('motion_movesteps')
-        _set(t, 'b0', inputs={'STEPS': -10})
+        _set(t, 'b0', inputs={'STEPS': Input(value=-10)})
         rt = _run(t)
         assert len(rt.threads) == 0
         assert t.x == -10.0
@@ -1138,22 +1151,22 @@ class TestMotion:
     def test_turnright_only(self) -> None:
         """Turn right 45°: direction increases by 45 from 90 → 135."""
         t = _stack('motion_turnright')
-        _set(t, 'b0', inputs={'DEGREES': 45})
+        _set(t, 'b0', inputs={'DEGREES': Input(value=45)})
         rt = _run(t)
         assert t.direction == 135.0
 
     def test_turnleft_only(self) -> None:
         """Turn left 45°: direction decreases by 45 from 90 → 45."""
         t = _stack('motion_turnleft')
-        _set(t, 'b0', inputs={'DEGREES': 45})
+        _set(t, 'b0', inputs={'DEGREES': Input(value=45)})
         rt = _run(t)
         assert t.direction == 45.0
 
     def test_turn_negative_degrees(self) -> None:
         """Turning by negative degrees goes the opposite way."""
         t = _stack('motion_turnright', 'motion_turnleft')
-        _set(t, 'b0', inputs={'DEGREES': -30})
-        _set(t, 'b1', inputs={'DEGREES': -15})
+        _set(t, 'b0', inputs={'DEGREES': Input(value=-30)})
+        _set(t, 'b1', inputs={'DEGREES': Input(value=-15)})
         t._rebuild_hat_cache()
         rt = _run(t)
         assert t.direction == 75.0  # 90 + (-30) - (-15) = 75
@@ -1163,7 +1176,7 @@ class TestMotion:
     def test_pointindirection(self) -> None:
         """Point in direction sets the absolute direction."""
         t = _stack('motion_pointindirection')
-        _set(t, 'b0', inputs={'DIRECTION': -45})
+        _set(t, 'b0', inputs={'DIRECTION': Input(value=-45)})
         rt = _run(t)
         assert t.direction == -45.0
 
@@ -1172,7 +1185,7 @@ class TestMotion:
     def test_pointtowards_mouse(self) -> None:
         """Point towards mouse: direction calculated from sprite to mouse."""
         t = _stack('motion_pointtowards')
-        _set(t, 'b0', fields={'TOWARDS': '_mouse_'})
+        _set(t, 'b0', fields={'TOWARDS': Field(value='_mouse_')})
         rt = _rt(t)
         rt._mouse_x = 100.0
         rt._mouse_y = 0.0
@@ -1191,8 +1204,7 @@ class TestMotion:
         tgt_id = 'b0'
         t.blocks[tgt_id] = Block(
             id=tgt_id,
-            opcode='motion_pointtowards',
-            fields={'TOWARDS': 'Other'},
+            opcode='motion_pointtowards', fields={'TOWARDS': Field(value='Other')},
             next=None,
             parent=None,
         )
@@ -1209,7 +1221,7 @@ class TestMotion:
     def test_pointtowards_random(self) -> None:
         """Point towards _random_ sets a random direction."""
         t = _stack('motion_pointtowards')
-        _set(t, 'b0', fields={'TOWARDS': '_random_'})
+        _set(t, 'b0', fields={'TOWARDS': Field(value='_random_')})
         rt = _run(t)
         # Random direction will be within [-180, 180]
         assert -180.0 <= t.direction <= 180.0
@@ -1219,7 +1231,7 @@ class TestMotion:
     def test_goto_random(self) -> None:
         """Go to _random_ places sprite at random position within stage bounds."""
         t = _stack('motion_goto')
-        _set(t, 'b0', fields={'TO': '_random_'})
+        _set(t, 'b0', fields={'TO': Field(value='_random_')})
         rt = _run(t)
         assert -240.0 <= t.x <= 240.0
         assert -180.0 <= t.y <= 180.0
@@ -1227,7 +1239,7 @@ class TestMotion:
     def test_goto_mouse(self) -> None:
         """Go to _mouse_ places sprite at mouse coordinates."""
         t = _stack('motion_goto')
-        _set(t, 'b0', fields={'TO': '_mouse_'})
+        _set(t, 'b0', fields={'TO': Field(value='_mouse_')})
         rt = _rt(t)
         rt._mouse_x = 75.0
         rt._mouse_y = -120.0
@@ -1245,7 +1257,7 @@ class TestMotion:
         other.y = 80.0
         tgt_id = 'b0'
         t.blocks[tgt_id] = Block(
-            id=tgt_id, opcode='motion_goto', fields={'TO': 'Target'}, next=None, parent=None
+            id=tgt_id, opcode='motion_goto', fields={'TO': Field(value='Target')}, next=None, parent=None
         )
         hat = next(b for b in t.blocks.values() if b.opcode == 'event_whenflagclicked')
         hat.next = tgt_id
@@ -1262,7 +1274,7 @@ class TestMotion:
     def test_setx(self) -> None:
         """motion_setx sets x position without changing y."""
         t = _stack('motion_setx')
-        _set(t, 'b0', inputs={'X': 123})
+        _set(t, 'b0', inputs={'X': Input(value=123)})
         rt = _run(t)
         assert t.x == 123.0
         assert t.y == 0.0
@@ -1270,7 +1282,7 @@ class TestMotion:
     def test_sety(self) -> None:
         """motion_sety sets y position without changing x."""
         t = _stack('motion_sety')
-        _set(t, 'b0', inputs={'Y': -55})
+        _set(t, 'b0', inputs={'Y': Input(value=-55)})
         rt = _run(t)
         assert t.x == 0.0
         assert t.y == -55.0
@@ -1280,8 +1292,8 @@ class TestMotion:
     def test_changexby_from_nonzero(self) -> None:
         """motion_changexby adds to existing x position."""
         t = _stack('motion_gotoxy', 'motion_changexby')
-        _set(t, 'b0', inputs={'X': 10, 'Y': 0})
-        _set(t, 'b1', inputs={'DX': 20})
+        _set(t, 'b0', inputs={'X': Input(value=10), 'Y': Input(value=0)})
+        _set(t, 'b1', inputs={'DX': Input(value=20)})
         t._rebuild_hat_cache()
         rt = _run(t)
         assert t.x == 30.0
@@ -1289,8 +1301,8 @@ class TestMotion:
     def test_changeyby_from_nonzero(self) -> None:
         """motion_changeyby adds to existing y position."""
         t = _stack('motion_gotoxy', 'motion_changeyby')
-        _set(t, 'b0', inputs={'X': 0, 'Y': 5})
-        _set(t, 'b1', inputs={'DY': -10})
+        _set(t, 'b0', inputs={'X': Input(value=0), 'Y': Input(value=5)})
+        _set(t, 'b1', inputs={'DY': Input(value=-10)})
         t._rebuild_hat_cache()
         rt = _run(t)
         assert t.y == -5.0
@@ -1300,14 +1312,14 @@ class TestMotion:
     def test_yposition(self) -> None:
         """motion_yposition reports current y position."""
         t = _stack('motion_gotoxy', 'motion_yposition')
-        _set(t, 'b0', inputs={'X': -10, 'Y': 77})
+        _set(t, 'b0', inputs={'X': Input(value=-10), 'Y': Input(value=77)})
         rt = _run(t)
         assert t.y == 77.0
 
     def test_direction_reporter(self) -> None:
         """motion_direction is a reporter (yield Report); it reads direction without changing it."""
         t = _stack('motion_pointindirection')
-        _set(t, 'b0', inputs={'DIRECTION': 45})
+        _set(t, 'b0', inputs={'DIRECTION': Input(value=45)})
         rt = _run(t)
         assert t.direction == 45.0
 
@@ -1320,9 +1332,7 @@ class TestMotion:
         tgt_id = 'b0'
         t.blocks[tgt_id] = Block(
             id=tgt_id,
-            opcode='motion_glideto',
-            inputs={'SECS': 0.05},
-            fields={'TO': 'Target'},
+            opcode='motion_glideto', inputs={'SECS': Input(value=0.05)}, fields={'TO': Field(value='Target')},
             next=None,
             parent=None,
         )
@@ -1341,7 +1351,7 @@ class TestMotion:
     def test_ifonedgebounce(self) -> None:
         """Bounce off edge: sprite at x=240 with a 10px-wide costume bounces to x=235."""
         t = _stack('motion_gotoxy', 'motion_ifonedgebounce')
-        _set(t, 'b0', inputs={'X': 240, 'Y': 0})
+        _set(t, 'b0', inputs={'X': Input(value=240), 'Y': Input(value=0)})
         # Add a 10×10 costume so bounds are -235..235
         surf = pygame.Surface((10, 10))
         t.costumes.append(Costume(name='c', surface=surf))
@@ -1358,21 +1368,21 @@ class TestMotion:
     def test_setrotationstyle_all_around(self) -> None:
         """Set rotation style to 'all around'."""
         t = _stack('motion_setrotationstyle')
-        _set(t, 'b0', fields={'STYLE': Field('STYLE', 'all around')})
+        _set(t, 'b0', fields={'STYLE': Field(value='all around')})
         rt = _run(t)
         assert t.rotation_style == 'all around'
 
     def test_setrotationstyle_left_right(self) -> None:
         """Set rotation style to 'left-right'."""
         t = _stack('motion_setrotationstyle')
-        _set(t, 'b0', fields={'STYLE': Field('STYLE', 'left-right')})
+        _set(t, 'b0', fields={'STYLE': Field(value='left-right')})
         rt = _run(t)
         assert t.rotation_style == 'left-right'
 
     def test_setrotationstyle_dont_rotate(self) -> None:
         """Set rotation style to 'don\\'t rotate'."""
         t = _stack('motion_setrotationstyle')
-        _set(t, 'b0', fields={'STYLE': Field('STYLE', "don't rotate")})
+        _set(t, 'b0', fields={'STYLE': Field(value="don't rotate")})
         rt = _run(t)
         assert t.rotation_style == "don't rotate"
 
@@ -1387,9 +1397,7 @@ class TestMotion:
         tgt_id = 'b0'
         t.blocks[tgt_id] = Block(
             id=tgt_id,
-            opcode='motion_glideto',
-            inputs={'SECS': 0},
-            fields={'TO': 'Target'},
+            opcode='motion_glideto', inputs={'SECS': Input(value=0)}, fields={'TO': Field(value='Target')},
             next=None,
             parent=None,
         )
@@ -1427,7 +1435,7 @@ class TestLooks:
     # ── Layer ordering ──────────────────────────────────────────────
     def test_goto_front(self) -> None:
         t = _make_tgt()
-        t.blocks['b0'] = _op('looks_gotofrontback', fields={'FRONT_BACK': 'front'})
+        t.blocks['b0'] = _op('looks_gotofrontback', fields={'FRONT_BACK': Field(value='front')})
         next(b for b in t.blocks.values() if b.opcode == 'event_whenflagclicked').next = 'b0'
         t.layer_order = 0
         t._rebuild_hat_cache()
@@ -1439,7 +1447,7 @@ class TestLooks:
 
     def test_goto_back(self) -> None:
         t = _make_tgt()
-        t.blocks['b0'] = _op('looks_gotofrontback', fields={'FRONT_BACK': 'back'})
+        t.blocks['b0'] = _op('looks_gotofrontback', fields={'FRONT_BACK': Field(value='back')})
         next(b for b in t.blocks.values() if b.opcode == 'event_whenflagclicked').next = 'b0'
         t.layer_order = 5
         t._rebuild_hat_cache()
@@ -1452,7 +1460,7 @@ class TestLooks:
     def test_goto_frontback_stage_noop(self) -> None:
         """looks_gotofrontback is a no-op on the stage."""
         stage = Target(name='Stage', is_stage=True)
-        stage.blocks['b0'] = _op('looks_gotofrontback', fields={'FRONT_BACK': 'front'})
+        stage.blocks['b0'] = _op('looks_gotofrontback', fields={'FRONT_BACK': Field(value='front')})
         stage.blocks['h0'] = make_block('event_whenflagclicked', 'h0', top_level=True, next_='b0')
         stage._rebuild_hat_cache()
         prev = stage.layer_order
@@ -1467,8 +1475,8 @@ class TestLooks:
         t.layer_order = 10
         t.blocks['b0'] = _op(
             'looks_goforwardbackwardlayers',
-            inputs={'NUM': 3},
-            fields={'FORWARD_BACKWARD': Field(name='FORWARD_BACKWARD', value='forward')},
+            inputs={'NUM': Input(value=3)},
+            fields={'FORWARD_BACKWARD': Field(value='forward')},
         )
         next(b for b in t.blocks.values() if b.opcode == 'event_whenflagclicked').next = 'b0'
         t._rebuild_hat_cache()
@@ -1483,8 +1491,8 @@ class TestLooks:
         t.layer_order = 10
         t.blocks['b0'] = _op(
             'looks_goforwardbackwardlayers',
-            inputs={'NUM': 4},
-            fields={'FORWARD_BACKWARD': Field(name='FORWARD_BACKWARD', value='backward')},
+            inputs={'NUM': Input(value=4)},
+            fields={'FORWARD_BACKWARD': Field(value='backward')},
         )
         next(b for b in t.blocks.values() if b.opcode == 'event_whenflagclicked').next = 'b0'
         t._rebuild_hat_cache()
@@ -1500,8 +1508,8 @@ class TestLooks:
         stage.layer_order = 5
         stage.blocks['b0'] = _op(
             'looks_goforwardbackwardlayers',
-            inputs={'NUM': 3},
-            fields={'FORWARD_BACKWARD': Field(name='FORWARD_BACKWARD', value='forward')},
+            inputs={'NUM': Input(value=3)},
+            fields={'FORWARD_BACKWARD': Field(value='forward')},
         )
         stage.blocks['h0'] = make_block('event_whenflagclicked', 'h0', top_level=True, next_='b0')
         stage._rebuild_hat_cache()
@@ -1514,20 +1522,20 @@ class TestLooks:
     # ── Size ─────────────────────────────────────────────────────────
     def test_setsizeto(self) -> None:
         t = _stack('looks_setsizeto')
-        _set(t, 'b0', inputs={'SIZE': 75})
+        _set(t, 'b0', inputs={'SIZE': Input(value=75)})
         rt = _run(t)
         assert t.size == 75
 
     def test_changesizeby(self) -> None:
         t = _stack('looks_changesizeby')
-        _set(t, 'b0', inputs={'CHANGE': 25})
+        _set(t, 'b0', inputs={'CHANGE': Input(value=25)})
         rt = _run(t)
         assert t.size == 125  # default 100 + 25
 
     def test_size_reporter(self) -> None:
         """looks_size returns the current sprite size."""
         t = _stack('looks_setsizeto', 'looks_size')
-        _set(t, 'b0', inputs={'SIZE': 50})
+        _set(t, 'b0', inputs={'SIZE': Input(value=50)})
         rt = _run(t)
         assert len(rt.threads) == 0  # reporter completes
 
@@ -1541,7 +1549,7 @@ class TestLooks:
         bid = _id()
         t.blocks[bid] = _op(
             'looks_costumenumbername',
-            fields={'NUMBER_NAME': Field(name='NUMBER_NAME', value='number')},
+            fields={'NUMBER_NAME': Field(value='number')},
         )
         t._rebuild_hat_cache()
         rt = _rt(t)
@@ -1556,7 +1564,7 @@ class TestLooks:
         bid = _id()
         t.blocks[bid] = _op(
             'looks_costumenumbername',
-            fields={'NUMBER_NAME': Field(name='NUMBER_NAME', value='name')},
+            fields={'NUMBER_NAME': Field(value='name')},
         )
         t._rebuild_hat_cache()
         rt = _rt(t)
@@ -1580,7 +1588,7 @@ class TestLooks:
         bid = _id()
         t.blocks[bid] = _op(
             'looks_costumenumbername',
-            fields={'NUMBER_NAME': Field(name='NUMBER_NAME', value='name')},
+            fields={'NUMBER_NAME': Field(value='name')},
         )
         t._rebuild_hat_cache()
         rt = _rt(t)
@@ -1595,7 +1603,7 @@ class TestLooks:
         bid = _id()
         stage.blocks[bid] = _op(
             'looks_backdropnumbername',
-            fields={'NUMBER_NAME': Field(name='NUMBER_NAME', value='number')},
+            fields={'NUMBER_NAME': Field(value='number')},
         )
         rt = _rt(stage)
         assert rt.evaluate(stage, bid) == 1
@@ -1609,7 +1617,7 @@ class TestLooks:
         bid = _id()
         stage.blocks[bid] = _op(
             'looks_backdropnumbername',
-            fields={'NUMBER_NAME': Field(name='NUMBER_NAME', value='name')},
+            fields={'NUMBER_NAME': Field(value='name')},
         )
         rt = _rt(stage)
         assert rt.evaluate(stage, bid) == 'bg2'
@@ -1619,7 +1627,7 @@ class TestLooks:
         t = _make_tgt()
         bid = _id()
         t.blocks[bid] = _op(
-            'looks_costume', fields={'COSTUME': Field(name='COSTUME', value='costume1')}
+            'looks_costume', fields={'COSTUME': Field(value='costume1')}
         )
         t._rebuild_hat_cache()
         rt = _rt(t)
@@ -1630,7 +1638,7 @@ class TestLooks:
         t = _make_tgt()
         t.costumes = [Costume(name='a'), Costume(name='b'), Costume(name='c')]
         t.costume_index = 0
-        t.blocks['b0'] = _op('looks_switchcostumeto', inputs={'COSTUME': 'c'})
+        t.blocks['b0'] = _op('looks_switchcostumeto', inputs={'COSTUME': Input(value='c')})
         next(b for b in t.blocks.values() if b.opcode == 'event_whenflagclicked').next = 'b0'
         t._rebuild_hat_cache()
         rt = _rt(t)
@@ -1642,7 +1650,7 @@ class TestLooks:
         t = _make_tgt()
         t.costumes = [Costume(name='a'), Costume(name='b'), Costume(name='c')]
         t.costume_index = 0
-        t.blocks['b0'] = _op('looks_switchcostumeto', inputs={'COSTUME': 2})
+        t.blocks['b0'] = _op('looks_switchcostumeto', inputs={'COSTUME': Input(value=2)})
         next(b for b in t.blocks.values() if b.opcode == 'event_whenflagclicked').next = 'b0'
         t._rebuild_hat_cache()
         rt = _rt(t)
@@ -1655,7 +1663,7 @@ class TestLooks:
         t = _make_tgt()
         t.costumes = [Costume(name='a'), Costume(name='b')]
         t.costume_index = 0
-        t.blocks['b0'] = _op('looks_switchcostumeto', inputs={'COSTUME': '   '})
+        t.blocks['b0'] = _op('looks_switchcostumeto', inputs={'COSTUME': Input(value='   ')})
         next(b for b in t.blocks.values() if b.opcode == 'event_whenflagclicked').next = 'b0'
         t._rebuild_hat_cache()
         rt = _rt(t)
@@ -1668,7 +1676,7 @@ class TestLooks:
         t = _make_tgt()
         t.costumes = [Costume(name='a'), Costume(name='b')]
         t.costume_index = 0
-        t.blocks['b0'] = _op('looks_switchcostumeto', inputs={'COSTUME': 'nonexistent'})
+        t.blocks['b0'] = _op('looks_switchcostumeto', inputs={'COSTUME': Input(value='nonexistent')})
         next(b for b in t.blocks.values() if b.opcode == 'event_whenflagclicked').next = 'b0'
         t._rebuild_hat_cache()
         rt = _rt(t)
@@ -1681,7 +1689,7 @@ class TestLooks:
         t = _make_tgt()
         t.costumes = [Costume(name='a'), Costume(name='b')]
         t.costume_index = 0
-        t.blocks['b0'] = _op('looks_switchcostumeto', inputs={'COSTUME': 5})
+        t.blocks['b0'] = _op('looks_switchcostumeto', inputs={'COSTUME': Input(value=5)})
         next(b for b in t.blocks.values() if b.opcode == 'event_whenflagclicked').next = 'b0'
         t._rebuild_hat_cache()
         rt = _rt(t)
@@ -1729,39 +1737,39 @@ class TestLooks:
     # ── Say / Think ──────────────────────────────────────────────────
     def test_say(self) -> None:
         t = _stack('looks_say')
-        _set(t, 'b0', inputs={'MESSAGE': 'Hello!'})
+        _set(t, 'b0', inputs={'MESSAGE': Input(value='Hello!')})
         rt = _run(t)
         assert t.say_text == 'Hello!'
 
     def test_say_empty(self) -> None:
         t = _stack('looks_say')
-        _set(t, 'b0', inputs={'MESSAGE': ''})
+        _set(t, 'b0', inputs={'MESSAGE': Input(value='')})
         rt = _run(t)
         assert t.say_text is None
 
     def test_say_long_truncation(self) -> None:
         """looks_say truncates at 330 characters."""
         t = _stack('looks_say')
-        _set(t, 'b0', inputs={'MESSAGE': 'x' * 500})
+        _set(t, 'b0', inputs={'MESSAGE': Input(value='x' * 500)})
         rt = _run(t)
         assert t.say_text is not None and len(t.say_text) == 330
 
     def test_think(self) -> None:
         t = _stack('looks_think')
-        _set(t, 'b0', inputs={'MESSAGE': 'Hmm...'})
+        _set(t, 'b0', inputs={'MESSAGE': Input(value='Hmm...')})
         rt = _run(t)
         assert t.say_text == 'Hmm...'
 
     def test_think_empty(self) -> None:
         t = _stack('looks_think')
-        _set(t, 'b0', inputs={'MESSAGE': ''})
+        _set(t, 'b0', inputs={'MESSAGE': Input(value='')})
         rt = _run(t)
         assert t.say_text is None
 
     def test_sayforsecs_sets_and_clears(self) -> None:
         """looks_sayforsecs sets say_text, then clears after the wait."""
         t = _stack('looks_sayforsecs')
-        _set(t, 'b0', inputs={'MESSAGE': 'Hi', 'SECS': 0.1})
+        _set(t, 'b0', inputs={'MESSAGE': Input(value='Hi'), 'SECS': Input(value=0.1)})
         rt = _rt(t)
         rt.green_flag()
         # Step 1: handler runs → sets say_text, yields Wait(0.1)
@@ -1775,14 +1783,14 @@ class TestLooks:
     def test_sayforsecs_zero_instant(self) -> None:
         """looks_sayforsecs with SECS=0 clears immediately."""
         t = _stack('looks_sayforsecs')
-        _set(t, 'b0', inputs={'MESSAGE': 'Hi', 'SECS': 0})
+        _set(t, 'b0', inputs={'MESSAGE': Input(value='Hi'), 'SECS': Input(value=0)})
         rt = _run(t)
         assert t.say_text is None
 
     def test_thinkforsecs_sets_and_clears(self) -> None:
         """looks_thinkforsecs sets say_text, then clears after the wait."""
         t = _stack('looks_thinkforsecs')
-        _set(t, 'b0', inputs={'MESSAGE': 'Hmm', 'SECS': 0.1})
+        _set(t, 'b0', inputs={'MESSAGE': Input(value='Hmm'), 'SECS': Input(value=0.1)})
         rt = _rt(t)
         rt.green_flag()
         rt.step()
@@ -1794,7 +1802,7 @@ class TestLooks:
     def test_thinkforsecs_zero_instant(self) -> None:
         """looks_thinkforsecs with SECS=0 clears immediately."""
         t = _stack('looks_thinkforsecs')
-        _set(t, 'b0', inputs={'MESSAGE': 'Hmm', 'SECS': 0})
+        _set(t, 'b0', inputs={'MESSAGE': Input(value='Hmm'), 'SECS': Input(value=0)})
         rt = _run(t)
         assert t.say_text is None
 
@@ -1802,7 +1810,7 @@ class TestLooks:
     def test_changeeffectby_ghost(self) -> None:
         """Ghost effect clamped to [0, 100]."""
         t = _stack('looks_changeeffectby')
-        _set(t, 'b0', inputs={'CHANGE': 150}, fields={'EFFECT': 'ghost'})
+        _set(t, 'b0', inputs={'CHANGE': Input(value=150)}, fields={'EFFECT': Field(value='ghost')})
         rt = _run(t)
         assert t.effects['ghost'] == 100
 
@@ -1810,28 +1818,28 @@ class TestLooks:
         """Ghost effect clamped to 0 when decreasing below zero."""
         t = _stack('looks_changeeffectby')
         t.effects['ghost'] = 30
-        _set(t, 'b0', inputs={'CHANGE': -50}, fields={'EFFECT': 'ghost'})
+        _set(t, 'b0', inputs={'CHANGE': Input(value=-50)}, fields={'EFFECT': Field(value='ghost')})
         rt = _run(t)
         assert t.effects['ghost'] == 0
 
     def test_seteffectto_ghost(self) -> None:
         """looks_seteffectto clamps ghost to [0, 100]."""
         t = _stack('looks_seteffectto')
-        _set(t, 'b0', inputs={'VALUE': 200}, fields={'EFFECT': 'ghost'})
+        _set(t, 'b0', inputs={'VALUE': Input(value=200)}, fields={'EFFECT': Field(value='ghost')})
         rt = _run(t)
         assert t.effects['ghost'] == 100
 
     def test_seteffectto_ghost_negative(self) -> None:
         """looks_seteffectto clamps ghost to 0 from negative."""
         t = _stack('looks_seteffectto')
-        _set(t, 'b0', inputs={'VALUE': -10}, fields={'EFFECT': 'ghost'})
+        _set(t, 'b0', inputs={'VALUE': Input(value=-10)}, fields={'EFFECT': Field(value='ghost')})
         rt = _run(t)
         assert t.effects['ghost'] == 0
 
     def test_changeeffectby_brightness(self) -> None:
         """Brightness effect clamped to [-100, 100]."""
         t = _stack('looks_changeeffectby')
-        _set(t, 'b0', inputs={'CHANGE': 50}, fields={'EFFECT': 'brightness'})
+        _set(t, 'b0', inputs={'CHANGE': Input(value=50)}, fields={'EFFECT': Field(value='brightness')})
         rt = _run(t)
         assert t.effects['brightness'] == 50
 
@@ -1839,7 +1847,7 @@ class TestLooks:
         """Brightness effect clamped at 100 when exceeding."""
         t = _stack('looks_changeeffectby')
         t.effects['brightness'] = 80
-        _set(t, 'b0', inputs={'CHANGE': 50}, fields={'EFFECT': 'brightness'})
+        _set(t, 'b0', inputs={'CHANGE': Input(value=50)}, fields={'EFFECT': Field(value='brightness')})
         rt = _run(t)
         assert t.effects['brightness'] == 100
 
@@ -1847,36 +1855,36 @@ class TestLooks:
         """Brightness effect clamped at -100 when below."""
         t = _stack('looks_changeeffectby')
         t.effects['brightness'] = -50
-        _set(t, 'b0', inputs={'CHANGE': -100}, fields={'EFFECT': 'brightness'})
+        _set(t, 'b0', inputs={'CHANGE': Input(value=-100)}, fields={'EFFECT': Field(value='brightness')})
         rt = _run(t)
         assert t.effects['brightness'] == -100
 
     def test_seteffectto_brightness(self) -> None:
         """looks_seteffectto clamps brightness to [-100, 100]."""
         t = _stack('looks_seteffectto')
-        _set(t, 'b0', inputs={'VALUE': -200}, fields={'EFFECT': 'brightness'})
+        _set(t, 'b0', inputs={'VALUE': Input(value=-200)}, fields={'EFFECT': Field(value='brightness')})
         rt = _run(t)
         assert t.effects['brightness'] == -100
 
     def test_changeeffectby_color_unbounded(self) -> None:
         """Color effect is not clamped."""
         t = _stack('looks_changeeffectby')
-        _set(t, 'b0', inputs={'CHANGE': 500}, fields={'EFFECT': 'color'})
+        _set(t, 'b0', inputs={'CHANGE': Input(value=500)}, fields={'EFFECT': Field(value='color')})
         rt = _run(t)
         assert t.effects['color'] == 500
 
     def test_seteffectto_color_unbounded(self) -> None:
         """Color effect set to arbitrary values."""
         t = _stack('looks_seteffectto')
-        _set(t, 'b0', inputs={'VALUE': -999}, fields={'EFFECT': 'color'})
+        _set(t, 'b0', inputs={'VALUE': Input(value=-999)}, fields={'EFFECT': Field(value='color')})
         rt = _run(t)
         assert t.effects['color'] == -999
 
     def test_cleargraphiceffects(self) -> None:
         """looks_cleargraphiceffects resets all effects to 0."""
         t = _stack('looks_seteffectto', 'looks_changeeffectby', 'looks_cleargraphiceffects')
-        _set(t, 'b0', inputs={'VALUE': 50}, fields={'EFFECT': 'brightness'})
-        _set(t, 'b1', inputs={'CHANGE': 80}, fields={'EFFECT': 'ghost'})
+        _set(t, 'b0', inputs={'VALUE': Input(value=50)}, fields={'EFFECT': Field(value='brightness')})
+        _set(t, 'b1', inputs={'CHANGE': Input(value=80)}, fields={'EFFECT': Field(value='ghost')})
         rt = _run(t)
         for k, v in t.effects.items():
             assert v == 0, f'{k} = {v}, expected 0'
@@ -2212,7 +2220,7 @@ class TestOperators:
 class TestDataVariables:
     def test_set_variable(self) -> None:
         t = _stack('data_setvariableto')
-        _set(t, 'b0', inputs={'VALUE': 42}, fields={'VARIABLE': 'score'})
+        _set(t, 'b0', inputs={'VALUE': Input(value=42)}, fields={'VARIABLE': Field(value='score')})
         t.variables['score'] = Variable('score', 0)
         rt = _run(t)
         v = t.lookup_variable('score')
@@ -2220,7 +2228,7 @@ class TestDataVariables:
 
     def test_change_variable(self) -> None:
         t = _stack('data_changevariableby')
-        _set(t, 'b0', inputs={'VALUE': 10}, fields={'VARIABLE': 'score'})
+        _set(t, 'b0', inputs={'VALUE': Input(value=10)}, fields={'VARIABLE': Field(value='score')})
         t.variables['score'] = Variable('score', 5)
         rt = _run(t)
         v = t.lookup_variable('score')
@@ -2230,7 +2238,7 @@ class TestDataVariables:
         """Setting a sprite variable with no match falls back to stage."""
         t = _stack('data_setvariableto')
         t.blocks['b0'] = _op(
-            'data_setvariableto', inputs={'VALUE': 99}, fields={'VARIABLE': 'global_x'}
+            'data_setvariableto', inputs={'VALUE': Input(value=99)}, fields={'VARIABLE': Field(value='global_x')}
         )
         t.variables.pop('global_x', None)
         t._rebuild_hat_cache()
@@ -2249,7 +2257,7 @@ class TestDataVariables:
     def test_set_variable_string(self) -> None:
         """Setting a variable to a string stores the raw string."""
         t = _stack('data_setvariableto')
-        _set(t, 'b0', inputs={'VALUE': 'hello'}, fields={'VARIABLE': 'msg'})
+        _set(t, 'b0', inputs={'VALUE': Input(value='hello')}, fields={'VARIABLE': Field(value='msg')})
         t.variables['msg'] = Variable('msg', '')
         rt = _run(t)
         v = t.lookup_variable('msg')
@@ -2258,7 +2266,7 @@ class TestDataVariables:
     def test_set_variable_float(self) -> None:
         """Float values are stored as-is."""
         t = _stack('data_setvariableto')
-        _set(t, 'b0', inputs={'VALUE': 3.14}, fields={'VARIABLE': 'pi'})
+        _set(t, 'b0', inputs={'VALUE': Input(value=3.14)}, fields={'VARIABLE': Field(value='pi')})
         t.variables['pi'] = Variable('pi', 0)
         rt = _run(t)
         v = t.lookup_variable('pi')
@@ -2267,7 +2275,7 @@ class TestDataVariables:
     def test_change_variable_negative(self) -> None:
         """Changing by a negative delta decrements the variable."""
         t = _stack('data_changevariableby')
-        _set(t, 'b0', inputs={'VALUE': -5}, fields={'VARIABLE': 'score'})
+        _set(t, 'b0', inputs={'VALUE': Input(value=-5)}, fields={'VARIABLE': Field(value='score')})
         t.variables['score'] = Variable('score', 10)
         rt = _run(t)
         v = t.lookup_variable('score')
@@ -2276,7 +2284,7 @@ class TestDataVariables:
     def test_change_variable_string_delta(self) -> None:
         """Non-numeric string delta coerces to 0 (no change)."""
         t = _stack('data_changevariableby')
-        _set(t, 'b0', inputs={'VALUE': 'abc'}, fields={'VARIABLE': 'score'})
+        _set(t, 'b0', inputs={'VALUE': Input(value='abc')}, fields={'VARIABLE': Field(value='score')})
         t.variables['score'] = Variable('score', 7)
         rt = _run(t)
         v = t.lookup_variable('score')
@@ -2285,7 +2293,7 @@ class TestDataVariables:
     def test_variable_reporter(self) -> None:
         """data_variable reporter reads the current variable value."""
         t = _stack('data_variable')
-        _set(t, 'b0', fields={'VARIABLE': 'score'})
+        _set(t, 'b0', fields={'VARIABLE': Field(value='score')})
         t.variables['score'] = Variable('score', 99)
         rt = _run(t)
         assert len(rt.threads) == 0
@@ -2293,7 +2301,7 @@ class TestDataVariables:
     def test_variable_reporter_auto_create(self) -> None:
         """data_variable creates variable with default 0 if not found."""
         t = _stack('data_variable')
-        _set(t, 'b0', fields={'VARIABLE': 'auto_var'})
+        _set(t, 'b0', fields={'VARIABLE': Field(value='auto_var')})
         # No pre-existing variable — should auto-create with 0
         rt = _run(t)
         assert len(rt.threads) == 0
@@ -2304,7 +2312,7 @@ class TestDataVariables:
         """Setting a cloud variable updates its value."""
         t = _stack('data_setvariableto')
         t.variables['score'] = Variable('☁ score', 0, is_cloud=True)
-        _set(t, 'b0', inputs={'VALUE': 99}, fields={'VARIABLE': '☁ score'})
+        _set(t, 'b0', inputs={'VALUE': Input(value=99)}, fields={'VARIABLE': Field(value='☁ score')})
         rt = _run(t)
         var = t.lookup_variable('☁ score')
         assert var is not None and var.value == 99
@@ -2314,7 +2322,7 @@ class TestDataVariables:
         """Changing a cloud variable adds delta to its value."""
         t = _stack('data_changevariableby')
         t.variables['c'] = Variable('☁ counter', 10, is_cloud=True)
-        _set(t, 'b0', inputs={'VALUE': 5}, fields={'VARIABLE': '☁ counter'})
+        _set(t, 'b0', inputs={'VALUE': Input(value=5)}, fields={'VARIABLE': Field(value='☁ counter')})
         rt = _run(t)
         var = t.lookup_variable('☁ counter')
         assert var is not None and var.value == 15
@@ -2342,8 +2350,8 @@ class TestDataVariables:
         t.blocks['b'] = Block(
             id='b',
             opcode='data_setvariableto',
-            inputs={'VALUE': Input(name='', value=42)},
-            fields={'VARIABLE': Field(name='VARIABLE', value='☁ x')},
+            inputs={'VALUE': Input(value=42)},
+            fields={'VARIABLE': Field(value='☁ x')},
         )
         t._rebuild_hat_cache()
         rt.add_target(t)
@@ -2371,7 +2379,7 @@ class TestDataVariables:
         """Non-cloud variables do not trigger cloud updates."""
         t = _stack('data_setvariableto')
         t.variables['v'] = Variable('local_var', 0, is_cloud=False)
-        _set(t, 'b0', inputs={'VALUE': 77}, fields={'VARIABLE': 'local_var'})
+        _set(t, 'b0', inputs={'VALUE': Input(value=77)}, fields={'VARIABLE': Field(value='local_var')})
         rt = _run(t)
         var = t.lookup_variable('local_var')
         assert var is not None and var.value == 77
@@ -2403,15 +2411,15 @@ class TestDataVariables:
 class TestDataLists:
     def test_add_to_list(self) -> None:
         t = _stack('data_addtolist')
-        _set(t, 'b0', inputs={'ITEM': 'x'}, fields={'LIST': 'items'})
+        _set(t, 'b0', inputs={'ITEM': Input(value='x')}, fields={'LIST': Field(value='items')})
         t.lists['items'] = ListVar('items')
         rt = _run(t)
         assert t.lists['items'].contents == ['x']
 
     def test_add_delete_list(self) -> None:
         t = _stack('data_addtolist', 'data_deleteoflist')
-        _set(t, 'b0', inputs={'ITEM': 'a'}, fields={'LIST': 'items'})
-        _set(t, 'b1', inputs={'INDEX': 1}, fields={'LIST': 'items'})
+        _set(t, 'b0', inputs={'ITEM': Input(value='a')}, fields={'LIST': Field(value='items')})
+        _set(t, 'b1', inputs={'INDEX': Input(value=1)}, fields={'LIST': Field(value='items')})
         t.lists['items'] = ListVar('items')
         t._rebuild_hat_cache()
         rt = _run(t)
@@ -2420,9 +2428,9 @@ class TestDataLists:
     def test_add_to_list_multiple(self) -> None:
         """Adding multiple items appends each in order."""
         t = _stack('data_addtolist', 'data_addtolist', 'data_addtolist')
-        _set(t, 'b0', inputs={'ITEM': 'a'}, fields={'LIST': 'items'})
-        _set(t, 'b1', inputs={'ITEM': 'b'}, fields={'LIST': 'items'})
-        _set(t, 'b2', inputs={'ITEM': 'c'}, fields={'LIST': 'items'})
+        _set(t, 'b0', inputs={'ITEM': Input(value='a')}, fields={'LIST': Field(value='items')})
+        _set(t, 'b1', inputs={'ITEM': Input(value='b')}, fields={'LIST': Field(value='items')})
+        _set(t, 'b2', inputs={'ITEM': Input(value='c')}, fields={'LIST': Field(value='items')})
         t.lists['items'] = ListVar('items')
         rt = _run(t)
         assert t.lists['items'].contents == ['a', 'b', 'c']
@@ -2430,7 +2438,7 @@ class TestDataLists:
     def test_add_to_list_numeric(self) -> None:
         """Adding numeric items stores them as raw values."""
         t = _stack('data_addtolist')
-        _set(t, 'b0', inputs={'ITEM': 42}, fields={'LIST': 'nums'})
+        _set(t, 'b0', inputs={'ITEM': Input(value=42)}, fields={'LIST': Field(value='nums')})
         t.lists['nums'] = ListVar('nums')
         rt = _run(t)
         assert t.lists['nums'].contents == [42]
@@ -2439,7 +2447,7 @@ class TestDataLists:
         """Deleting by numeric index removes that element."""
         t = _stack('data_deleteoflist')
         t.lists['items'] = ListVar('items', contents=['a', 'b', 'c'])
-        _set(t, 'b0', inputs={'INDEX': 2}, fields={'LIST': 'items'})
+        _set(t, 'b0', inputs={'INDEX': Input(value=2)}, fields={'LIST': Field(value='items')})
         rt = _run(t)
         assert t.lists['items'].contents == ['a', 'c']
 
@@ -2447,7 +2455,7 @@ class TestDataLists:
         """Deleting with INDEX='all' clears the entire list."""
         t = _stack('data_deleteoflist')
         t.lists['items'] = ListVar('items', contents=['a', 'b', 'c'])
-        _set(t, 'b0', inputs={'INDEX': 'all'}, fields={'LIST': 'items'})
+        _set(t, 'b0', inputs={'INDEX': Input(value='all')}, fields={'LIST': Field(value='items')})
         rt = _run(t)
         assert t.lists['items'].contents == []
 
@@ -2455,7 +2463,7 @@ class TestDataLists:
         """Deleting with INDEX='last' removes the last element."""
         t = _stack('data_deleteoflist')
         t.lists['items'] = ListVar('items', contents=['a', 'b', 'c'])
-        _set(t, 'b0', inputs={'INDEX': 'last'}, fields={'LIST': 'items'})
+        _set(t, 'b0', inputs={'INDEX': Input(value='last')}, fields={'LIST': Field(value='items')})
         rt = _run(t)
         assert t.lists['items'].contents == ['a', 'b']
 
@@ -2463,7 +2471,7 @@ class TestDataLists:
         """Deleting with INDEX='random' removes one element."""
         t = _stack('data_deleteoflist')
         t.lists['items'] = ListVar('items', contents=['x', 'y', 'z'])
-        _set(t, 'b0', inputs={'INDEX': 'random'}, fields={'LIST': 'items'})
+        _set(t, 'b0', inputs={'INDEX': Input(value='random')}, fields={'LIST': Field(value='items')})
         rt = _run(t)
         assert len(t.lists['items'].contents) == 2
 
@@ -2471,7 +2479,7 @@ class TestDataLists:
         """Deleting with an out-of-range index is a no-op."""
         t = _stack('data_deleteoflist')
         t.lists['items'] = ListVar('items', contents=['a', 'b'])
-        _set(t, 'b0', inputs={'INDEX': 99}, fields={'LIST': 'items'})
+        _set(t, 'b0', inputs={'INDEX': Input(value=99)}, fields={'LIST': Field(value='items')})
         rt = _run(t)
         assert t.lists['items'].contents == ['a', 'b']
 
@@ -2479,7 +2487,7 @@ class TestDataLists:
         """Deleting from an empty list is a no-op."""
         t = _stack('data_deleteoflist')
         t.lists['items'] = ListVar('items')
-        _set(t, 'b0', inputs={'INDEX': 'last'}, fields={'LIST': 'items'})
+        _set(t, 'b0', inputs={'INDEX': Input(value='last')}, fields={'LIST': Field(value='items')})
         rt = _run(t)
         assert t.lists['items'].contents == []
 
@@ -2487,7 +2495,7 @@ class TestDataLists:
         """data_deletealloflist clears all items."""
         t = _stack('data_deletealloflist')
         t.lists['items'] = ListVar('items', contents=['a', 'b', 'c'])
-        _set(t, 'b0', fields={'LIST': 'items'})
+        _set(t, 'b0', fields={'LIST': Field(value='items')})
         rt = _run(t)
         assert t.lists['items'].contents == []
 
@@ -2495,7 +2503,7 @@ class TestDataLists:
         """Inserting at a numeric index places the item before that position."""
         t = _stack('data_insertatlist')
         t.lists['items'] = ListVar('items', contents=['a', 'c'])
-        _set(t, 'b0', inputs={'ITEM': 'b', 'INDEX': 2}, fields={'LIST': 'items'})
+        _set(t, 'b0', inputs={'ITEM': Input(value='b'), 'INDEX': Input(value=2)}, fields={'LIST': Field(value='items')})
         rt = _run(t)
         assert t.lists['items'].contents == ['a', 'b', 'c']
 
@@ -2503,7 +2511,7 @@ class TestDataLists:
         """Inserting at index 1 places the item at the front."""
         t = _stack('data_insertatlist')
         t.lists['items'] = ListVar('items', contents=['b', 'c'])
-        _set(t, 'b0', inputs={'ITEM': 'a', 'INDEX': 1}, fields={'LIST': 'items'})
+        _set(t, 'b0', inputs={'ITEM': Input(value='a'), 'INDEX': Input(value=1)}, fields={'LIST': Field(value='items')})
         rt = _run(t)
         assert t.lists['items'].contents == ['a', 'b', 'c']
 
@@ -2511,7 +2519,7 @@ class TestDataLists:
         """Inserting with INDEX='last' appends at the end."""
         t = _stack('data_insertatlist')
         t.lists['items'] = ListVar('items', contents=['a', 'b'])
-        _set(t, 'b0', inputs={'ITEM': 'c', 'INDEX': 'last'}, fields={'LIST': 'items'})
+        _set(t, 'b0', inputs={'ITEM': Input(value='c'), 'INDEX': Input(value='last')}, fields={'LIST': Field(value='items')})
         rt = _run(t)
         assert t.lists['items'].contents == ['a', 'b', 'c']
 
@@ -2519,7 +2527,7 @@ class TestDataLists:
         """Replace item at a valid index modifies the list."""
         t = _stack('data_replaceitemoflist')
         t.lists['items'] = ListVar('items', contents=['a', 'x', 'c'])
-        _set(t, 'b0', inputs={'ITEM': 'b', 'INDEX': 2}, fields={'LIST': 'items'})
+        _set(t, 'b0', inputs={'ITEM': Input(value='b'), 'INDEX': Input(value=2)}, fields={'LIST': Field(value='items')})
         rt = _run(t)
         assert t.lists['items'].contents == ['a', 'b', 'c']
 
@@ -2527,7 +2535,7 @@ class TestDataLists:
         """Replace with an out-of-range index is a no-op."""
         t = _stack('data_replaceitemoflist')
         t.lists['items'] = ListVar('items', contents=['a', 'b'])
-        _set(t, 'b0', inputs={'ITEM': 'z', 'INDEX': 99}, fields={'LIST': 'items'})
+        _set(t, 'b0', inputs={'ITEM': Input(value='z'), 'INDEX': Input(value=99)}, fields={'LIST': Field(value='items')})
         rt = _run(t)
         assert t.lists['items'].contents == ['a', 'b']
 
@@ -2535,7 +2543,7 @@ class TestDataLists:
         """data_itemoflist returns the item at a numeric index."""
         t = _stack('data_itemoflist')
         t.lists['items'] = ListVar('items', contents=['a', 'b', 'c'])
-        _set(t, 'b0', inputs={'INDEX': 2}, fields={'LIST': 'items'})
+        _set(t, 'b0', inputs={'INDEX': Input(value=2)}, fields={'LIST': Field(value='items')})
         rt = _run(t)
         assert len(rt.threads) == 0
 
@@ -2543,7 +2551,7 @@ class TestDataLists:
         """data_itemoflist with an invalid index returns '' (runs cleanly)."""
         t = _stack('data_itemoflist')
         t.lists['items'] = ListVar('items', contents=['a', 'b'])
-        _set(t, 'b0', inputs={'INDEX': 99}, fields={'LIST': 'items'})
+        _set(t, 'b0', inputs={'INDEX': Input(value=99)}, fields={'LIST': Field(value='items')})
         rt = _run(t)
         assert len(rt.threads) == 0
 
@@ -2551,7 +2559,7 @@ class TestDataLists:
         """data_itemoflist on an empty list returns ''."""
         t = _stack('data_itemoflist')
         t.lists['items'] = ListVar('items')
-        _set(t, 'b0', inputs={'INDEX': 1}, fields={'LIST': 'items'})
+        _set(t, 'b0', inputs={'INDEX': Input(value=1)}, fields={'LIST': Field(value='items')})
         rt = _run(t)
         assert len(rt.threads) == 0
 
@@ -2559,7 +2567,7 @@ class TestDataLists:
         """data_itemnumoflist returns the 1-based index of a matching item."""
         t = _stack('data_itemnumoflist')
         t.lists['items'] = ListVar('items', contents=['a', 'b', 'c'])
-        _set(t, 'b0', inputs={'ITEM': 'b'}, fields={'LIST': 'items'})
+        _set(t, 'b0', inputs={'ITEM': Input(value='b')}, fields={'LIST': Field(value='items')})
         rt = _run(t)
         assert len(rt.threads) == 0
 
@@ -2567,7 +2575,7 @@ class TestDataLists:
         """data_itemnumoflist matches numeric values via Cast.compare: 5 matches '5'."""
         t = _stack('data_itemnumoflist')
         t.lists['items'] = ListVar('items', contents=[10, '5', 20])
-        _set(t, 'b0', inputs={'ITEM': 5}, fields={'LIST': 'items'})
+        _set(t, 'b0', inputs={'ITEM': Input(value=5)}, fields={'LIST': Field(value='items')})
         rt = _run(t)
         assert len(rt.threads) == 0
 
@@ -2575,7 +2583,7 @@ class TestDataLists:
         """data_itemnumoflist returns 0 when item is not in the list."""
         t = _stack('data_itemnumoflist')
         t.lists['items'] = ListVar('items', contents=['a', 'b', 'c'])
-        _set(t, 'b0', inputs={'ITEM': 'z'}, fields={'LIST': 'items'})
+        _set(t, 'b0', inputs={'ITEM': Input(value='z')}, fields={'LIST': Field(value='items')})
         rt = _run(t)
         assert len(rt.threads) == 0
 
@@ -2583,7 +2591,7 @@ class TestDataLists:
         """data_itemnumoflist uses case-insensitive string comparison."""
         t = _stack('data_itemnumoflist')
         t.lists['items'] = ListVar('items', contents=['Hello'])
-        _set(t, 'b0', inputs={'ITEM': 'hello'}, fields={'LIST': 'items'})
+        _set(t, 'b0', inputs={'ITEM': Input(value='hello')}, fields={'LIST': Field(value='items')})
         rt = _run(t)
         assert len(rt.threads) == 0
 
@@ -2591,7 +2599,7 @@ class TestDataLists:
         """data_lengthoflist returns the number of items."""
         t = _stack('data_lengthoflist')
         t.lists['items'] = ListVar('items', contents=['a', 'b', 'c'])
-        _set(t, 'b0', fields={'LIST': 'items'})
+        _set(t, 'b0', fields={'LIST': Field(value='items')})
         rt = _run(t)
         assert len(rt.threads) == 0
 
@@ -2599,7 +2607,7 @@ class TestDataLists:
         """data_lengthoflist on an empty list returns 0."""
         t = _stack('data_lengthoflist')
         t.lists['items'] = ListVar('items')
-        _set(t, 'b0', fields={'LIST': 'items'})
+        _set(t, 'b0', fields={'LIST': Field(value='items')})
         rt = _run(t)
         assert len(rt.threads) == 0
 
@@ -2607,7 +2615,7 @@ class TestDataLists:
         """data_listcontainsitem returns True when item is in the list."""
         t = _stack('data_listcontainsitem')
         t.lists['items'] = ListVar('items', contents=['a', 'b', 'c'])
-        _set(t, 'b0', inputs={'ITEM': 'b'}, fields={'LIST': 'items'})
+        _set(t, 'b0', inputs={'ITEM': Input(value='b')}, fields={'LIST': Field(value='items')})
         rt = _run(t)
         assert len(rt.threads) == 0
 
@@ -2615,7 +2623,7 @@ class TestDataLists:
         """data_listcontainsitem returns False when item is not in the list."""
         t = _stack('data_listcontainsitem')
         t.lists['items'] = ListVar('items', contents=['a', 'b', 'c'])
-        _set(t, 'b0', inputs={'ITEM': 'z'}, fields={'LIST': 'items'})
+        _set(t, 'b0', inputs={'ITEM': Input(value='z')}, fields={'LIST': Field(value='items')})
         rt = _run(t)
         assert len(rt.threads) == 0
 
@@ -2623,7 +2631,7 @@ class TestDataLists:
         """data_listcontainsitem matches cross-type via Cast.compare (e.g. 5 == '5')."""
         t = _stack('data_listcontainsitem')
         t.lists['items'] = ListVar('items', contents=[10, '5', 20])
-        _set(t, 'b0', inputs={'ITEM': 5}, fields={'LIST': 'items'})
+        _set(t, 'b0', inputs={'ITEM': Input(value=5)}, fields={'LIST': Field(value='items')})
         rt = _run(t)
         assert len(rt.threads) == 0
 
@@ -2631,7 +2639,7 @@ class TestDataLists:
         """data_listcontents joins single-char items with '' (no separator)."""
         t = _stack('data_listcontents')
         t.lists['items'] = ListVar('items', contents=['a', 'b', 'c'])
-        _set(t, 'b0', fields={'LIST': 'items'})
+        _set(t, 'b0', fields={'LIST': Field(value='items')})
         rt = _run(t)
         assert len(rt.threads) == 0
 
@@ -2639,7 +2647,7 @@ class TestDataLists:
         """data_listcontents joins multi-char items with ' '."""
         t = _stack('data_listcontents')
         t.lists['items'] = ListVar('items', contents=['ab', 'cd', 'ef'])
-        _set(t, 'b0', fields={'LIST': 'items'})
+        _set(t, 'b0', fields={'LIST': Field(value='items')})
         rt = _run(t)
         assert len(rt.threads) == 0
 
@@ -2647,7 +2655,7 @@ class TestDataLists:
         """data_listcontents on an empty list returns ''."""
         t = _stack('data_listcontents')
         t.lists['items'] = ListVar('items')
-        _set(t, 'b0', fields={'LIST': 'items'})
+        _set(t, 'b0', fields={'LIST': Field(value='items')})
         rt = _run(t)
         assert len(rt.threads) == 0
 
@@ -2655,7 +2663,7 @@ class TestDataLists:
         """Mixed single-char and multi-char items use ' ' separator."""
         t = _stack('data_listcontents')
         t.lists['items'] = ListVar('items', contents=['a', 'bc', 'd'])
-        _set(t, 'b0', fields={'LIST': 'items'})
+        _set(t, 'b0', fields={'LIST': Field(value='items')})
         rt = _run(t)
         assert len(rt.threads) == 0
 
@@ -2716,7 +2724,7 @@ class TestSensing:
         t = Target(name='Sprite')
         t.x = 300  # past 240
         bid = _id()
-        t.blocks[bid] = _op('sensing_touchingobject', fields={'TOUCHINGOBJECTMENU': '_edge_'})
+        t.blocks[bid] = _op('sensing_touchingobject', fields={'TOUCHINGOBJECTMENU': Field(value='_edge_')})
         t._rebuild_hat_cache()
         rt = _rt(t)
         assert rt.evaluate(t, bid) is True
@@ -2726,7 +2734,7 @@ class TestSensing:
         t = Target(name='Sprite')
         t.x = -300
         bid = _id()
-        t.blocks[bid] = _op('sensing_touchingobject', fields={'TOUCHINGOBJECTMENU': '_edge_'})
+        t.blocks[bid] = _op('sensing_touchingobject', fields={'TOUCHINGOBJECTMENU': Field(value='_edge_')})
         t._rebuild_hat_cache()
         rt = _rt(t)
         assert rt.evaluate(t, bid) is True
@@ -2736,7 +2744,7 @@ class TestSensing:
         t = Target(name='Sprite')
         t.y = 200  # past 180
         bid = _id()
-        t.blocks[bid] = _op('sensing_touchingobject', fields={'TOUCHINGOBJECTMENU': '_edge_'})
+        t.blocks[bid] = _op('sensing_touchingobject', fields={'TOUCHINGOBJECTMENU': Field(value='_edge_')})
         t._rebuild_hat_cache()
         rt = _rt(t)
         assert rt.evaluate(t, bid) is True
@@ -2746,7 +2754,7 @@ class TestSensing:
         t = Target(name='Sprite')
         t.y = -200
         bid = _id()
-        t.blocks[bid] = _op('sensing_touchingobject', fields={'TOUCHINGOBJECTMENU': '_edge_'})
+        t.blocks[bid] = _op('sensing_touchingobject', fields={'TOUCHINGOBJECTMENU': Field(value='_edge_')})
         t._rebuild_hat_cache()
         rt = _rt(t)
         assert rt.evaluate(t, bid) is True
@@ -2757,7 +2765,7 @@ class TestSensing:
         t.x = 50
         t.y = 50
         bid = _id()
-        t.blocks[bid] = _op('sensing_touchingobject', fields={'TOUCHINGOBJECTMENU': '_edge_'})
+        t.blocks[bid] = _op('sensing_touchingobject', fields={'TOUCHINGOBJECTMENU': Field(value='_edge_')})
         t._rebuild_hat_cache()
         rt = _rt(t)
         assert rt.evaluate(t, bid) is False
@@ -2765,7 +2773,7 @@ class TestSensing:
     def test_touchingobject_mouse(self) -> None:
         """_mouse_ always returns False (unsupported in py-scratch)."""
         assert (
-            self._eval('sensing_touchingobject', fields={'TOUCHINGOBJECTMENU': '_mouse_'}) is False
+            self._eval('sensing_touchingobject', fields={'TOUCHINGOBJECTMENU': Field(value='_mouse_')}) is False
         )
 
     def test_touchingobject_sprite_at_same_position(self) -> None:
@@ -2776,7 +2784,7 @@ class TestSensing:
         t2 = Target(name='Other')
         t2.x = 0
         bid = _id()
-        t1.blocks[bid] = _op('sensing_touchingobject', fields={'TOUCHINGOBJECTMENU': 'Other'})
+        t1.blocks[bid] = _op('sensing_touchingobject', fields={'TOUCHINGOBJECTMENU': Field(value='Other')})
         t1._rebuild_hat_cache()
         rt = Runtime()
         rt.add_target(Target(name='Stage', is_stage=True))
@@ -2787,7 +2795,7 @@ class TestSensing:
 
     def test_touchingobject_nonexistent_sprite(self) -> None:
         """Non-existent sprite returns False."""
-        assert self._eval('sensing_touchingobject', fields={'TOUCHINGOBJECTMENU': 'Ghost'}) is False
+        assert self._eval('sensing_touchingobject', fields={'TOUCHINGOBJECTMENU': Field(value='Ghost')}) is False
 
     # ═════════════════════════════════════════════════════════════════
     #  sensing_distanceto
@@ -2797,7 +2805,7 @@ class TestSensing:
         assert (
             self._eval(
                 'sensing_distanceto',
-                fields={'DISTANCETOMENU': '_mouse_'},
+                fields={'DISTANCETOMENU': Field(value='_mouse_')},
             )
             == 0.0
         )
@@ -2808,7 +2816,7 @@ class TestSensing:
         t.x = 0
         t.y = 0
         bid = _id()
-        t.blocks[bid] = _op('sensing_distanceto', fields={'DISTANCETOMENU': '_mouse_'})
+        t.blocks[bid] = _op('sensing_distanceto', fields={'DISTANCETOMENU': Field(value='_mouse_')})
         t._rebuild_hat_cache()
         rt = _rt(t)
         rt._mouse_x = 30
@@ -2824,7 +2832,7 @@ class TestSensing:
         t2.x = 3
         t2.y = 4
         bid = _id()
-        t1.blocks[bid] = _op('sensing_distanceto', fields={'DISTANCETOMENU': 'Other'})
+        t1.blocks[bid] = _op('sensing_distanceto', fields={'DISTANCETOMENU': Field(value='Other')})
         t1._rebuild_hat_cache()
         rt = Runtime()
         rt.add_target(Target(name='Stage', is_stage=True))
@@ -2835,7 +2843,7 @@ class TestSensing:
 
     def test_distanceto_nonexistent(self) -> None:
         """Non-existent target returns 10000."""
-        assert self._eval('sensing_distanceto', fields={'DISTANCETOMENU': 'Ghost'}) == 10000.0
+        assert self._eval('sensing_distanceto', fields={'DISTANCETOMENU': Field(value='Ghost')}) == 10000.0
 
     # ═════════════════════════════════════════════════════════════════
     #  sensing_timer / sensing_resettimer
@@ -2878,7 +2886,7 @@ class TestSensing:
         t.x = 75
         bid = _id()
         t.blocks[bid] = _op(
-            'sensing_of', inputs={'PROPERTY': 'x position'}, fields={'OBJECT': 'Sprite'}
+            'sensing_of', inputs={'PROPERTY': Input(value='x position')}, fields={'OBJECT': Field(value='Sprite')}
         )
         t._rebuild_hat_cache()
         rt = _rt(t)
@@ -2890,7 +2898,7 @@ class TestSensing:
         t.y = -30
         bid = _id()
         t.blocks[bid] = _op(
-            'sensing_of', inputs={'PROPERTY': 'y position'}, fields={'OBJECT': 'Sprite'}
+            'sensing_of', inputs={'PROPERTY': Input(value='y position')}, fields={'OBJECT': Field(value='Sprite')}
         )
         t._rebuild_hat_cache()
         rt = _rt(t)
@@ -2902,7 +2910,7 @@ class TestSensing:
         t.direction = 45
         bid = _id()
         t.blocks[bid] = _op(
-            'sensing_of', inputs={'PROPERTY': 'direction'}, fields={'OBJECT': 'Sprite'}
+            'sensing_of', inputs={'PROPERTY': Input(value='direction')}, fields={'OBJECT': Field(value='Sprite')}
         )
         t._rebuild_hat_cache()
         rt = _rt(t)
@@ -2915,7 +2923,7 @@ class TestSensing:
         t.costume_index = 1  # 0-based → second costume
         bid = _id()
         t.blocks[bid] = _op(
-            'sensing_of', inputs={'PROPERTY': 'costume #'}, fields={'OBJECT': 'Sprite'}
+            'sensing_of', inputs={'PROPERTY': Input(value='costume #')}, fields={'OBJECT': Field(value='Sprite')}
         )
         t._rebuild_hat_cache()
         rt = _rt(t)
@@ -2931,7 +2939,7 @@ class TestSensing:
         t.costumes = [Costume(name='costume-a')]
         bid = _id()
         t.blocks[bid] = _op(
-            'sensing_of', inputs={'PROPERTY': 'costume name'}, fields={'OBJECT': 'Sprite'}
+            'sensing_of', inputs={'PROPERTY': Input(value='costume name')}, fields={'OBJECT': Field(value='Sprite')}
         )
         t._rebuild_hat_cache()
         rt = _rt(t)
@@ -2943,7 +2951,7 @@ class TestSensing:
         t = Target(name='Sprite')
         t.size = 150
         bid = _id()
-        t.blocks[bid] = _op('sensing_of', inputs={'PROPERTY': 'size'}, fields={'OBJECT': 'Sprite'})
+        t.blocks[bid] = _op('sensing_of', inputs={'PROPERTY': Input(value='size')}, fields={'OBJECT': Field(value='Sprite')})
         t._rebuild_hat_cache()
         rt = _rt(t)
         assert rt.evaluate(t, bid) == 150
@@ -2954,7 +2962,7 @@ class TestSensing:
         t.volume = 75.0
         bid = _id()
         t.blocks[bid] = _op(
-            'sensing_of', inputs={'PROPERTY': 'volume'}, fields={'OBJECT': 'Sprite'}
+            'sensing_of', inputs={'PROPERTY': Input(value='volume')}, fields={'OBJECT': Field(value='Sprite')}
         )
         t._rebuild_hat_cache()
         rt = _rt(t)
@@ -2968,7 +2976,7 @@ class TestSensing:
         t = Target(name='Sprite')
         bid = _id()
         t.blocks[bid] = _op(
-            'sensing_of', inputs={'PROPERTY': 'backdrop #'}, fields={'OBJECT': 'Stage'}
+            'sensing_of', inputs={'PROPERTY': Input(value='backdrop #')}, fields={'OBJECT': Field(value='Stage')}
         )
         t._rebuild_hat_cache()
         rt = Runtime()
@@ -2984,7 +2992,7 @@ class TestSensing:
         t = Target(name='Sprite')
         bid = _id()
         t.blocks[bid] = _op(
-            'sensing_of', inputs={'PROPERTY': 'backdrop name'}, fields={'OBJECT': 'Stage'}
+            'sensing_of', inputs={'PROPERTY': Input(value='backdrop name')}, fields={'OBJECT': Field(value='Stage')}
         )
         t._rebuild_hat_cache()
         rt = Runtime()
@@ -2999,7 +3007,7 @@ class TestSensing:
         t.costumes = [Costume(name='a')]
         bid = _id()
         t.blocks[bid] = _op(
-            'sensing_of', inputs={'PROPERTY': 'backdrop #'}, fields={'OBJECT': 'Sprite'}
+            'sensing_of', inputs={'PROPERTY': Input(value='backdrop #')}, fields={'OBJECT': Field(value='Sprite')}
         )
         t._rebuild_hat_cache()
         rt = _rt(t)
@@ -3007,7 +3015,7 @@ class TestSensing:
         # backdrop name on sprite
         bid2 = _id()
         t.blocks[bid2] = _op(
-            'sensing_of', inputs={'PROPERTY': 'backdrop name'}, fields={'OBJECT': 'Sprite'}
+            'sensing_of', inputs={'PROPERTY': Input(value='backdrop name')}, fields={'OBJECT': Field(value='Sprite')}
         )
         t._rebuild_hat_cache()
         assert rt.evaluate(t, bid2) == ''
@@ -3017,7 +3025,7 @@ class TestSensing:
         t = Target(name='Sprite')
         t.variables['score'] = Variable('score', 42)
         bid = _id()
-        t.blocks[bid] = _op('sensing_of', inputs={'PROPERTY': 'score'}, fields={'OBJECT': 'Sprite'})
+        t.blocks[bid] = _op('sensing_of', inputs={'PROPERTY': Input(value='score')}, fields={'OBJECT': Field(value='Sprite')})
         t._rebuild_hat_cache()
         rt = _rt(t)
         assert rt.evaluate(t, bid) == 42
@@ -3026,7 +3034,7 @@ class TestSensing:
         """sensing_of with a non-existent variable name returns 0."""
         assert (
             self._eval(
-                'sensing_of', inputs={'PROPERTY': 'nonexistent'}, fields={'OBJECT': 'Sprite'}
+                'sensing_of', inputs={'PROPERTY': Input(value='nonexistent')}, fields={'OBJECT': Field(value='Sprite')}
             )
             == 0
         )
@@ -3037,7 +3045,7 @@ class TestSensing:
         t.x = 10
         bid = _id()
         t.blocks[bid] = _op(
-            'sensing_of', inputs={'PROPERTY': 'x position'}, fields={'OBJECT': 'NoSuchTarget'}
+            'sensing_of', inputs={'PROPERTY': Input(value='x position')}, fields={'OBJECT': Field(value='NoSuchTarget')}
         )
         t._rebuild_hat_cache()
         rt = _rt(t)
@@ -3085,7 +3093,7 @@ class TestSensing:
     def test_keypressed_thread_ends(self) -> None:
         """Existing test: keypressed finishes cleanly (regression)."""
         t = _stack('sensing_keypressed')
-        _set(t, 'b0', fields={'KEY_OPTION': 'space'})
+        _set(t, 'b0', fields={'KEY_OPTION': Field(value='space')})
         rt = _run(t)
         assert len(rt.threads) == 0
 
@@ -3093,7 +3101,7 @@ class TestSensing:
         """sensing_keypressed returns True when key is pressed."""
         result, rt = self._eval_with(
             'sensing_keypressed',
-            fields={'KEY_OPTION': 'space'},
+            fields={'KEY_OPTION': Field(value='space')},
             get_rt=True,
             setup=lambda rt: rt._keyboard.update({'space': True}),
         )
@@ -3101,13 +3109,13 @@ class TestSensing:
 
     def test_keypressed_false(self) -> None:
         """sensing_keypressed returns False for unpressed key."""
-        assert self._eval('sensing_keypressed', fields={'KEY_OPTION': 'space'}) is False
+        assert self._eval('sensing_keypressed', fields={'KEY_OPTION': Field(value='space')}) is False
 
     def test_keypressed_any(self) -> None:
         """sensing_keypressed 'any' returns True when any key is pressed."""
         result, rt = self._eval_with(
             'sensing_keypressed',
-            fields={'KEY_OPTION': 'any'},
+            fields={'KEY_OPTION': Field(value='any')},
             get_rt=True,
             setup=lambda rt: rt._keyboard.update({'space': True}),
         )
@@ -3115,13 +3123,13 @@ class TestSensing:
 
     def test_keypressed_any_none(self) -> None:
         """sensing_keypressed 'any' returns False when no keys are pressed."""
-        assert self._eval('sensing_keypressed', fields={'KEY_OPTION': 'any'}) is False
+        assert self._eval('sensing_keypressed', fields={'KEY_OPTION': Field(value='any')}) is False
 
     def test_keypressed_case_insensitive(self) -> None:
         """key names are lowercased before lookup."""
         result, rt = self._eval_with(
             'sensing_keypressed',
-            fields={'KEY_OPTION': 'SPACE'},
+            fields={'KEY_OPTION': Field(value='SPACE')},
             get_rt=True,
             setup=lambda rt: rt._keyboard.update({'space': True}),
         )
@@ -3132,25 +3140,25 @@ class TestSensing:
     # ═════════════════════════════════════════════════════════════════
     def test_current_year(self) -> None:
         """sensing_current YEAR returns reasonable year."""
-        v = self._eval('sensing_current', fields={'CURRENTMENU': 'YEAR'})
+        v = self._eval('sensing_current', fields={'CURRENTMENU': Field(value='YEAR')})
         assert isinstance(v, int)
         assert 2000 <= v <= 2100
 
     def test_current_month(self) -> None:
         """sensing_current MONTH returns 1-12."""
-        v = self._eval('sensing_current', fields={'CURRENTMENU': 'MONTH'})
+        v = self._eval('sensing_current', fields={'CURRENTMENU': Field(value='MONTH')})
         assert isinstance(v, int)
         assert 1 <= v <= 12
 
     def test_current_date(self) -> None:
         """sensing_current DATE returns 1-31."""
-        v = self._eval('sensing_current', fields={'CURRENTMENU': 'DATE'})
+        v = self._eval('sensing_current', fields={'CURRENTMENU': Field(value='DATE')})
         assert isinstance(v, int)
         assert 1 <= v <= 31
 
     def test_current_dayofweek(self) -> None:
         """sensing_current DAYOFWEEK: 1=Sunday, …, 7=Saturday."""
-        v = self._eval('sensing_current', fields={'CURRENTMENU': 'DAYOFWEEK'})
+        v = self._eval('sensing_current', fields={'CURRENTMENU': Field(value='DAYOFWEEK')})
         assert isinstance(v, int)
         assert 1 <= v <= 7
         # Sunday check: June 30, 2026 is a Tuesday → dayofweek should be 3
@@ -3168,25 +3176,25 @@ class TestSensing:
 
     def test_current_hour(self) -> None:
         """sensing_current HOUR returns 0-23."""
-        v = self._eval('sensing_current', fields={'CURRENTMENU': 'HOUR'})
+        v = self._eval('sensing_current', fields={'CURRENTMENU': Field(value='HOUR')})
         assert isinstance(v, int)
         assert 0 <= v <= 23
 
     def test_current_minute(self) -> None:
         """sensing_current MINUTE returns 0-59."""
-        v = self._eval('sensing_current', fields={'CURRENTMENU': 'MINUTE'})
+        v = self._eval('sensing_current', fields={'CURRENTMENU': Field(value='MINUTE')})
         assert isinstance(v, int)
         assert 0 <= v <= 59
 
     def test_current_second(self) -> None:
         """sensing_current SECOND returns 0-59."""
-        v = self._eval('sensing_current', fields={'CURRENTMENU': 'SECOND'})
+        v = self._eval('sensing_current', fields={'CURRENTMENU': Field(value='SECOND')})
         assert isinstance(v, int)
         assert 0 <= v <= 59
 
     def test_current_invalid_menu(self) -> None:
         """sensing_current with unknown menu returns 0."""
-        v = self._eval('sensing_current', fields={'CURRENTMENU': 'INVALID'})
+        v = self._eval('sensing_current', fields={'CURRENTMENU': Field(value='INVALID')})
         assert v == 0
 
     # ═════════════════════════════════════════════════════════════════
@@ -3219,7 +3227,7 @@ class TestSensing:
     def test_askandwait_resets_answer_and_blocks(self) -> None:
         """askandwait resets answer, sets say_text, and yields until answer arrives."""
         t = _stack('sensing_askandwait')
-        _set(t, 'b0', inputs={'QUESTION': 'What is your name?'})
+        _set(t, 'b0', inputs={'QUESTION': Input(value='What is your name?')})
         rt = _rt(t)
         # Pre-set an old answer — should be cleared by askandwait
         rt._answer = 'old'
@@ -3257,7 +3265,7 @@ class TestSensing:
     def test_setdragmode_draggable(self) -> None:
         """sensing_setdragmode sets sprite to draggable."""
         t = _stack('sensing_setdragmode')
-        _set(t, 'b0', fields={'DRAG_MODE': 'draggable'})
+        _set(t, 'b0', fields={'DRAG_MODE': Field(value='draggable')})
         rt = _run(t)
         assert len(rt.threads) == 0
         assert t.draggable is True
@@ -3265,7 +3273,7 @@ class TestSensing:
     def test_setdragmode_not_draggable(self) -> None:
         """sensing_setdragmode sets sprite to not draggable."""
         t = _stack('sensing_setdragmode')
-        _set(t, 'b0', fields={'DRAG_MODE': 'not draggable'})
+        _set(t, 'b0', fields={'DRAG_MODE': Field(value='not draggable')})
         # Start as draggable to verify the opcode toggles it
         t.draggable = True
         rt = _run(t)
@@ -3307,68 +3315,68 @@ class TestPen:
 
     def test_pen_set_color_by_number_red(self) -> None:
         t = _stack('pen_setPenColorToColor')
-        _set(t, 'b0', inputs={'COLOR': 0xFF0000})
+        _set(t, 'b0', inputs={'COLOR': Input(value=0xFF0000)})
         rt = _run(t)
         assert t.pen_color == (255, 0, 0)
 
     def test_pen_set_color_by_number_green(self) -> None:
         t = _stack('pen_setPenColorToColor')
-        _set(t, 'b0', inputs={'COLOR': 0x00FF00})
+        _set(t, 'b0', inputs={'COLOR': Input(value=0x00FF00)})
         rt = _run(t)
         assert t.pen_color == (0, 255, 0)
 
     def test_pen_set_color_by_number_blue(self) -> None:
         t = _stack('pen_setPenColorToColor')
-        _set(t, 'b0', inputs={'COLOR': 0x0000FF})
+        _set(t, 'b0', inputs={'COLOR': Input(value=0x0000FF)})
         rt = _run(t)
         assert t.pen_color == (0, 0, 255)
 
     def test_pen_set_color_by_number_white(self) -> None:
         t = _stack('pen_setPenColorToColor')
-        _set(t, 'b0', inputs={'COLOR': 0xFFFFFF})
+        _set(t, 'b0', inputs={'COLOR': Input(value=0xFFFFFF)})
         rt = _run(t)
         assert t.pen_color == (255, 255, 255)
 
     def test_pen_set_color_by_number_zero(self) -> None:
         t = _stack('pen_setPenColorToColor')
-        _set(t, 'b0', inputs={'COLOR': 0x000000})
+        _set(t, 'b0', inputs={'COLOR': Input(value=0x000000)})
         rt = _run(t)
         assert t.pen_color == (0, 0, 0)
 
     def test_pen_change_pen_size_by_default(self) -> None:
         t = _stack('pen_changePenSizeBy')
-        _set(t, 'b0', inputs={'SIZE': 5})
+        _set(t, 'b0', inputs={'SIZE': Input(value=5)})
         rt = _run(t)
         assert t.pen_size == 6.0  # default 1 + 5
 
     def test_pen_change_pen_size_by_negative(self) -> None:
         t = _stack('pen_changePenSizeBy')
-        _set(t, 'b0', inputs={'SIZE': -0.5})
+        _set(t, 'b0', inputs={'SIZE': Input(value=-0.5)})
         rt = _run(t)
         assert t.pen_size == 0.5  # default 1 - 0.5
 
     def test_pen_change_pen_size_by_clamp_bottom(self) -> None:
         t = _stack('pen_changePenSizeBy')
         # start at 1, subtract 5 → max(0, -4) = 0
-        _set(t, 'b0', inputs={'SIZE': -5})
+        _set(t, 'b0', inputs={'SIZE': Input(value=-5)})
         rt = _run(t)
         assert t.pen_size == 0.0
 
     def test_pen_set_pen_size_to(self) -> None:
         t = _stack('pen_setPenSizeTo')
-        _set(t, 'b0', inputs={'SIZE': 42})
+        _set(t, 'b0', inputs={'SIZE': Input(value=42)})
         rt = _run(t)
         assert t.pen_size == 42.0
 
     def test_pen_set_pen_size_to_zero(self) -> None:
         t = _stack('pen_setPenSizeTo')
-        _set(t, 'b0', inputs={'SIZE': 0})
+        _set(t, 'b0', inputs={'SIZE': Input(value=0)})
         rt = _run(t)
         assert t.pen_size == 0.0
 
     def test_pen_set_pen_size_to_negative_clamped(self) -> None:
         t = _stack('pen_setPenSizeTo')
-        _set(t, 'b0', inputs={'SIZE': -10})
+        _set(t, 'b0', inputs={'SIZE': Input(value=-10)})
         rt = _run(t)
         assert t.pen_size == 0.0
 
@@ -3404,9 +3412,9 @@ class TestMixed:
     def test_move_then_wait_then_move(self) -> None:
         """Verifies a real Scratch-like script: move → wait 0.1s → move."""
         t = _stack('motion_movesteps', 'control_wait', 'motion_movesteps')
-        _set(t, 'b0', inputs={'STEPS': 20})
-        _set(t, 'b1', inputs={'DURATION': 0.1})  # 6 frames
-        _set(t, 'b2', inputs={'STEPS': 10})
+        _set(t, 'b0', inputs={'STEPS': Input(value=20)})
+        _set(t, 'b1', inputs={'DURATION': Input(value=0.1)})  # 6 frames
+        _set(t, 'b2', inputs={'STEPS': Input(value=10)})
         t.y = 0.0
         rt = _rt(t)
         rt.green_flag()
@@ -3444,7 +3452,7 @@ class TestValueResolution:
         t.lists['l1'] = ListVar('myList', contents=['a', 'b'])
         # Add a reporter block for block-reference tests
         t.blocks['reporter'] = Block(
-            id='reporter', opcode='data_variable', fields={'VARIABLE': 'myVar'}
+            id='reporter', opcode='data_variable', fields={'VARIABLE': Field(value='myVar')}
         )
         rt.add_target(t)
         return rt, t
@@ -3483,7 +3491,7 @@ class TestValueResolution:
         """Test that _input_raw strips the Input wrapper before resolve_input."""
         rt, t = self._make_rt()
         t.blocks['b'] = Block(
-            id='b', opcode='data_setvariableto', inputs={'VALUE': Input(name='', value=99)}
+            id='b', opcode='data_setvariableto', inputs={'VALUE': Input(value=99)}
         )
         value = _input_raw(t.blocks['b'], 'VALUE')
         assert rt.resolve_input(t, value) == 99
@@ -3493,7 +3501,7 @@ class TestValueResolution:
         t.blocks['b'] = Block(
             id='b',
             opcode='data_setvariableto',
-            inputs={'VALUE': Input(name='', value=77, shadow=True)},
+            inputs={'VALUE': Input(value=77, shadow=True)},
         )
         value = _input_raw(t.blocks['b'], 'VALUE')
         assert rt.resolve_input(t, value) == 77
@@ -3618,7 +3626,7 @@ class TestValueResolution:
         t.blocks['b'] = Block(
             id='b',
             opcode='control_wait',
-            inputs={'DURATION': Input(name='', value=[5, '0.5'], shadow=True)},
+            inputs={'DURATION': Input(value=[5, '0.5'], shadow=True)},
         )
         # [5, '0.5'] = positive number literal → '0.5' → float('0.5') = 0.5
         val = rt.num(t, t.blocks['b'], 'DURATION')
@@ -3629,7 +3637,7 @@ class TestValueResolution:
         t.blocks['b'] = Block(
             id='b',
             opcode='control_wait',
-            inputs={'DURATION': Input(name='', value=[12, 'v1'], shadow=True)},
+            inputs={'DURATION': Input(value=[12, 'v1'], shadow=True)},
         )
         # [12, 'v1'] = variable reference → myVar=42 → float(42) = 42.0
         val = rt.num(t, t.blocks['b'], 'DURATION')
@@ -3640,7 +3648,7 @@ class TestValueResolution:
         t.blocks['b'] = Block(
             id='b',
             opcode='data_setvariableto',
-            inputs={'VALUE': Input(name='', value=[10, 'hello'], shadow=True)},
+            inputs={'VALUE': Input(value=[10, 'hello'], shadow=True)},
         )
         val = rt.val(t, t.blocks['b'], 'VALUE')
         assert val == 'hello'
@@ -3650,7 +3658,7 @@ class TestValueResolution:
         t.blocks['b'] = Block(
             id='b',
             opcode='data_setvariableto',
-            inputs={'VALUE': Input(name='', value=[12, 'v1'], shadow=True)},
+            inputs={'VALUE': Input(value=[12, 'v1'], shadow=True)},
         )
         val = rt.val(t, t.blocks['b'], 'VALUE')
         assert val == 42
@@ -3671,7 +3679,6 @@ class TestInputFieldFormat:
     def test_parse_input_normalizes_number(self) -> None:
         """[1, 42] → normalized to [4, 42] (NUMBER)."""
         inp = _parse_input('STEPS', [1, 42])
-        assert inp.name == 'STEPS'
         assert inp.value == [PrimitiveType.NUMBER, 42]
         assert inp.shadow is True
 
@@ -3775,9 +3782,9 @@ class TestInputFieldFormat:
     def test_parse_field_preserves_name(self) -> None:
         """_parse_field stores the field name."""
         fld = _parse_field('VARIABLE', ['score', 'v1'])
-        assert fld.name == 'VARIABLE'
         assert fld.value == 'score'
         assert fld.id == 'v1'
+        assert fld.variable_type == ''
 
     def test_parse_field_no_id(self) -> None:
         fld = _parse_field('EFFECT', ['color'])
@@ -3808,22 +3815,22 @@ class TestInputFieldFormat:
 
     def test_serialize_input_roundtrip_shadow(self) -> None:
         """Input(shadow=True) → [1, value]."""
-        inp = Input(name='STEPS', value=10, shadow=True)
+        inp = Input(value=10, shadow=True)
         assert _serialize_input(inp) == [1, 10]
 
     def test_serialize_input_roundtrip_block_ref(self) -> None:
         """Input(shadow=False) → [2, value]."""
-        inp = Input(name='VALUE', value='block_abc', shadow=False)
+        inp = Input(value='block_abc', shadow=False)
         assert _serialize_input(inp) == [2, 'block_abc']
 
     def test_serialize_field_roundtrip_with_id(self) -> None:
         """Field with id → [value, id]."""
-        fld = Field(name='VARIABLE', value='score', id='v1')
+        fld = Field(value='score', id='v1')
         assert _serialize_field(fld) == ['score', 'v1']
 
     def test_serialize_field_roundtrip_no_id(self) -> None:
         """Field without id → [value, None]."""
-        fld = Field(name='EFFECT', value='color')
+        fld = Field(value='color')
         assert _serialize_field(fld) == ['color', None]
 
     # ── Full block parse round-trip ───────────────────────────────
@@ -3842,10 +3849,8 @@ class TestInputFieldFormat:
         block = _parse_block('b1', data)
         assert block.id == 'b1'
         assert block.opcode == 'data_setvariableto'
-        assert block.inputs['VALUE'].name == 'VALUE'
         assert block.inputs['VALUE'].value == [PrimitiveType.NUMBER, 42]
         assert block.inputs['VALUE'].shadow is True
-        assert block.fields['VARIABLE'].name == 'VARIABLE'
         assert block.fields['VARIABLE'].value == 'score'
         assert block.fields['VARIABLE'].id == 'v1'
         assert block.fields['VARIABLE'].variable_type == ''
@@ -3930,7 +3935,7 @@ class TestSound:
     def test_sound_setvolumeto(self) -> None:
         rt, t = self._make_rt()
         t.blocks['b'] = Block(
-            id='b', opcode='sound_setvolumeto', inputs={'VOLUME': Input(name='', value=75)}
+            id='b', opcode='sound_setvolumeto', inputs={'VOLUME': Input(value=75)}
         )
         rt.evaluate(t, 'b')  # run the handler
         assert t.volume == 75.0
@@ -3938,7 +3943,7 @@ class TestSound:
     def test_sound_setvolumeto_clamp_high(self) -> None:
         rt, t = self._make_rt()
         t.blocks['b'] = Block(
-            id='b', opcode='sound_setvolumeto', inputs={'VOLUME': Input(name='', value=150)}
+            id='b', opcode='sound_setvolumeto', inputs={'VOLUME': Input(value=150)}
         )
         rt.evaluate(t, 'b')
         assert t.volume == 100.0
@@ -3946,7 +3951,7 @@ class TestSound:
     def test_sound_setvolumeto_clamp_low(self) -> None:
         rt, t = self._make_rt()
         t.blocks['b'] = Block(
-            id='b', opcode='sound_setvolumeto', inputs={'VOLUME': Input(name='', value=-10)}
+            id='b', opcode='sound_setvolumeto', inputs={'VOLUME': Input(value=-10)}
         )
         rt.evaluate(t, 'b')
         assert t.volume == 0.0
@@ -3955,7 +3960,7 @@ class TestSound:
         rt, t = self._make_rt()
         t.volume = 50.0
         t.blocks['b'] = Block(
-            id='b', opcode='sound_changevolumeby', inputs={'VOLUME': Input(name='', value=30)}
+            id='b', opcode='sound_changevolumeby', inputs={'VOLUME': Input(value=30)}
         )
         rt.evaluate(t, 'b')
         assert t.volume == 80.0
@@ -3964,7 +3969,7 @@ class TestSound:
         rt, t = self._make_rt()
         t.volume = 80.0
         t.blocks['b'] = Block(
-            id='b', opcode='sound_changevolumeby', inputs={'VOLUME': Input(name='', value=50)}
+            id='b', opcode='sound_changevolumeby', inputs={'VOLUME': Input(value=50)}
         )
         rt.evaluate(t, 'b')
         assert t.volume == 100.0
@@ -3973,7 +3978,7 @@ class TestSound:
         rt, t = self._make_rt()
         t.volume = 30.0
         t.blocks['b'] = Block(
-            id='b', opcode='sound_changevolumeby', inputs={'VOLUME': Input(name='', value=-50)}
+            id='b', opcode='sound_changevolumeby', inputs={'VOLUME': Input(value=-50)}
         )
         rt.evaluate(t, 'b')
         assert t.volume == 0.0
@@ -3985,8 +3990,8 @@ class TestSound:
         t.blocks['b'] = Block(
             id='b',
             opcode='sound_seteffectto',
-            fields={'EFFECT': Field(name='EFFECT', value='PITCH')},
-            inputs={'VALUE': Input(name='', value=50)},
+            fields={'EFFECT': Field(value='PITCH')},
+            inputs={'VALUE': Input(value=50)},
         )
         rt.evaluate(t, 'b')
         assert t.sound_effects['PITCH'] == 50.0
@@ -3996,8 +4001,8 @@ class TestSound:
         t.blocks['b'] = Block(
             id='b',
             opcode='sound_seteffectto',
-            fields={'EFFECT': Field(name='EFFECT', value='PAN')},
-            inputs={'VALUE': Input(name='', value=-50)},
+            fields={'EFFECT': Field(value='PAN')},
+            inputs={'VALUE': Input(value=-50)},
         )
         rt.evaluate(t, 'b')
         assert t.sound_effects['PAN'] == -50.0
@@ -4007,8 +4012,8 @@ class TestSound:
         t.blocks['b'] = Block(
             id='b',
             opcode='sound_seteffectto',
-            fields={'EFFECT': Field(name='EFFECT', value='ECHO')},
-            inputs={'VALUE': Input(name='', value=50)},
+            fields={'EFFECT': Field(value='ECHO')},
+            inputs={'VALUE': Input(value=50)},
         )
         rt.evaluate(t, 'b')
         # Unknown effect is silently ignored
@@ -4021,8 +4026,8 @@ class TestSound:
         t.blocks['b'] = Block(
             id='b',
             opcode='sound_changeeffectby',
-            fields={'EFFECT': Field(name='EFFECT', value='PITCH')},
-            inputs={'VALUE': Input(name='', value=20)},
+            fields={'EFFECT': Field(value='PITCH')},
+            inputs={'VALUE': Input(value=20)},
         )
         rt.evaluate(t, 'b')
         assert t.sound_effects['PITCH'] == 30.0
@@ -4033,8 +4038,8 @@ class TestSound:
         t.blocks['b'] = Block(
             id='b',
             opcode='sound_changeeffectby',
-            fields={'EFFECT': Field(name='EFFECT', value='PAN')},
-            inputs={'VALUE': Input(name='', value=-25)},
+            fields={'EFFECT': Field(value='PAN')},
+            inputs={'VALUE': Input(value=-25)},
         )
         rt.evaluate(t, 'b')
         assert t.sound_effects['PAN'] == -25.0
@@ -4057,7 +4062,7 @@ class TestSound:
     def test_sound_settempo(self) -> None:
         rt, t = self._make_rt()
         t.blocks['b'] = Block(
-            id='b', opcode='sound_settempo', inputs={'TEMPO': Input(name='', value=120)}
+            id='b', opcode='sound_settempo', inputs={'TEMPO': Input(value=120)}
         )
         rt.evaluate(t, 'b')
         assert rt.stage and rt.stage.tempo == 120.0
@@ -4065,7 +4070,7 @@ class TestSound:
     def test_sound_settempo_clamp_low(self) -> None:
         rt, t = self._make_rt()
         t.blocks['b'] = Block(
-            id='b', opcode='sound_settempo', inputs={'TEMPO': Input(name='', value=5)}
+            id='b', opcode='sound_settempo', inputs={'TEMPO': Input(value=5)}
         )
         rt.evaluate(t, 'b')
         assert rt.stage and rt.stage.tempo == 20.0
@@ -4073,7 +4078,7 @@ class TestSound:
     def test_sound_settempo_clamp_high(self) -> None:
         rt, t = self._make_rt()
         t.blocks['b'] = Block(
-            id='b', opcode='sound_settempo', inputs={'TEMPO': Input(name='', value=1000)}
+            id='b', opcode='sound_settempo', inputs={'TEMPO': Input(value=1000)}
         )
         rt.evaluate(t, 'b')
         assert rt.stage and rt.stage.tempo == 500.0
@@ -4083,7 +4088,7 @@ class TestSound:
         assert rt.stage is not None
         rt.stage.tempo = 80.0
         t.blocks['b'] = Block(
-            id='b', opcode='sound_changetempo', inputs={'TEMPO': Input(name='', value=30)}
+            id='b', opcode='sound_changetempo', inputs={'TEMPO': Input(value=30)}
         )
         rt.evaluate(t, 'b')
         assert rt.stage.tempo == 110.0
@@ -4093,7 +4098,7 @@ class TestSound:
         assert rt.stage is not None
         rt.stage.tempo = 10.0
         t.blocks['b'] = Block(
-            id='b', opcode='sound_changetempo', inputs={'TEMPO': Input(name='', value=-5)}
+            id='b', opcode='sound_changetempo', inputs={'TEMPO': Input(value=-5)}
         )
         rt.evaluate(t, 'b')
         assert rt.stage.tempo == 20.0
@@ -4105,7 +4110,7 @@ class TestSound:
         t.blocks['b'] = Block(
             id='b',
             opcode='sound_sounds_menu',
-            fields={'SOUND_MENU': Field(name='SOUND_MENU', value='Meow')},
+            fields={'SOUND_MENU': Field(value='Meow')},
         )
         val = rt.evaluate(t, 'b')
         assert val == 'Meow'
@@ -4116,7 +4121,7 @@ class TestSound:
         """sound_play should not crash even without pygame.mixer."""
         rt, t = self._make_rt()
         t.blocks['b'] = Block(
-            id='b', opcode='sound_play', inputs={'SOUND_MENU': Input(name='', value='Meow')}
+            id='b', opcode='sound_play', inputs={'SOUND_MENU': Input(value='Meow')}
         )
         # Should not raise
         rt.evaluate(t, 'b')
@@ -4127,7 +4132,7 @@ class TestSound:
         t.blocks['b'] = Block(
             id='b',
             opcode='sound_playuntildone',
-            inputs={'SOUND_MENU': Input(name='', value='Meow')},
+            inputs={'SOUND_MENU': Input(value='Meow')},
         )
         # evaluate runs generator to completion internally
         rt.evaluate(t, 'b')
@@ -4168,8 +4173,8 @@ class TestSound:
         t.blocks['b'] = Block(
             id='b',
             opcode='sound_seteffectto',
-            fields={'EFFECT': Field(name='EFFECT', value='PITCH')},
-            inputs={'VALUE': Input(name='', value=500)},
+            fields={'EFFECT': Field(value='PITCH')},
+            inputs={'VALUE': Input(value=500)},
         )
         rt.evaluate(t, 'b')
         assert t.sound_effects['PITCH'] == 360.0
@@ -4178,8 +4183,8 @@ class TestSound:
         t.blocks['b'] = Block(
             id='b',
             opcode='sound_seteffectto',
-            fields={'EFFECT': Field(name='EFFECT', value='PITCH')},
-            inputs={'VALUE': Input(name='', value=-500)},
+            fields={'EFFECT': Field(value='PITCH')},
+            inputs={'VALUE': Input(value=-500)},
         )
         rt.evaluate(t, 'b')
         assert t.sound_effects['PITCH'] == -360.0
@@ -4190,8 +4195,8 @@ class TestSound:
         t.blocks['b'] = Block(
             id='b',
             opcode='sound_seteffectto',
-            fields={'EFFECT': Field(name='EFFECT', value='PAN')},
-            inputs={'VALUE': Input(name='', value=200)},
+            fields={'EFFECT': Field(value='PAN')},
+            inputs={'VALUE': Input(value=200)},
         )
         rt.evaluate(t, 'b')
         assert t.sound_effects['PAN'] == 100.0
@@ -4200,8 +4205,8 @@ class TestSound:
         t.blocks['b'] = Block(
             id='b',
             opcode='sound_seteffectto',
-            fields={'EFFECT': Field(name='EFFECT', value='PAN')},
-            inputs={'VALUE': Input(name='', value=-200)},
+            fields={'EFFECT': Field(value='PAN')},
+            inputs={'VALUE': Input(value=-200)},
         )
         rt.evaluate(t, 'b')
         assert t.sound_effects['PAN'] == -100.0
@@ -4212,8 +4217,8 @@ class TestSound:
         t.blocks['b'] = Block(
             id='b',
             opcode='sound_changeeffectby',
-            fields={'EFFECT': Field(name='EFFECT', value='PITCH')},
-            inputs={'VALUE': Input(name='', value=20)},
+            fields={'EFFECT': Field(value='PITCH')},
+            inputs={'VALUE': Input(value=20)},
         )
         rt.evaluate(t, 'b')
         assert t.sound_effects['PITCH'] == 360.0

@@ -399,7 +399,7 @@ def _target_xy(rt: Runtime, target_name: str) -> tuple[float, float] | None:
 
 
 def motion_goto(rt: Runtime, tgt: Target, block: Block) -> None:
-    target_name = _str(block.fields.get('TO'))
+    target_name = _field_val(block.fields.get('TO'))
     xy = _target_xy(rt, target_name)
     if xy is not None:
         tgt.set_xy(xy[0], xy[1])
@@ -442,7 +442,7 @@ def motion_pointindirection(rt: Runtime, tgt: Target, block: Block) -> None:
 
 
 def motion_pointtowards(rt: Runtime, tgt: Target, block: Block) -> None:
-    target_name = _str(block.fields.get('TOWARDS'))
+    target_name = _field_val(block.fields.get('TOWARDS'))
     xy = _target_xy(rt, target_name)
     if xy is None:
         return
@@ -539,7 +539,7 @@ def motion_glidesecstoxy(rt: Runtime, tgt: Target, block: Block) -> Any:
 
 def motion_glideto(rt: Runtime, tgt: Target, block: Block) -> Any:
     secs = rt.num(tgt, block, 'SECS')
-    target_name = _str(block.fields.get('TO'))
+    target_name = _field_val(block.fields.get('TO'))
     xy = _target_xy(rt, target_name)
     if xy is None:
         return

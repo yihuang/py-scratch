@@ -16,7 +16,7 @@ from scratch.vm.opcodes import OPCODE_MAP
 from scratch.vm.renderer import (
     Renderer,
 )
-from scratch.vm.types import Costume
+from scratch.vm.types import Costume, Input
 
 # ── Placeholder costume helpers ──────────────────────────────────────────
 
@@ -97,16 +97,16 @@ def build_demo_project() -> Runtime:
 
     ball.blocks = {
         'hat1': make_block('event_whenflagclicked', 'hat1', top_level=True, next_='rep1'),
-        'rep1': make_block('control_forever', 'rep1', parent='hat1', inputs={'SUBSTACK': 'stack1'}),
+        'rep1': make_block('control_forever', 'rep1', parent='hat1', inputs={'SUBSTACK': Input(value='stack1')}),
         'stack1': Block(
             id='stack1',
             opcode='motion_movesteps',
             parent='rep1',
-            inputs={'STEPS': 5},
+            inputs={'STEPS': Input(value=5)},
             next='bounce1',
         ),
         'bounce1': Block(id='bounce1', opcode='motion_ifonedgebounce', parent='rep1', next='wait1'),
-        'wait1': Block(id='wait1', opcode='control_wait', parent='rep1', inputs={'DURATION': 0.01}),
+        'wait1': Block(id='wait1', opcode='control_wait', parent='rep1', inputs={'DURATION': Input(value=0.01)}),
     }
     ball._rebuild_hat_cache()
     rt.add_target(ball)
@@ -120,18 +120,18 @@ def build_demo_project() -> Runtime:
 
     square.blocks = {
         'hat2': make_block('event_whenflagclicked', 'hat2', top_level=True, next_='rep2'),
-        'rep2': make_block('control_forever', 'rep2', parent='hat2', inputs={'SUBSTACK': 'goto1'}),
+        'rep2': make_block('control_forever', 'rep2', parent='hat2', inputs={'SUBSTACK': Input(value='goto1')}),
         'goto1': Block(
             id='goto1',
             opcode='motion_gotoxy',
             parent='rep2',
             inputs={
-                'X': 100,  # static position
-                'Y': 0,
+                'X': Input(value=100),  # static position
+                'Y': Input(value=0),
             },
             next='wait2',
         ),
-        'wait2': Block(id='wait2', opcode='control_wait', parent='rep2', inputs={'DURATION': 0.05}),
+        'wait2': Block(id='wait2', opcode='control_wait', parent='rep2', inputs={'DURATION': Input(value=0.05)}),
     }
     square._rebuild_hat_cache()
     rt.add_target(square)
@@ -149,18 +149,18 @@ def build_demo_project() -> Runtime:
 
     tri.blocks = {
         'hat3': make_block('event_whenflagclicked', 'hat3', top_level=True, next_='rep3'),
-        'rep3': make_block('control_forever', 'rep3', parent='hat3', inputs={'SUBSTACK': 'turn3'}),
+        'rep3': make_block('control_forever', 'rep3', parent='hat3', inputs={'SUBSTACK': Input(value='turn3')}),
         'turn3': Block(
             id='turn3',
             opcode='motion_turnright',
             parent='rep3',
-            inputs={'DEGREES': 3},
+            inputs={'DEGREES': Input(value=3)},
             next='step3',
         ),
         'step3': Block(
-            id='step3', opcode='motion_movesteps', parent='rep3', inputs={'STEPS': 10}, next='wait3'
+            id='step3', opcode='motion_movesteps', parent='rep3', inputs={'STEPS': Input(value=10)}, next='wait3'
         ),
-        'wait3': Block(id='wait3', opcode='control_wait', parent='rep3', inputs={'DURATION': 0.02}),
+        'wait3': Block(id='wait3', opcode='control_wait', parent='rep3', inputs={'DURATION': Input(value=0.02)}),
     }
     tri._rebuild_hat_cache()
     rt.add_target(tri)
@@ -181,17 +181,17 @@ def build_demo_project() -> Runtime:
             id='pen_color1',
             opcode='pen_setPenColorToColor',
             parent='hat4',
-            inputs={'COLOR': 0x0000FF},
+            inputs={'COLOR': Input(value=0x0000FF)},
             next='rep4',
         ),
         'rep4': make_block(
-            'control_forever', 'rep4', parent='hat4', inputs={'SUBSTACK': 'move_pen'}
+            'control_forever', 'rep4', parent='hat4', inputs={'SUBSTACK': Input(value='move_pen')}
         ),
         'move_pen': Block(
             id='move_pen',
             opcode='motion_movesteps',
             parent='rep4',
-            inputs={'STEPS': 8},
+            inputs={'STEPS': Input(value=8)},
             next='bounce_pen',
         ),
         'bounce_pen': Block(
@@ -201,11 +201,11 @@ def build_demo_project() -> Runtime:
             id='turn_pen',
             opcode='motion_turnright',
             parent='rep4',
-            inputs={'DEGREES': 2},
+            inputs={'DEGREES': Input(value=2)},
             next='wait_pen',
         ),
         'wait_pen': Block(
-            id='wait_pen', opcode='control_wait', parent='rep4', inputs={'DURATION': 0.01}
+            id='wait_pen', opcode='control_wait', parent='rep4', inputs={'DURATION': Input(value=0.01)}
         ),
     }
     pen._rebuild_hat_cache()

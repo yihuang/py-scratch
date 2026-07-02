@@ -18,7 +18,7 @@ def set_variable(variable: str, value: int | float | str | Reporter = 0) -> Stac
     return StackExpr(
         opcode="data_setvariableto",
         inputs=ins,
-        fields={"VARIABLE": Field(name="VARIABLE", value=variable)},
+        fields={"VARIABLE": Field(value=variable)},
         shadow_reporters=shadows,
     )
 
@@ -30,7 +30,7 @@ def change_variable(variable: str, change: int | float | Reporter = 1) -> StackE
     return StackExpr(
         opcode="data_changevariableby",
         inputs=ins,
-        fields={"VARIABLE": Field(name="VARIABLE", value=variable)},
+        fields={"VARIABLE": Field(value=variable)},
         shadow_reporters=shadows,
     )
 
@@ -40,7 +40,7 @@ def show_variable(variable: str) -> StackExpr:
 
     return StackExpr(
         opcode="data_showvariable",
-        fields={"VARIABLE": Field(name="VARIABLE", value=variable)},
+        fields={"VARIABLE": Field(value=variable)},
     )
 
 
@@ -49,7 +49,7 @@ def hide_variable(variable: str) -> StackExpr:
 
     return StackExpr(
         opcode="data_hidevariable",
-        fields={"VARIABLE": Field(name="VARIABLE", value=variable)},
+        fields={"VARIABLE": Field(value=variable)},
     )
 
 
@@ -61,7 +61,7 @@ def variable(variable: str) -> Reporter:
 
     return Reporter(
         opcode="data_variable",
-        fields={"VARIABLE": Field(name="VARIABLE", value=variable)},
+        fields={"VARIABLE": Field(value=variable)},
     )
 
 
@@ -75,7 +75,7 @@ def add_to_list(list_: str, item: int | float | str | Reporter) -> StackExpr:
     return StackExpr(
         opcode="data_addtolist",
         inputs=ins,
-        fields={"LIST": Field(name="LIST", value=list_, variable_type="list")},
+        fields={"LIST": Field(value=list_, variable_type="list")},
         shadow_reporters=shadows,
     )
 
@@ -87,7 +87,7 @@ def delete_of_list(list_: str, index: int | float | Reporter = 1) -> StackExpr:
     return StackExpr(
         opcode="data_deleteoflist",
         inputs=ins,
-        fields={"LIST": Field(name="LIST", value=list_, variable_type="list")},
+        fields={"LIST": Field(value=list_, variable_type="list")},
         shadow_reporters=shadows,
     )
 
@@ -99,7 +99,7 @@ def insert_at_list(list_: str, item: int | float | str | Reporter, index: int | 
     return StackExpr(
         opcode="data_insertatlist",
         inputs=ins,
-        fields={"LIST": Field(name="LIST", value=list_, variable_type="list")},
+        fields={"LIST": Field(value=list_, variable_type="list")},
         shadow_reporters=shadows,
     )
 
@@ -111,7 +111,7 @@ def replace_item_of_list(list_: str, index: int | float | Reporter, item: int | 
     return StackExpr(
         opcode="data_replaceitemoflist",
         inputs=ins,
-        fields={"LIST": Field(name="LIST", value=list_, variable_type="list")},
+        fields={"LIST": Field(value=list_, variable_type="list")},
         shadow_reporters=shadows,
     )
 
@@ -126,7 +126,7 @@ def item_of_list(list_: str, index: int | float | Reporter = 1) -> Reporter:
     return Reporter(
         opcode="data_itemoflist",
         inputs=ins,
-        fields={"LIST": Field(name="LIST", value=list_, variable_type="list")},
+        fields={"LIST": Field(value=list_, variable_type="list")},
         shadow_reporters=shadows,
     )
 
@@ -136,7 +136,7 @@ def length_of_list(list_: str) -> Reporter:
 
     return Reporter(
         opcode="data_lengthoflist",
-        fields={"LIST": Field(name="LIST", value=list_, variable_type="list")},
+        fields={"LIST": Field(value=list_, variable_type="list")},
     )
 
 
@@ -147,6 +147,6 @@ def list_contains_item(list_: str, item: int | float | str | Reporter) -> Report
     return Reporter(
         opcode="data_listcontainsitem",
         inputs=ins,
-        fields={"LIST": Field(name="LIST", value=list_, variable_type="list")},
+        fields={"LIST": Field(value=list_, variable_type="list")},
         shadow_reporters=shadows,
     )

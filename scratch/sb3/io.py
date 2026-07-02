@@ -204,7 +204,6 @@ def _parse_primitive_block(block_id: str, data: list[Any]) -> Block:
     if ptype is PrimitiveType.BROADCAST:
         opcode = 'event_broadcast_menu'
         fields['BROADCAST_OPTION'] = Field(
-            name='BROADCAST_OPTION',
             value=data[1] if len(data) > 1 else '',
             id=data[2] if len(data) > 2 else None,
             variable_type='broadcast_msg',
@@ -212,7 +211,6 @@ def _parse_primitive_block(block_id: str, data: list[Any]) -> Block:
     elif ptype is PrimitiveType.VARIABLE:
         opcode = 'data_variable'
         fields['VARIABLE'] = Field(
-            name='VARIABLE',
             value=data[1] if len(data) > 1 else '',
             id=data[2] if len(data) > 2 else None,
             variable_type='',
@@ -222,7 +220,6 @@ def _parse_primitive_block(block_id: str, data: list[Any]) -> Block:
     elif ptype is PrimitiveType.LIST:
         opcode = 'data_listcontents'
         fields['LIST'] = Field(
-            name='LIST',
             value=data[1] if len(data) > 1 else '',
             id=data[2] if len(data) > 2 else None,
             variable_type='list',
@@ -231,7 +228,7 @@ def _parse_primitive_block(block_id: str, data: list[Any]) -> Block:
             top_level, x, y = True, data[3], data[4]
     else:
         opcode, field_name = _LITERAL_PRIMITIVES[ptype]
-        fields[field_name] = Field(name=field_name, value=data[1] if len(data) > 1 else None)
+        fields[field_name] = Field(value=data[1] if len(data) > 1 else None)
 
     return Block(
         id=block_id,
@@ -280,7 +277,7 @@ def _parse_input(name: str, data: list[Any]) -> Input:
             value = [PrimitiveType.NUMBER, value]
         # else leave as-is (None, etc.)
 
-    return Input(name=name, value=value, shadow=is_shadow)
+    return Input(value=value, shadow=is_shadow)
 
 def _parse_mutation(data: dict[str, Any] | None) -> Mutation | None:
     """Parse the mutation dict from a block, or ``None`` if absent."""
@@ -320,7 +317,7 @@ def _parse_field(name: str, data: list[Any]) -> Field:
     else:
         var_type = None
 
-    return Field(name=name, value=value, id=field_id, variable_type=var_type)
+    return Field(value=value, id=field_id, variable_type=var_type)
 
 
 

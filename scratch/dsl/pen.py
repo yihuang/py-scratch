@@ -34,7 +34,7 @@ def change_pen_color_by(change: int | float | Reporter = 10) -> StackExpr:
     return StackExpr(
         opcode="pen_changePenColorParamBy",
         inputs=ins,
-        fields={"colorParam": Field(name="colorParam", value="color")},
+        fields={"colorParam": Field(value="color")},
         shadow_reporters=shadows,
     )
 
@@ -46,7 +46,7 @@ def set_pen_color_to(color: int | float | Reporter = 0) -> StackExpr:
     return StackExpr(
         opcode="pen_setPenColorParamTo",
         inputs=ins,
-        fields={"colorParam": Field(name="colorParam", value="color")},
+        fields={"colorParam": Field(value="color")},
         shadow_reporters=shadows,
     )
 
@@ -58,7 +58,7 @@ def change_pen_shade_by(change: int | float | Reporter = 10) -> StackExpr:
     return StackExpr(
         opcode="pen_changePenColorParamBy",
         inputs=ins,
-        fields={"colorParam": Field(name="colorParam", value="shade")},
+        fields={"colorParam": Field(value="color")},
         shadow_reporters=shadows,
     )
 
@@ -70,7 +70,7 @@ def set_pen_shade_to(shade: int | float | Reporter = 50) -> StackExpr:
     return StackExpr(
         opcode="pen_setPenColorParamTo",
         inputs=ins,
-        fields={"colorParam": Field(name="colorParam", value="shade")},
+        fields={"colorParam": Field(value="color")},
         shadow_reporters=shadows,
     )
 
@@ -95,7 +95,7 @@ def pen_color(color: str = "#000000") -> StackExpr:
 
     return StackExpr(
         opcode="pen_setPenColorToColor",
-        fields={"COLOR": Field(name="COLOR", value=color)},
+        fields={"COLOR": Field(value=color)},
     )
 
 
@@ -111,7 +111,7 @@ def pen_saturation(saturation: int | float | Reporter = 100) -> StackExpr:
     return StackExpr(
         opcode="pen_setPenColorParamTo",
         inputs=ins,
-        fields={"colorParam": Field(name="colorParam", value="saturation")},
+        fields={"colorParam": Field(value="color")},
         shadow_reporters=shadows,
     )
 
@@ -123,7 +123,7 @@ def pen_brightness(brightness: int | float | Reporter = 100) -> StackExpr:
     return StackExpr(
         opcode="pen_setPenColorParamTo",
         inputs=ins,
-        fields={"colorParam": Field(name="colorParam", value="brightness")},
+        fields={"colorParam": Field(value="color")},
         shadow_reporters=shadows,
     )
 
@@ -135,6 +135,6 @@ def pen_hue(hue: int | float | Reporter = 0) -> StackExpr:
     return StackExpr(
         opcode="pen_setPenColorParamTo",
         inputs=ins,
-        fields={"colorParam": Field(name="colorParam", value="hue")},
+        fields={"colorParam": Field(value="color")},
         shadow_reporters=shadows,
     )

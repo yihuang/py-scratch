@@ -19,7 +19,7 @@ def when_key_pressed(key: str = "space") -> StackExpr:
 
     return StackExpr(
         opcode="event_whenkeypressed",
-        fields={"KEY_OPTION": Field(name="KEY_OPTION", value=key)},
+        fields={"KEY_OPTION": Field(value=key)},
     )
 
 
@@ -33,7 +33,7 @@ def when_backdrop_switches_to(backdrop: str = "next backdrop") -> StackExpr:
 
     return StackExpr(
         opcode="event_whenbackdropswitchesto",
-        fields={"BACKDROP": Field(name="BACKDROP", value=backdrop)},
+        fields={"BACKDROP": Field(value=backdrop)},
     )
 
 
@@ -47,7 +47,7 @@ def when_greater_than(metric: str = "loudness", value: int | float | Reporter = 
     return StackExpr(
         opcode="event_whengreaterthan",
         inputs=ins,
-        fields={"WHENGREATERTHAN_MENU": Field(name="WHENGREATERTHAN_MENU", value=metric)},
+        fields={"WHENGREATERTHAN_MENU": Field(value=metric)},
         shadow_reporters=shadows,
     )
 
@@ -57,7 +57,7 @@ def when_broadcast_received(message: str = "") -> StackExpr:
 
     return StackExpr(
         opcode="event_whenbroadcastreceived",
-        fields={"BROADCAST_OPTION": Field(name="BROADCAST_OPTION", value=message)},
+        fields={"BROADCAST_OPTION": Field(value=message)},
     )
 
 
@@ -66,7 +66,7 @@ def broadcast(message: str) -> StackExpr:
 
     return StackExpr(
         opcode="event_broadcast",
-        fields={"BROADCAST_OPTION": Field(name="BROADCAST_OPTION", value=message)},
+        fields={"BROADCAST_OPTION": Field(value=message)},
     )
 
 
@@ -75,5 +75,5 @@ def broadcast_and_wait(message: str) -> StackExpr:
 
     return StackExpr(
         opcode="event_broadcastandwait",
-        fields={"BROADCAST_OPTION": Field(name="BROADCAST_OPTION", value=message)},
+        fields={"BROADCAST_OPTION": Field(value=message)},
     )

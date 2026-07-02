@@ -63,7 +63,7 @@ def stop(option: str = "all") -> StackExpr:
 
     return StackExpr(
         opcode="control_stop",
-        fields={"STOP_OPTION": Field(name="STOP_OPTION", value=option)},
+        fields={"STOP_OPTION": Field(value=option)},
     )
 
 
@@ -89,7 +89,7 @@ def create_clone_of(sprite: str) -> StackExpr:
 
     return StackExpr(
         opcode="control_create_clone_of",
-        fields={"CLONE_OPTION": Field(name="CLONE_OPTION", value=sprite)},
+        fields={"CLONE_OPTION": Field(value=sprite)},
     )
 
 

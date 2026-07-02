@@ -46,7 +46,7 @@ def switch_costume_to(costume: str = "") -> StackExpr:
 
     return StackExpr(
         opcode="looks_switchcostumeto",
-        fields={"COSTUME": Field(name="COSTUME", value=costume)},
+        fields={"COSTUME": Field(value=costume)},
     )
 
 
@@ -60,7 +60,7 @@ def switch_backdrop_to(backdrop: str = "") -> StackExpr:
 
     return StackExpr(
         opcode="looks_switchbackdropto",
-        fields={"BACKDROP": Field(name="BACKDROP", value=backdrop)},
+        fields={"BACKDROP": Field(value=backdrop)},
     )
 
 
@@ -76,7 +76,7 @@ def change_effect(effect: str = "color", change: int | float | Reporter = 25) ->
     return StackExpr(
         opcode="looks_changeeffectby",
         inputs=ins,
-        fields={"EFFECT": Field(name="EFFECT", value=effect)},
+        fields={"EFFECT": Field(value=effect)},
         shadow_reporters=shadows,
     )
 
@@ -88,7 +88,7 @@ def set_effect(effect: str = "color", value: int | float | Reporter = 0) -> Stac
     return StackExpr(
         opcode="looks_seteffectto",
         inputs=ins,
-        fields={"EFFECT": Field(name="EFFECT", value=effect)},
+        fields={"EFFECT": Field(value=effect)},
         shadow_reporters=shadows,
     )
 
