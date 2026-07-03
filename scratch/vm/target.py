@@ -99,27 +99,11 @@ class Target:
     sounds: list[Sound] = field(default_factory=list)
 
     # ── Motion (sprites only) ─────────────────────────────────────────
-    _x: float = 0.0
-    _y: float = 0.0
+    x: float = 0.0
+    y: float = 0.0
     _direction: float = DEFAULT_DIRECTION
     size: float = DEFAULT_SIZE_PCT
     rotation_style: str = ROTATION_ALL_AROUND
-
-    @property
-    def x(self) -> float:
-        return self._x
-
-    @x.setter
-    def x(self, val: float) -> None:
-        self._x = val
-
-    @property
-    def y(self) -> float:
-        return self._y
-
-    @y.setter
-    def y(self, val: float) -> None:
-        self._y = val
 
     def set_xy(self, x: float, y: float) -> None:
         self.x = x
@@ -265,8 +249,8 @@ class Target:
             broadcasts=self.broadcasts,
             costumes=self.costumes,
             sounds=self.sounds,
-            _x=self.x,
-            _y=self.y,
+            x=self.x,
+            y=self.y,
             _direction=self.direction,
             size=self.size,
             rotation_style=self.rotation_style,

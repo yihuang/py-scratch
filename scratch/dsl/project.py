@@ -92,7 +92,7 @@ class ProjectTarget:
             # For SVG, default rotation centre = centre of viewBox
             if fmt == 'svg' and rotation_center_x is None:
                 m = re.search(
-                    r'viewBox="[\d.]+\s+[\d.]+\s+([\d.]+)\s+([\d.]+)"', data.decode('utf-8')
+                    r'viewBox="-?[\d.]+\s+-?[\d.]+\s+([\d.]+)\s+([\d.]+)"', data.decode('utf-8')
                 )
                 if m:
                     vb_w = float(m.group(1))

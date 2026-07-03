@@ -454,8 +454,8 @@ class Renderer:
             ox, oy = ox * cos_a - oy * sin_a, ox * sin_a + oy * cos_a
 
         rect = scaled.get_rect()
-        rect.x = int(sx - ox)
-        rect.y = int(sy - oy)
+        rect.x = int(round(sx - ox))
+        rect.y = int(round(sy - oy))
         self.screen.blit(scaled, rect)
 
     # ── Speech bubble drawing ─────────────────────────────────────────

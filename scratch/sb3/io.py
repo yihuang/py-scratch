@@ -83,8 +83,8 @@ def _parse_target(data: dict[str, Any]) -> Target:
     target = Target(
         name=data.get('name', 'Sprite'),
         is_stage=data.get('isStage', False),
-        _x=data.get('x', 0),
-        _y=data.get('y', 0),
+        x=data.get('x', 0),
+        y=data.get('y', 0),
         _direction=data.get('direction', 90),
         size=data.get('size', 100),
         visible=data.get('visible', True),

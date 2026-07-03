@@ -1,7 +1,13 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="-50 -50 100 100" width="100" height="100">
-  <g transform="translate(0, -5)">
-    <polygon points="-4,35 4,35 8,-30 0,-40 -8,-30" fill="#f39c12" stroke="#d68910" stroke-width="2" stroke-linejoin="round"/>
-    <polygon points="-4,35 4,35 0,45" fill="#333" stroke="#222" stroke-width="1"/>
-    <polygon points="-6,-30 6,-30 8,-30 0,-40 -8,-30" fill="#e67e22"/>
+  <!-- Pen designed facing RIGHT (Scratch convention: direction=90 = unrotated, tip forward) -->
+  <g transform="translate(0, 0)">
+    <!-- Pen body: triangular shape pointing right -->
+    <polygon points="-35,-6 30,-6 42,0 30,6 -35,6" fill="#f39c12" stroke="#d68910" stroke-width="2" stroke-linejoin="round"/>
+    <!-- Pen tip at the right end -->
+    <polygon points="42,0 30,-6 30,6" fill="#e67e22"/>
+    <!-- Nib (black tip) -->
+    <polygon points="42,-3 50,0 42,3" fill="#333" stroke="#222" stroke-width="1"/>
+    <!-- Highlight -->
+    <polygon points="-28,-4 10,-4 10,4 -28,4" fill="rgba(255,255,255,0.25)"/>
   </g>
 </svg>
