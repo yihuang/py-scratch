@@ -20,6 +20,8 @@ This generates::
 from __future__ import annotations
 
 import re
+import json
+
 import zipfile
 from pathlib import Path
 from typing import Any
@@ -375,6 +377,11 @@ _FIELD_POSITIONAL_ARGS: dict[str, list[tuple[str, str]]] = {
     'data_itemoflist': [('LIST', 'list_')],
     'data_lengthoflist': [('LIST', 'list_')],
     'data_listcontainsitem': [('LIST', 'list_')],
+    'data_hidelist': [('LIST', 'list_')],
+    'data_showlist': [('LIST', 'list_')],
+    'data_deletealloflist': [('LIST', 'list_')],
+    'data_itemnumoflist': [('LIST', 'list_')],
+    'data_listcontents': [('LIST', 'list_')],
     'looks_changeeffectby': [('EFFECT', 'effect')],
     'looks_seteffectto': [('EFFECT', 'effect')],
     'sound_seteffectto': [('EFFECT', 'effect')],
@@ -774,19 +781,28 @@ def _emit_scripts(lines: list[str], indent: str, tgt: Target, target_var: str) -
                 body_lines.extend(_format_body_lines(expr, body_indent))
             body_text = '\n'.join(body_lines)
 
-            # Hat blocks that take body directly vs via __call__
-            if hat_block.opcode == 'event_whenkeypressed':
-                # when_key_pressed returns a callable: .when_key_pressed(key)(body)
+            # Hat blocks that return a callable — hat_args go in the outer call
+            if hat_block.opcode in (
+                'event_whenkeypressed',
+                'event_whenbroadcastreceived',
+                'event_whenbackdropswitchesto',
+                'event_whengreaterthan',
+            ):
+                # Hat that returns a callable — hat_args in the outer call
                 lines.append(f'{indent}{target_var}.{hat_func}({hat_args})(')
                 lines.append(f'{body_text}')
                 lines.append(f'{indent})')
             else:
-                # Direct body: .when_flag_clicked(body)
                 lines.append(f'{indent}{target_var}.{hat_func}(')
                 lines.append(f'{body_text}')
                 lines.append(f'{indent})')
         else:
-            if hat_block.opcode == 'event_whenkeypressed':
+            if hat_block.opcode in (
+                'event_whenkeypressed',
+                'event_whenbroadcastreceived',
+                'event_whenbackdropswitchesto',
+                'event_whengreaterthan',
+            ):
                 lines.append(f'{indent}# {target_var}.{hat_func}({hat_args})(...)')
             else:
                 lines.append(f'{indent}# {target_var}.{hat_func}(...)  # (empty script)')
@@ -882,6 +898,29 @@ def _decompile_block(tgt: Target, block: Block) -> dict[str, Any]:
                 'args': _build_input_args(tgt, block),
             }
 
+    # Handle procedures_call specially: extract proccode + args from mutation
+    if opcode == 'procedures_call':
+        mutation = block.mutation
+        if mutation is None:
+            return {'kind': 'comment', 'text': '# TODO: procedures_call (no mutation)'}
+        proccode = mutation.proccode
+        arg_ids: list[str] = json.loads(mutation.argumentids)
+        pos_args: list[str] = [_format_literal(proccode)]
+        for arg_id in arg_ids:
+            inp = block.inputs.get(arg_id)
+            if inp is not None:
+                pos_args.append(_format_input_value(tgt, inp, block))
+        return {
+            'kind': 'call',
+            'opcode': opcode,
+            'mod': 'procedures',
+            'func': 'call',
+            'args': pos_args,
+            'kwargs': {},
+            'body': None,
+            'body2': None,
+        }
+
     # Look up the DSL mapping
     mapping = _DSL_MODULES.get(opcode)
     if mapping is None:
@@ -895,7 +934,7 @@ def _decompile_block(tgt: Target, block: Block) -> dict[str, Any]:
     is_c_shaped = opcode in _C_SHAPED_OPCODES
     has_else = opcode in _HAS_ELSE_OPCODES
 
-    field_pos = _get_field_positional_args(block)
+    field_pos: list[dict[str, str] | str] = _get_field_positional_args(block)  # type: ignore[assignment]
     args = field_pos + _build_input_args(tgt, block)
     kwargs = _build_field_args(block, opcode)
 

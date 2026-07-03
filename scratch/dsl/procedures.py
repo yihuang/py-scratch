@@ -4,7 +4,10 @@ Procedures (My Blocks) category.
 
 from __future__ import annotations
 
-from scratch.vm.types import Mutation
+import json
+import uuid
+
+from scratch.vm.types import Input, Mutation
 
 from .expr import StackExpr
 
@@ -20,19 +23,14 @@ def call(proc_name: str, *args: object) -> StackExpr:
     Additional positional arguments are passed as block inputs, one per
     ``%`` placeholder in the proccode.
     """
-    import json
-    import uuid
-
     arg_count = proc_name.count('%')
     arg_ids = [uuid.uuid4().hex[:8] for _ in range(arg_count)]
-
-    from scratch.vm.types import Input
 
     inputs: dict[str, Input] = {}
     reported_shadows: dict[str, object] = {}
     for i, (arg_id, arg_val) in enumerate(zip(arg_ids, args)):
         if hasattr(arg_val, '_ensure_id'):  # Reporter
-            reporter = arg_val  # type: ignore[assignment]
+            reporter = arg_val
             rid = reporter._ensure_id()
             inputs[arg_id] = Input(value=rid)
             reported_shadows[arg_id] = reporter

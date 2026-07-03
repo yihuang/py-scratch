@@ -9,7 +9,7 @@ from __future__ import annotations
 import uuid
 from typing import Any
 
-from scratch.vm.types import Block, Field, Input
+from scratch.vm.types import Block, Field, Input, Mutation
 
 
 class Expr:

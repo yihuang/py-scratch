@@ -33,7 +33,7 @@ from scratch.vm.target import Target, Variable
 from scratch.vm.types import Costume
 
 from .builder import Script
-from .expr import StackExpr
+from .expr import Reporter, StackExpr
 from . import events as _events
 
 
@@ -54,6 +54,7 @@ class ProjectTarget:
         self.y: float = 0.0
         self.direction: float = 90.0
         self.size: float = 100.0
+        self.rotation_style: str = 'all around'
         self.visible: bool = True
         self.layer_order: int = 1 if not is_stage else 0
 
@@ -171,6 +172,41 @@ class ProjectTarget:
 
         return _reg
 
+    def when_this_sprite_clicked(self, *body: StackExpr) -> None:
+        """Register a when-this-sprite-clicked script."""
+        self._scripts.append(Script(hat=_events.when_this_sprite_clicked(), body=list(body)))
+
+    def when_backdrop_switches_to(self, backdrop: str = 'next backdrop') -> Callable[..., None]:
+        """Return a callable for when-backdrop-switches-to scripts.
+
+        Usage::
+
+            stage.when_backdrop_switches_to("dark")(...)
+        """
+        hat = _events.when_backdrop_switches_to(backdrop=backdrop)
+
+        def _reg(*body: StackExpr) -> None:
+            self._scripts.append(Script(hat=hat, body=list(body)))
+
+        return _reg
+
+    def when_greater_than(
+        self, metric: str = 'loudness', value: int | float | Reporter = 10
+    ) -> Callable[..., None]:
+        """Return a callable for when-greater-than scripts."""
+        hat = _events.when_greater_than(metric=metric, value=value)
+
+        def _reg(*body: StackExpr) -> None:
+            self._scripts.append(Script(hat=hat, body=list(body)))
+
+        return _reg
+
+    def when_start_as_clone(self, *body: StackExpr) -> None:
+        """Register a when-start-as-clone script."""
+        self._scripts.append(
+            Script(hat=StackExpr(opcode='control_start_as_clone'), body=list(body))
+        )
+
 
 class Project:
     """High-level project entry point.
@@ -206,6 +242,7 @@ class Project:
             target.y = pt.y
             target.direction = pt.direction
             target.size = pt.size
+            target.rotation_style = pt.rotation_style
             target.visible = pt.visible
             target.layer_order = pt.layer_order
             target.costumes = list(pt._costumes)

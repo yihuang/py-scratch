@@ -143,3 +143,32 @@ def size() -> Reporter:
 def volume() -> Reporter:
     """``looks_volume`` — reporter."""
     return Reporter(opcode='looks_volume')
+
+
+def go_to_front_back(front_back: str = 'front') -> StackExpr:
+    """``looks_gotofrontback``."""
+    return StackExpr(
+        opcode='looks_gotofrontback',
+        fields={'FRONT_BACK': Field(value=front_back)},
+    )
+
+
+def go_forward_backward_layers(
+    forward_backward: str = 'forward', num: int | float | Reporter = 1
+) -> StackExpr:
+    """``looks_goforwardbackwardlayers``."""
+    ins, shadows = _resolve_inputs({'NUM': num})
+    return StackExpr(
+        opcode='looks_goforwardbackwardlayers',
+        inputs=ins,
+        fields={'FORWARD_BACKWARD': Field(value=forward_backward)},
+        shadow_reporters=shadows,
+    )
+
+
+def backdrop_number_name(number_name: str = 'number') -> Reporter:
+    """``looks_backdropnumbername`` — reporter."""
+    return Reporter(
+        opcode='looks_backdropnumbername',
+        fields={'NUMBER_NAME': Field(value=number_name)},
+    )

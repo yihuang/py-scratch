@@ -101,3 +101,24 @@ def delete_this_clone() -> StackExpr:
 def all_at_once() -> StackExpr:
     """``control_all_at_once`` — run without screen refresh."""
     return StackExpr(opcode='control_all_at_once')
+
+
+def when_start_as_clone() -> StackExpr:
+    """``control_start_as_clone`` — hat that fires when a clone starts."""
+    return StackExpr(opcode='control_start_as_clone')
+
+
+__all__ = [
+    'repeat',
+    'forever',
+    'if_',
+    'if_else',
+    'wait',
+    'stop',
+    'repeat_until',
+    'wait_until',
+    'create_clone_of',
+    'delete_this_clone',
+    'all_at_once',
+    'when_start_as_clone',
+]
