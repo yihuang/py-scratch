@@ -489,7 +489,7 @@ def transcribe_to_dir(
     # Extract all assets from the zip
     _extract_assets(sb3_path, asset_dir)
 
-    lines = _generate_source(rt, asset_dir)
+    lines = _generate_source(rt, asset_dir_name)
     output_py.write_text('\n'.join(lines))
     print(f'  {output_py.resolve()}')
     print(f'  assets: {asset_dir.resolve()}')
@@ -512,8 +512,12 @@ def _extract_assets(sb3_path: str | Path, asset_dir: Path) -> None:
             (asset_dir / name).write_bytes(data)
 
 
-def _generate_source(rt: Runtime, asset_dir: Path) -> list[str]:
-    """Generate py-scratch source code at module level, like the hand-written examples."""
+def _generate_source(rt: Runtime, asset_rel: str) -> list[str]:
+    """Generate py-scratch source code at module level, like the hand-written examples.
+
+    *asset_rel* is the relative path from the generated Python file to the
+    assets directory (e.g. ``"assets"``).
+    """
     lines: list[str] = []
     indent = ''
 
@@ -561,7 +565,7 @@ def _generate_source(rt: Runtime, asset_dir: Path) -> list[str]:
         # Lists
         _emit_lists(lines, indent, tgt, target_var)
         # Costumes
-        _emit_costumes(lines, indent, tgt, target_var)
+        _emit_costumes(lines, indent, tgt, target_var, asset_rel=asset_rel)
         # Sounds
         _emit_sounds(lines, indent, tgt, target_var)
 
@@ -646,14 +650,20 @@ def _emit_lists(lines: list[str], indent: str, tgt: Target, target_var: str) -> 
 # ── Costumes & sounds ──────────────────────────────────────────────────────
 
 
-def _emit_costumes(lines: list[str], indent: str, tgt: Target, target_var: str) -> None:
-    """Emit costume declarations."""
+def _emit_costumes(lines: list[str], indent: str, tgt: Target, target_var: str,
+                  asset_rel: str = 'assets') -> None:
+    """Emit costume declarations with asset paths.
+
+    *asset_rel* is the relative path from the generated Python file to the
+    assets directory (default ``assets``).
+    """
     if not tgt.costumes:
         return
     lines.append('')
     lines.append(f'{indent}# --- Costumes / backdrops ----------------------------------')
     for i, c in enumerate(tgt.costumes):
-        lines.append(f'{indent}{target_var}.costume("{c.name}")')
+        path = f'{asset_rel}/{c.md5ext}'
+        lines.append(f'{indent}{target_var}.costume("{c.name}", path="{path}")')
         lines.append(f'{indent}#   asset: {c.md5ext}')
 
 
