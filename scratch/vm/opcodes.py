@@ -293,7 +293,7 @@ def control_all_at_once(rt: Runtime, tgt: Target, block: Block) -> Any:
     """Run the substack without yielding between blocks (all at once)."""
     sub_id = _substack_val(block.inputs.get('SUBSTACK'))
     if sub_id:
-        yield from rt.execute_substack(tgt, sub_id, yield_between=False)
+        yield from rt.execute_substack(tgt, sub_id)
 
 
 # ═══════════════════════════════════════════════════════════════════════

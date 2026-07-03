@@ -550,15 +550,16 @@ class Runtime:
     # ── Sub-stack execution helper ────────────────────────────────────
 
     def execute_substack(
-        self, target: Target, block_id: str | None, yield_between: bool = True
+        self, target: Target, block_id: str | None
     ) -> Generator[Any]:
         """Generator: step through a linked list of blocks.
 
         Control blocks (repeat, if, etc.) should ``yield from`` this
         to execute their substack input.
 
-        Set *yield_between* to False to run all blocks atomically without
-        yielding control between consecutive blocks.
+        Blocks are stepped atomically — consecutive instant blocks run in
+        the same frame without yielding control between them.  Only blocks
+        that explicitly ``yield`` (e.g. ``control_wait``) pause the thread.
         """
         bid = block_id
         while bid:
@@ -573,8 +574,6 @@ class Runtime:
             if gen is None or not hasattr(gen, '__next__'):
                 # Instant block (no yield) — done immediately
                 bid = block.next
-                if bid and yield_between:
-                    yield YIELD
                 continue
             try:
                 while True:
@@ -583,5 +582,3 @@ class Runtime:
             except StopIteration:
                 pass
             bid = block.next
-            if bid and yield_between:
-                yield YIELD
