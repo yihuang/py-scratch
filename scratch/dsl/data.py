@@ -156,3 +156,46 @@ def list_contains_item(list_: str, item: int | float | str | Reporter) -> Report
         fields={'LIST': Field(value=list_, variable_type='list')},
         shadow_reporters=shadows,
     )
+
+
+def delete_all_of_list(list_: str) -> StackExpr:
+    """``data_deletealloflist``."""
+    return StackExpr(
+        opcode='data_deletealloflist',
+        fields={'LIST': Field(value=list_, variable_type='list')},
+    )
+
+
+def show_list(list_: str) -> StackExpr:
+    """``data_showlist``."""
+    return StackExpr(
+        opcode='data_showlist',
+        fields={'LIST': Field(value=list_, variable_type='list')},
+    )
+
+
+def hide_list(list_: str) -> StackExpr:
+    """``data_hidelist``."""
+    return StackExpr(
+        opcode='data_hidelist',
+        fields={'LIST': Field(value=list_, variable_type='list')},
+    )
+
+
+def item_number_of_list(list_: str, item: int | float | str | Reporter) -> Reporter:
+    """``data_itemnumoflist`` — reporter."""
+    ins, shadows = _resolve_inputs({'ITEM': item})
+    return Reporter(
+        opcode='data_itemnumoflist',
+        inputs=ins,
+        fields={'LIST': Field(value=list_, variable_type='list')},
+        shadow_reporters=shadows,
+    )
+
+
+def list_contents(list_: str) -> Reporter:
+    """``data_listcontents`` — reporter returning list as a string."""
+    return Reporter(
+        opcode='data_listcontents',
+        fields={'LIST': Field(value=list_, variable_type='list')},
+    )

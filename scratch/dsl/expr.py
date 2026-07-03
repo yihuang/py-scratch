@@ -43,12 +43,14 @@ class StackExpr(Expr):
         inputs: dict[str, Input] | None = None,
         fields: dict[str, Field] | None = None,
         shadow_reporters: dict[str, Reporter] | None = None,
+        mutation: Mutation | None = None,
     ) -> None:
         super().__init__()
         self.opcode = opcode
         self.inputs = inputs or {}
         self.fields = fields or {}
         self._shadow_reporters = shadow_reporters or {}
+        self._mutation = mutation
         self._body: list[StackExpr] | None = None
         self._body2: list[StackExpr] | None = None
 

@@ -82,18 +82,18 @@ _DSL_MODULES = {
     'looks_goforwardbackwardlayers': ('looks', 'go_forward_backward_layers'),
     'looks_backdropnumbername': ('looks', 'backdrop_number_name'),
     # Sound — no dedicated DSL module yet; emit opcode-based placeholder
-    'sound_play': ('looks', None),  # placeholder
-    'sound_playuntildone': ('looks', None),
-    'sound_stopallsounds': ('looks', None),
-    'sound_setvolumeto': ('looks', 'set_volume_to'),
-    'sound_changevolumeby': ('looks', 'change_volume_by'),
-    'sound_volume': ('looks', 'volume'),
-    'sound_seteffectto': ('looks', None),
-    'sound_changeeffectby': ('looks', None),
-    'sound_cleareffects': ('looks', None),
-    'sound_settempo': ('looks', None),
-    'sound_changetempo': ('looks', None),
-    'sound_tempo': ('looks', None),
+    'sound_play': ('sound', 'play'),
+    'sound_playuntildone': ('sound', 'play_until_done'),
+    'sound_stopallsounds': ('sound', 'stop_all_sounds'),
+    'sound_setvolumeto': ('sound', 'set_volume_to'),
+    'sound_changevolumeby': ('sound', 'change_volume_by'),
+    'sound_volume': ('sound', 'volume'),
+    'sound_seteffectto': ('sound', 'set_effect'),
+    'sound_changeeffectby': ('sound', 'change_effect'),
+    'sound_cleareffects': ('sound', 'clear_effects'),
+    'sound_settempo': ('sound', 'set_tempo'),
+    'sound_changetempo': ('sound', 'change_tempo'),
+    'sound_tempo': ('sound', 'tempo'),
     # Events
     'event_whenflagclicked': ('events', 'when_flag_clicked'),
     'event_whenkeypressed': ('events', 'when_key_pressed'),
@@ -125,12 +125,16 @@ _DSL_MODULES = {
     # Data (lists)
     'data_addtolist': ('data', 'add_to_list'),
     'data_deleteoflist': ('data', 'delete_of_list'),
+    'data_deletealloflist': ('data', 'delete_all_of_list'),
+    'data_hidelist': ('data', 'hide_list'),
+    'data_showlist': ('data', 'show_list'),
     'data_insertatlist': ('data', 'insert_at_list'),
     'data_replaceitemoflist': ('data', 'replace_item_of_list'),
     'data_itemoflist': ('data', 'item_of_list'),
+    'data_itemnumoflist': ('data', 'item_number_of_list'),
     'data_lengthoflist': ('data', 'length_of_list'),
     'data_listcontainsitem': ('data', 'list_contains_item'),
-    'data_listcontents': ('data', 'list_contains_item'),  # list reporter
+    'data_listcontents': ('data', 'list_contents'),
     # Operators
     'operator_add': ('operators', 'add'),
     'operator_subtract': ('operators', 'sub'),
@@ -170,13 +174,14 @@ _DSL_MODULES = {
     # Pen
     'pen_penDown': ('pen', 'pen_down'),
     'pen_penUp': ('pen', 'pen_up'),
-    'pen_penClear': ('pen', 'pen_clear'),
+    'pen_clear': ('pen', 'pen_clear'),
     'pen_stamp': ('pen', 'stamp'),
     'pen_changePenColorParamBy': ('pen', 'change_pen_color_by'),
     'pen_setPenColorParamTo': ('pen', 'set_pen_color_to'),
     'pen_changePenSizeBy': ('pen', 'change_pen_size_by'),
     'pen_setPenSizeTo': ('pen', 'set_pen_size_to'),
     'pen_setPenColorToColor': ('pen', 'pen_color'),
+    'procedures_call': ('procedures', 'call'),
 }
 
 # Opcodes that take a SUBSTACK input (C-shaped)
@@ -850,7 +855,7 @@ def _decompile_block(tgt: Target, block: Block) -> dict[str, Any]:
         return {
             'kind': 'reporter',
             'opcode': opcode,
-            'code': f'data.list_contains_item({_format_literal(lst_name)}, ...)',
+            'code': f'data.list_contents({_format_literal(lst_name)})',
         }
 
     if opcode == 'operator_mathop':

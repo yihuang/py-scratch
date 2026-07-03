@@ -32,7 +32,9 @@ from . import looks
 from . import motion
 from . import operators
 from . import pen
+from . import procedures
 from . import sensing
+from . import sound
 from .expr import Reporter, StackExpr
 from .builder import Script
 
@@ -49,5 +51,7 @@ __all__ = [
     'motion',
     'operators',
     'pen',
+    'procedures',
     'sensing',
+    'sound',
 ]

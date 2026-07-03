@@ -157,6 +157,20 @@ class ProjectTarget:
 
         return _reg
 
+    def when_broadcast_received(self, message: str = '') -> Callable[..., None]:
+        """Return a callable for when-broadcast-received scripts.
+
+        Usage::
+
+            sprite.when_broadcast_received("message")(motion.move(10))
+        """
+        hat = _events.when_broadcast_received(message=message)
+
+        def _reg(*body: StackExpr) -> None:
+            self._scripts.append(Script(hat=hat, body=list(body)))
+
+        return _reg
+
 
 class Project:
     """High-level project entry point.
