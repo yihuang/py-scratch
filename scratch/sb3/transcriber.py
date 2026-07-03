@@ -489,7 +489,7 @@ def transcribe_to_dir(
     # Extract all assets from the zip
     _extract_assets(sb3_path, asset_dir)
 
-    lines = _generate_source(rt, asset_dir_name)
+    lines = _generate_source(rt, asset_dir)
     output_py.write_text('\n'.join(lines))
     print(f'  {output_py.resolve()}')
     print(f'  assets: {asset_dir.resolve()}')
@@ -512,11 +512,11 @@ def _extract_assets(sb3_path: str | Path, asset_dir: Path) -> None:
             (asset_dir / name).write_bytes(data)
 
 
-def _generate_source(rt: Runtime, asset_rel: str) -> list[str]:
+def _generate_source(rt: Runtime, asset_dir: Path) -> list[str]:
     """Generate py-scratch source code at module level, like the hand-written examples.
 
-    *asset_rel* is the relative path from the generated Python file to the
-    assets directory (e.g. ``"assets"``).
+    *asset_dir* is the ``Path`` to the assets directory containing the
+    extracted costume images and sounds.
     """
     lines: list[str] = []
     indent = ''
@@ -544,6 +544,10 @@ def _generate_source(rt: Runtime, asset_rel: str) -> list[str]:
     lines.append('')
     lines.append('from __future__ import annotations')
     lines.append('')
+    lines.append('from pathlib import Path')
+    lines.append('')
+    lines.append('HERE = Path(__file__).parent')
+    lines.append('')
     _add_dsl_imports(lines, all_opcodes)
     lines.append('')
     lines.append('')
@@ -565,7 +569,7 @@ def _generate_source(rt: Runtime, asset_rel: str) -> list[str]:
         # Lists
         _emit_lists(lines, indent, tgt, target_var)
         # Costumes
-        _emit_costumes(lines, indent, tgt, target_var, asset_rel=asset_rel)
+        _emit_costumes(lines, indent, tgt, target_var, asset_dir)
         # Sounds
         _emit_sounds(lines, indent, tgt, target_var)
 
@@ -650,20 +654,33 @@ def _emit_lists(lines: list[str], indent: str, tgt: Target, target_var: str) -> 
 # ── Costumes & sounds ──────────────────────────────────────────────────────
 
 
-def _emit_costumes(lines: list[str], indent: str, tgt: Target, target_var: str,
-                  asset_rel: str = 'assets') -> None:
-    """Emit costume declarations with asset paths.
+def _emit_costumes(
+    lines: list[str], indent: str, tgt: Target, target_var: str, asset_dir: Path
+) -> None:
+    """Emit costume declarations with readable asset filenames.
 
-    *asset_rel* is the relative path from the generated Python file to the
-    assets directory (default ``assets``).
+    Asset files are renamed from their hash-based names to
+    ``<costume_name>.<ext>`` so the generated code is readable.
     """
     if not tgt.costumes:
         return
     lines.append('')
     lines.append(f'{indent}# --- Costumes / backdrops ----------------------------------')
     for i, c in enumerate(tgt.costumes):
-        path = f'{asset_rel}/{c.md5ext}'
-        lines.append(f'{indent}{target_var}.costume("{c.name}", path="{path}")')
+        if not c.md5ext:
+            continue
+        # Build a readable filename: costume name + extension
+        stem = _safe_name(c.name) or f'costume{i}'
+        ext = Path(c.md5ext).suffix
+        readable = f'{stem}{ext}'
+        # Rename the extracted hash file to the readable name
+        hash_path = asset_dir / c.md5ext
+        readable_path = asset_dir / readable
+        if hash_path.exists() and not readable_path.exists():
+            hash_path.rename(readable_path)
+        lines.append(
+            f'{indent}{target_var}.costume("{c.name}", path=str(HERE / "{asset_dir.name}" / "{readable}"))'
+        )
         lines.append(f'{indent}#   asset: {c.md5ext}')
 
 

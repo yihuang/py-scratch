@@ -18,7 +18,6 @@ from .thread import (
     Thread,
     ThreadStatus,
     Wait,
-    YIELD,
     YieldPass,
 )
 from .constants import (
@@ -549,9 +548,7 @@ class Runtime:
 
     # ── Sub-stack execution helper ────────────────────────────────────
 
-    def execute_substack(
-        self, target: Target, block_id: str | None
-    ) -> Generator[Any]:
+    def execute_substack(self, target: Target, block_id: str | None) -> Generator[Any]:
         """Generator: step through a linked list of blocks.
 
         Control blocks (repeat, if, etc.) should ``yield from`` this

@@ -141,7 +141,7 @@ def _roundtrip(project: Project, tmp_path: Path) -> Runtime:
 
     # Compile + exec in a fresh namespace
     bytecode = compile(source, str(main_py), 'exec')
-    ns: dict[str, Any] = {}
+    ns: dict[str, Any] = {'__file__': str(main_py)}
     exec(bytecode, ns)
 
     # 5. Extract the project variable and build runtime
