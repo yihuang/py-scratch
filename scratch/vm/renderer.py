@@ -443,15 +443,27 @@ class Renderer:
         # Position (scratch_to_screen already includes STAGE_SCALE)
         sx, sy = scratch_to_screen(sprite.x, sprite.y)
 
-        # Apply rotation centre offset so the costume's rotation centre
+        # Apply rotation center offset so the costume's rotation centre
         # aligns with the sprite's (x, y) position.
-        ox = costume.rotation_center_x * render_scale
-        oy = costume.rotation_center_y * render_scale
+        #
+        # ``rotozoom`` rotates around the SURFACE CENTER, so the offset
+        # must be computed relative to the centre, not the top-left.
+        sw, sh = scaled.get_size()
+        cx = costume.rotation_center_x * render_scale
+        cy = costume.rotation_center_y * render_scale
         if angle != 0 and sprite.rotation_style not in (ROTATION_DONT_ROTATE,):
             a = math.radians(angle)
             cos_a = math.cos(a)
             sin_a = math.sin(a)
-            ox, oy = ox * cos_a - oy * sin_a, ox * sin_a + oy * cos_a
+            # Offset from surface centre to rotation centre
+            dx = cx - sw / 2.0
+            dy = cy - sh / 2.0
+            # Rotate the offset, then add back the new surface centre
+            ox = sw / 2.0 + dx * cos_a - dy * sin_a
+            oy = sh / 2.0 + dx * sin_a + dy * cos_a
+        else:
+            ox = cx
+            oy = cy
 
         rect = scaled.get_rect()
         rect.x = int(round(sx - ox))
