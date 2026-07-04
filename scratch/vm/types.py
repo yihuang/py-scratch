@@ -94,6 +94,29 @@ class Costume:
     data: bytes = b''  # raw image bytes from the .sb3 archive
     surface: Any = None  # pygame.Surface | None
 
+    def __deepcopy__(self, memo: dict) -> Costume:  # type: ignore[type-arg]
+        cls = type(self)
+        cp = cls.__new__(cls)
+        cp.name = self.name
+        cp.data_format = self.data_format
+        cp.bitmap_resolution = self.bitmap_resolution
+        cp.rotation_center_x = self.rotation_center_x
+        cp.rotation_center_y = self.rotation_center_y
+        cp.asset_id = self.asset_id
+        cp.md5ext = self.md5ext
+        cp.data = self.data
+        # pygame.Surface is not deep-copyable; use a copy via blit
+        if self.surface is not None:
+            from pygame import Surface as _PySurf  # noqa: PLC0415
+
+            if isinstance(self.surface, _PySurf):
+                cp.surface = self.surface.copy()
+            else:
+                cp.surface = self.surface
+        else:
+            cp.surface = None
+        return cp
+
     @classmethod
     def from_json(cls, data: dict[str, Any]) -> Costume:
         return cls(
@@ -117,6 +140,28 @@ class Sound:
     md5ext: str = ''  # filename inside .sb3
     data: bytes = b''
     sound: Any = None  # pygame.mixer.Sound | None
+
+    def __deepcopy__(self, memo: dict) -> Sound:  # type: ignore[type-arg]
+        cls = type(self)
+        cp = cls.__new__(cls)
+        cp.name = self.name
+        cp.data_format = self.data_format
+        cp.rate = self.rate
+        cp.sample_count = self.sample_count
+        cp.asset_id = self.asset_id
+        cp.md5ext = self.md5ext
+        cp.data = self.data
+        # pygame.mixer.Sound supports copy via ``buffer=`` bytes
+        if self.sound is not None:
+            from pygame.mixer import Sound as _PySound  # noqa: PLC0415
+
+            if isinstance(self.sound, _PySound):
+                cp.sound = _PySound(buffer=self.data)
+            else:
+                cp.sound = self.sound
+        else:
+            cp.sound = None
+        return cp
 
 
 # ── Convenience builders ─────────────────────────────────────────────────
