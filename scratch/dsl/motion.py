@@ -41,15 +41,16 @@ def glide(
     return StackExpr(opcode='motion_glidesecstoxy', inputs=ins, shadow_reporters=shadows)
 
 
-def glide_to(random_position: str | None = None) -> StackExpr:
+def glide_to(random_position: str | Reporter = 'random position') -> StackExpr:
     """``motion_glideto`` — glide to a named position or to a sprite.
 
     *random_position* is e.g. "random position", "mouse pointer", or a sprite name.
     """
-
+    ins, shadows = _resolve_inputs({'TO': random_position})
     return StackExpr(
         opcode='motion_glideto',
-        fields={'TO': Field(value=random_position or 'random position')},
+        inputs=ins,
+        shadow_reporters=shadows,
     )
 
 
@@ -97,12 +98,13 @@ def set_direction(direction: int | float | Reporter = 90) -> StackExpr:
     return StackExpr(opcode='motion_setdirection', inputs=ins, shadow_reporters=shadows)
 
 
-def point_towards(towards: str = 'mouse pointer') -> StackExpr:
+def point_towards(towards: str | Reporter = 'mouse pointer') -> StackExpr:
     """``motion_pointtowards`` — *towards* is "mouse pointer" or a sprite name."""
-
+    ins, shadows = _resolve_inputs({'TOWARDS': towards})
     return StackExpr(
         opcode='motion_pointtowards',
-        fields={'TOWARDS': Field(value=towards)},
+        inputs=ins,
+        shadow_reporters=shadows,
     )
 
 

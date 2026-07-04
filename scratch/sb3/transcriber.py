@@ -273,26 +273,26 @@ _INPUT_PARAM_MAP: dict[str, dict[str, str]] = {
     'sensing_askandwait': {'QUESTION': 'question'},
     'sensing_touchingcolor': {'COLOR': 'color'},
     'sensing_coloristouchingcolor': {'COLOR': 'color', 'COLOR2': 'other_color'},
-    'control_create_clone_of': {},  # field only
+    'control_create_clone_of': {'CLONE_OPTION': 'sprite'},
     'control_stop': {},  # field only
     'motion_glide': {'SECS': 'secs', 'X': 'x', 'Y': 'y'},
-    'motion_goto': {},  # menu field
-    'motion_glideto': {},  # menu field
-    'motion_pointtowards': {},  # menu field
-    'looks_switchcostumeto': {},  # field only
-    'looks_switchbackdropto': {},  # field only
-    'looks_switchbackdroptoandwait': {},  # field only
+    'motion_goto': {'TO': 'to'},
+    'motion_glideto': {'TO': 'to'},
+    'motion_pointtowards': {'TOWARDS': 'towards'},
+    'looks_switchcostumeto': {'COSTUME': 'costume'},
+    'looks_switchbackdropto': {'BACKDROP': 'backdrop'},
+    'looks_switchbackdroptoandwait': {'BACKDROP': 'backdrop'},
     'looks_gotofrontback': {},  # field only
     'looks_goforwardbackwardlayers': {'NUM': 'num'},
     'event_whenkeypressed': {},  # field only
-    'event_whenbackdropswitchesto': {},  # field only
+    'event_whenbackdropswitchesto': {'BACKDROP': 'backdrop'},
     'event_whengreaterthan': {},  # field + input
-    'event_broadcast': {},  # field only
-    'event_broadcastandwait': {},  # field only
+    'event_broadcast': {'BROADCAST_INPUT': 'message'},
+    'event_broadcastandwait': {'BROADCAST_INPUT': 'message'},
     'event_whenbroadcastreceived': {},  # field only
-    'sensing_keypressed': {},  # field/input
-    'sensing_touchingobject': {},  # field/input
-    'sensing_distanceto': {},  # field/input
+    'sensing_keypressed': {'KEY_OPTION': 'key'},
+    'sensing_touchingobject': {'TOUCHINGOBJECTMENU': 'object'},
+    'sensing_distanceto': {'DISTANCETOMENU': 'object'},
     'pen_changePenColorParamBy': {'COLOR_PARAM': 'change'},
     'pen_setPenColorParamTo': {'COLOR_PARAM': 'color'},
     'pen_changePenSizeBy': {'SIZE': 'change'},
@@ -305,50 +305,26 @@ _INPUT_PARAM_MAP: dict[str, dict[str, str]] = {
 
 _FIELD_ONLY_OPCODES = {
     'control_stop',  # STOP_OPTION field
-    'control_create_clone_of',  # CLONE_OPTION field
-    'motion_pointtowards',  # TOWARDS field
-    'motion_goto',  # TO field
-    'motion_glideto',  # TO field
     'motion_setrotationstyle',  # STYLE field
-    'looks_switchcostumeto',  # COSTUME field
-    'looks_switchbackdropto',  # BACKDROP field
     'event_whenkeypressed',  # KEY_OPTION field
-    'event_whenbackdropswitchesto',  # BACKDROP field
     'event_whenbroadcastreceived',  # BROADCAST_OPTION field
-    'event_broadcast',  # BROADCAST_OPTION field
-    'event_broadcastandwait',  # BROADCAST_OPTION field
-    'event_whengreaterthan',  # WHENGREATERTHAN_MENU field
+    'event_whengreaterthan',  # WHENGREATERTHAN_MENU field (VALUE is input)
     'sensing_current',  # CURRENTMENU field
     'looks_costumenumbername',  # NUMBER_NAME field
     'looks_backdropnumbername',  # NUMBER_NAME field
     'looks_gotofrontback',  # FRONT_BACK field
     'looks_goforwardbackwardlayers',  # FORWARD_BACKWARD field
-    'sound_play',  # SOUND_MENU
-    'sound_playuntildone',  # SOUND_MENU
 }
 
 # ── Field name → DSL keyword argument mapping ──────────────────────────────
 
 _FIELD_PARAM_MAP: dict[str, dict[str, str]] = {
     'control_stop': {'STOP_OPTION': 'option'},
-    'control_create_clone_of': {'CLONE_OPTION': 'sprite'},
-    'motion_pointtowards': {'TOWARDS': 'towards'},
-    'motion_goto': {'TO': 'to'},
-    'motion_glideto': {'TO': 'to'},
     'motion_setrotationstyle': {'STYLE': 'style'},
-    'looks_switchcostumeto': {'COSTUME': 'costume'},
-    'looks_switchbackdropto': {'BACKDROP': 'backdrop'},
-    'looks_switchbackdroptoandwait': {'BACKDROP': 'backdrop'},
     'looks_gotofrontback': {'FRONT_BACK': 'front_back'},
     'event_whenkeypressed': {'KEY_OPTION': 'key'},
-    'event_whenbackdropswitchesto': {'BACKDROP': 'backdrop'},
     'event_whenbroadcastreceived': {'BROADCAST_OPTION': 'message'},
-    'event_broadcast': {'BROADCAST_OPTION': 'message'},
-    'event_broadcastandwait': {'BROADCAST_OPTION': 'message'},
     'event_whengreaterthan': {'WHENGREATERTHAN_MENU': 'metric'},
-    'sensing_keypressed': {'KEY_OPTION': 'key'},
-    'sensing_touchingobject': {'TOUCHINGOBJECTMENU': 'object'},
-    'sensing_distanceto': {'DISTANCETOMENU': 'object'},
     'sensing_current': {'CURRENTMENU': 'unit'},
     'looks_costumenumbername': {'NUMBER_NAME': 'number_name'},
     'looks_backdropnumbername': {'NUMBER_NAME': 'number_name'},
@@ -794,7 +770,7 @@ def _emit_scripts(lines: list[str], indent: str, tgt: Target, target_var: str) -
         hat_mod, hat_func = _HAT_OPCODES[hat_block.opcode]
 
         # Build hat arguments from fields
-        hat_args = _build_hat_args(hat_block)
+        hat_args = _build_hat_args(hat_block, tgt)
 
         if body_exprs:
             body_indent = f'{indent}    '
@@ -830,7 +806,7 @@ def _emit_scripts(lines: list[str], indent: str, tgt: Target, target_var: str) -
                 lines.append(f'{indent}# {target_var}.{hat_func}(...)  # (empty script)')
 
 
-def _build_hat_args(hat_block: Block) -> str:
+def _build_hat_args(hat_block: Block, tgt: Target | None = None) -> str:
     """Build the argument string for a hat block based on its fields/inputs."""
     opcode = hat_block.opcode
     if opcode == 'event_whenkeypressed':
@@ -841,7 +817,13 @@ def _build_hat_args(hat_block: Block) -> str:
         return _format_literal(bd)
     elif opcode == 'event_whengreaterthan':
         metric = _get_field_value(hat_block, 'WHENGREATERTHAN_MENU', 'loudness')
-        return f'metric={_format_literal(metric)}, value=...'  # simplified
+        # Extract VALUE from block inputs
+        val_str = '0'
+        if tgt is not None:
+            value_inp = hat_block.inputs.get('VALUE')
+            if value_inp is not None and hasattr(value_inp, 'shadow'):
+                val_str = _format_input_value(tgt, value_inp, hat_block)
+        return f'metric={_format_literal(metric)}, value={val_str}'
     elif opcode == 'event_whenbroadcastreceived':
         msg = _get_field_value(hat_block, 'BROADCAST_OPTION', '')
         return _format_literal(msg)
@@ -1079,9 +1061,30 @@ def _format_input_value(tgt: Target, inp: Input, parent_block: Block) -> str:
     """Format an input value as a Python literal or reporter expression."""
     value = inp.value
 
-    # Unwrap compact primitive arrays [type_code, actual_value]
-    if isinstance(value, (list, tuple)) and len(value) == 2:
-        _, value = value
+    # Handle compact primitive arrays [type_code, actual_value, ...]
+    if isinstance(value, (list, tuple)) and len(value) >= 2 and isinstance(value[0], int):
+        type_code = value[0]
+        if type_code == 11:  # BROADCAST — [11, name, id]
+            name = value[1] if len(value) > 1 else ''
+            return _format_literal(name)
+        # Other compact primitives (4-10, 12-13): extract the value
+        ref = value[1]
+        value = ref
+
+    # Resolve menu-block references: a shadow TEXT primitive whose value is a
+    # block ID referencing a menu block (e.g. ``looks_backdrops``, ``looks_costume``).
+    if isinstance(value, str) and value in tgt.blocks:
+        ref_block = tgt.blocks[value]
+        # Menu blocks store the actual value in their first field
+        if ref_block.fields:
+            for fld in ref_block.fields.values():
+                if hasattr(fld, 'value'):
+                    val = fld.value
+                    if isinstance(val, (list, tuple)):
+                        val = val[0]  # scratch field format: [value, id]
+                    if isinstance(val, (str, int, float)):
+                        return _format_literal(val)
+                    return repr(val)
 
     if inp.is_literal:
         return _format_literal(value)

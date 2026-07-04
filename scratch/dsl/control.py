@@ -84,12 +84,13 @@ def wait_until(condition: Reporter) -> StackExpr:
     return StackExpr(opcode='control_wait_until', inputs=ins, shadow_reporters=shadows)
 
 
-def create_clone_of(sprite: str) -> StackExpr:
+def create_clone_of(sprite: str | Reporter = '') -> StackExpr:
     """``control_create_clone_of``."""
-
+    ins, shadows = _resolve_inputs({'CLONE_OPTION': sprite})
     return StackExpr(
         opcode='control_create_clone_of',
-        fields={'CLONE_OPTION': Field(value=sprite)},
+        inputs=ins,
+        shadow_reporters=shadows,
     )
 
 

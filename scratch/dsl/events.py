@@ -28,12 +28,13 @@ def when_this_sprite_clicked() -> StackExpr:
     return StackExpr(opcode='event_whenthisspriteclicked')
 
 
-def when_backdrop_switches_to(backdrop: str = 'next backdrop') -> StackExpr:
+def when_backdrop_switches_to(backdrop: str | Reporter = 'next backdrop') -> StackExpr:
     """``event_whenbackdropswitchesto`` — hat block."""
-
+    ins, shadows = _resolve_inputs({'BACKDROP': backdrop})
     return StackExpr(
         opcode='event_whenbackdropswitchesto',
-        fields={'BACKDROP': Field(value=backdrop)},
+        inputs=ins,
+        shadow_reporters=shadows,
     )
 
 
@@ -61,19 +62,21 @@ def when_broadcast_received(message: str = '') -> StackExpr:
     )
 
 
-def broadcast(message: str) -> StackExpr:
+def broadcast(message: str | Reporter = '') -> StackExpr:
     """``event_broadcast``."""
-
+    ins, shadows = _resolve_inputs({'BROADCAST_INPUT': message})
     return StackExpr(
         opcode='event_broadcast',
-        fields={'BROADCAST_OPTION': Field(value=message)},
+        inputs=ins,
+        shadow_reporters=shadows,
     )
 
 
-def broadcast_and_wait(message: str) -> StackExpr:
+def broadcast_and_wait(message: str | Reporter = '') -> StackExpr:
     """``event_broadcastandwait``."""
-
+    ins, shadows = _resolve_inputs({'BROADCAST_INPUT': message})
     return StackExpr(
         opcode='event_broadcastandwait',
-        fields={'BROADCAST_OPTION': Field(value=message)},
+        inputs=ins,
+        shadow_reporters=shadows,
     )

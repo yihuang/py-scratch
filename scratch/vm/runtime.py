@@ -269,7 +269,10 @@ class Runtime:
             if type_code == PrimitiveType.LIST:  # 13 — List reference
                 lst = target.lookup_list(ref) or (self.stage and self.stage.lookup_list(ref))
                 return lst.contents if lst else []
-            # Literal primitives (4-10) and broadcast (11) — return the value directly
+            # Literal primitives (4-10) and broadcast (11) — return the value directly,
+            # but if the value is a block ID referencing a menu/reporter, evaluate it.
+            if isinstance(ref, str) and ref in target.blocks:
+                return self.evaluate(target, ref)
             return ref
 
         # Fallback: shadow pair [block_id, literal] → literal

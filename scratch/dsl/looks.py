@@ -43,12 +43,13 @@ def hide() -> StackExpr:
     return StackExpr(opcode='looks_hide')
 
 
-def switch_costume_to(costume: str = '') -> StackExpr:
+def switch_costume_to(costume: str | Reporter = '') -> StackExpr:
     """``looks_switchcostumeto``."""
-
+    ins, shadows = _resolve_inputs({'COSTUME': costume})
     return StackExpr(
         opcode='looks_switchcostumeto',
-        fields={'COSTUME': Field(value=costume)},
+        inputs=ins,
+        shadow_reporters=shadows,
     )
 
 
@@ -57,12 +58,13 @@ def next_costume() -> StackExpr:
     return StackExpr(opcode='looks_nextcostume')
 
 
-def switch_backdrop_to(backdrop: str = '') -> StackExpr:
+def switch_backdrop_to(backdrop: str | Reporter = '') -> StackExpr:
     """``looks_switchbackdropto``."""
-
+    ins, shadows = _resolve_inputs({'BACKDROP': backdrop})
     return StackExpr(
         opcode='looks_switchbackdropto',
-        fields={'BACKDROP': Field(value=backdrop)},
+        inputs=ins,
+        shadow_reporters=shadows,
     )
 
 
