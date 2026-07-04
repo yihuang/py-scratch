@@ -635,18 +635,22 @@ def save_project(runtime: Runtime, path: str | Path | io.IOBase) -> None:
         # Write project.json
         zf.writestr('project.json', json.dumps(project_json, separators=(',', ':')))
 
-        # Write costume assets
+        # Write assets, skipping duplicates (same md5ext shared across costumes/sounds)
+        written: set[str] = set()
         for target in runtime.targets:
             for costume in target.costumes:
-                _write_asset(zf, costume.md5ext, costume.data)
-
-        # Write sound assets
+                _write_asset(zf, costume.md5ext, costume.data, written)
         for target in runtime.targets:
             for sound in target.sounds:
-                _write_asset(zf, sound.md5ext, sound.data)
+                _write_asset(zf, sound.md5ext, sound.data, written)
 
 
-def _write_asset(zf: zipfile.ZipFile, md5ext: str, data: bytes) -> None:
-    """Write a single asset into the zip if it has data."""
-    if md5ext and data:
+def _write_asset(
+    zf: zipfile.ZipFile, md5ext: str, data: bytes, written: set[str] | None = None
+) -> None:
+    """Write a single asset into the zip if it has data.  Skips if *md5ext*
+    is already in *written* (to avoid ``ZipFile`` duplicate-name warnings)."""
+    if md5ext and data and (written is None or md5ext not in written):
         zf.writestr(md5ext, data)
+        if written is not None:
+            written.add(md5ext)
