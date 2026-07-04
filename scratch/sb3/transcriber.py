@@ -645,10 +645,10 @@ def _emit_lists(lines: list[str], indent: str, tgt: Target, target_var: str) -> 
 def _emit_costumes(
     lines: list[str], indent: str, tgt: Target, target_var: str, asset_dir: Path
 ) -> None:
-    """Emit costume declarations with readable asset filenames.
+    """Emit costume declarations using the original hash-based asset filenames.
 
-    Asset files are renamed from their hash-based names to
-    ``<costume_name>.<ext>`` so the generated code is readable.
+    The ``md5ext`` (e.g. ``abc123.svg``) is unique per asset and avoids
+    name collisions when multiple sprites have costumes with the same name.
     """
     if not tgt.costumes:
         return
@@ -657,21 +657,12 @@ def _emit_costumes(
     for i, c in enumerate(tgt.costumes):
         if not c.md5ext:
             continue
-        # Build a readable filename: costume name + extension
-        stem = _safe_name(c.name) or f'costume{i}'
-        ext = Path(c.md5ext).suffix
-        readable = f'{stem}{ext}'
-        # Rename the extracted hash file to the readable name
-        hash_path = asset_dir / c.md5ext
-        readable_path = asset_dir / readable
-        if hash_path.exists() and not readable_path.exists():
-            hash_path.rename(readable_path)
         rc_args = ''
         if c.rotation_center_x != 0.0 or c.rotation_center_y != 0.0:
             rc_args = f', rotation_center_x={c.rotation_center_x}, rotation_center_y={c.rotation_center_y}'
         lines.append(
             f'{indent}{target_var}.costume("{c.name}",'
-            f' path=HERE / "{asset_dir.name}" / "{readable}"{rc_args})'
+            f' path=HERE / "{asset_dir.name}" / "{c.md5ext}"{rc_args})'
         )
         lines.append(f'{indent}#   asset: {c.md5ext}')
 
@@ -679,10 +670,10 @@ def _emit_costumes(
 def _emit_sounds(
     lines: list[str], indent: str, tgt: Target, target_var: str, asset_dir: Path
 ) -> None:
-    """Emit sound declarations with asset paths.
+    """Emit sound declarations using the original hash-based asset filenames.
 
-    Asset files are renamed from their hash-based names to
-    ``<sound_name>.<ext>`` so the generated code is readable.
+    The ``md5ext`` (e.g. ``abc123.wav``) is unique per asset and avoids
+    name collisions when multiple sprites have sounds with the same name.
     """
     if not tgt.sounds:
         return
@@ -691,16 +682,9 @@ def _emit_sounds(
     for i, snd in enumerate(tgt.sounds):
         if not snd.md5ext:
             continue
-        stem = _safe_name(snd.name) or f'sound{i}'
-        ext = Path(snd.md5ext).suffix
-        readable = f'{stem}{ext}'
-        hash_path = asset_dir / snd.md5ext
-        readable_path = asset_dir / readable
-        if hash_path.exists() and not readable_path.exists():
-            hash_path.rename(readable_path)
         lines.append(
             f'{indent}{target_var}.sound("{snd.name}",'
-            f' path=HERE / "{asset_dir.name}" / "{readable}")'
+            f' path=HERE / "{asset_dir.name}" / "{snd.md5ext}")'
         )
         lines.append(f'{indent}#   asset: {snd.md5ext}')
 
