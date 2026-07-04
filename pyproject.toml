@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "pygame>=2.6.1",
+    "cairosvg>=2.7.1",
 ]
 
 [project.scripts]
@@ -14,6 +15,9 @@ scratch-sb3-transcribe = "scratch.sb3.__main__:main"
 
 [tool.uv]
 package = true
+
+[tool.setuptools.packages.find]
+include = ["scratch*"]
 
 [dependency-groups]
 dev = [
@@ -38,3 +42,7 @@ quote-style = "single"
 [tool.mypy]
 python_version = "3.13"
 strict = true
+
+[[tool.mypy.overrides]]
+module = ["cairosvg"]
+ignore_missing_imports = true

@@ -115,6 +115,31 @@ KEY_MAP: dict[str, int] = {
 KEY_CODE_TO_NAME: dict[int, str] = {code: name for name, code in KEY_MAP.items()}
 
 
+def _render_svg(data: bytes) -> pygame.Surface | None:
+    """Render an SVG byte string to a ``pygame.Surface``.
+
+    Uses **cairosvg** (if available) which supports `<image>` elements with
+    embedded ``data:image/...`` URIs.  Falls back to pygame's built-in SVG
+    renderer when cairosvg is not installed or fails.
+
+    Returns ``None`` on failure.
+    """
+    # Try cairosvg first (handles embedded images correctly)
+    try:
+        import cairosvg  # noqa: PLC0415  # type: ignore[import-untyped]
+
+        png_data = cairosvg.svg2png(bytestring=data)
+        return pygame.image.load(io.BytesIO(png_data))
+    except Exception:  # noqa: BLE001
+        pass
+
+    # Fallback: pygame's built-in SVG renderer (no embedded image support)
+    try:
+        return pygame.image.load(io.BytesIO(data), 'svg')
+    except Exception:  # noqa: BLE001
+        return None
+
+
 def scratch_to_screen(x: float, y: float) -> tuple[float, float]:
     """Convert Scratch coordinates to screen coordinates.
 
@@ -138,6 +163,9 @@ def _load_costume_surface(costume: Costume) -> pygame.Surface | None:
     size; the renderer handles display-pixel scaling via bilinear interpolation
     (matching official Scratch's WebGL ``GL_LINEAR`` texture filtering).
 
+    Handles embedded ``<image>`` elements with ``data:image/...`` URIs which
+    pygame's built-in SVG renderer does not support.
+
     Returns ``None`` when no surface can be produced — no fallback placeholder
     is created, making missing costumes visible during development.
     """
@@ -149,8 +177,7 @@ def _load_costume_surface(costume: Costume) -> pygame.Surface | None:
     # Deferred SVG rasterisation
     if costume.data_format == 'svg' and costume.data:
         try:
-            buf = io.BytesIO(costume.data)
-            surf = pygame.image.load(buf, 'svg')
+            surf = _render_svg(costume.data)
             costume.surface = surf
             return surf
         except Exception:  # noqa: BLE001
