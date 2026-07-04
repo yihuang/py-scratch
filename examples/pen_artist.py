@@ -17,7 +17,7 @@ HERE = Path(__file__).parent
 project = Project('Pen Artist')
 writer = project.sprite('PenWriter')
 
-writer.costume('pen', path=str(HERE / 'pen.svg'), rotation_center_x=100, rotation_center_y=50)
+writer.costume('pen', path=HERE / 'pen.svg', rotation_center_x=100, rotation_center_y=50)
 writer.x = -200
 writer.y = -150
 writer.direction = 90

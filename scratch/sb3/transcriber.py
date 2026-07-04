@@ -493,7 +493,7 @@ def transcribe_to_dir(
     output_py = output_dir / py_filename
 
     # Load the project
-    rt = load_project(str(sb3_path))
+    rt = load_project(sb3_path)
 
     output_dir.mkdir(parents=True, exist_ok=True)
     asset_dir.mkdir(parents=True, exist_ok=True)
@@ -516,7 +516,7 @@ transcribe_to_file = transcribe_to_dir
 
 def _extract_assets(sb3_path: str | Path, asset_dir: Path) -> None:
     """Extract asset files from the sb3 zip to asset_dir."""
-    with zipfile.ZipFile(str(sb3_path)) as zf:
+    with zipfile.ZipFile(sb3_path) as zf:
         for name in zf.namelist():
             if name == 'project.json':
                 continue
@@ -583,7 +583,7 @@ def _generate_source(rt: Runtime, asset_dir: Path) -> list[str]:
         # Costumes
         _emit_costumes(lines, indent, tgt, target_var, asset_dir)
         # Sounds
-        _emit_sounds(lines, indent, tgt, target_var)
+        _emit_sounds(lines, indent, tgt, target_var, asset_dir)
 
         # Sprite properties
         if not tgt.is_stage:
@@ -649,18 +649,18 @@ def _emit_variables(lines: list[str], indent: str, tgt: Target, target_var: str)
 
 
 def _emit_lists(lines: list[str], indent: str, tgt: Target, target_var: str) -> None:
-    """Emit list declarations as comments (no ``list()`` DSL API yet)."""
+    """Emit list declarations."""
     if not tgt.lists:
         return
     lines.append('')
-    lines.append(f'{indent}# --- Lists (not yet supported in DSL) ---')
+    lines.append(f'{indent}# --- Lists ---')
     for lst_id, lst in tgt.lists.items():
         items = lst.contents
         if items:
-            formatted = ', '.join(str(v) for v in items)
-            lines.append(f'{indent}#   {target_var} list "{lst.name}": [{formatted}]')
+            formatted = ', '.join(repr(v) for v in items)
+            lines.append(f'{indent}{target_var}.list_("{lst.name}", [{formatted}])')
         else:
-            lines.append(f'{indent}#   {target_var} list "{lst.name}": []')
+            lines.append(f'{indent}{target_var}.list_("{lst.name}")')
 
 
 # ── Costumes & sounds ──────────────────────────────────────────────────────
@@ -691,20 +691,38 @@ def _emit_costumes(
         if hash_path.exists() and not readable_path.exists():
             hash_path.rename(readable_path)
         lines.append(
-            f'{indent}{target_var}.costume("{c.name}", path=str(HERE / "{asset_dir.name}" / "{readable}"))'
+            f'{indent}{target_var}.costume("{c.name}", path=HERE / "{asset_dir.name}" / "{readable}")'
         )
         lines.append(f'{indent}#   asset: {c.md5ext}')
 
 
-def _emit_sounds(lines: list[str], indent: str, tgt: Target, target_var: str) -> None:
-    """Emit sound declarations (sound_add for the target)."""
+def _emit_sounds(
+    lines: list[str], indent: str, tgt: Target, target_var: str, asset_dir: Path
+) -> None:
+    """Emit sound declarations with asset paths.
+
+    Asset files are renamed from their hash-based names to
+    ``<sound_name>.<ext>`` so the generated code is readable.
+    """
     if not tgt.sounds:
         return
     lines.append('')
     lines.append(f'{indent}# ── Sounds ────────────────────────────────────────────')
-    for s in tgt.sounds:
-        lines.append(f'{indent}#   sound: {s.name} ({s.md5ext})')
-        # Note: scratch.dsl doesn't have a sound API yet, emit comments
+    for i, snd in enumerate(tgt.sounds):
+        if not snd.md5ext:
+            continue
+        stem = _safe_name(snd.name) or f'sound{i}'
+        ext = Path(snd.md5ext).suffix
+        readable = f'{stem}{ext}'
+        hash_path = asset_dir / snd.md5ext
+        readable_path = asset_dir / readable
+        if hash_path.exists() and not readable_path.exists():
+            hash_path.rename(readable_path)
+        lines.append(
+            f'{indent}{target_var}.sound("{snd.name}",'
+            f' path=HERE / "{asset_dir.name}" / "{readable}")'
+        )
+        lines.append(f'{indent}#   asset: {snd.md5ext}')
 
 
 # ── Sprite properties ──────────────────────────────────────────────────────

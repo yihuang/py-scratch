@@ -17,7 +17,7 @@ HERE = Path(__file__).parent
 project = Project('Mouse Follower')
 
 square = project.sprite('Follower')
-square.costume('square', path=str(HERE / 'square.svg'))
+square.costume('square', path=HERE / 'square.svg')
 square.x = 0
 square.y = 0
 

@@ -29,8 +29,8 @@ import pygame
 from scratch.sb3.io import save_project
 from scratch.vm.opcodes import OPCODE_MAP
 from scratch.vm.runtime import Runtime
-from scratch.vm.target import Target, Variable
-from scratch.vm.types import Costume
+from scratch.vm.target import ListVar, Target, Variable
+from scratch.vm.types import Costume, Sound
 
 from .builder import Script
 from .expr import Reporter, StackExpr
@@ -49,7 +49,9 @@ class ProjectTarget:
         self.is_stage = is_stage
         self._scripts: list[Script] = []
         self._variables: dict[str, Any] = {}  # name → default value
+        self._lists: dict[str, ListVar] = {}
         self._costumes: list[Costume] = []
+        self._sounds: list[Sound] = []
         self.x: float = 0.0
         self.y: float = 0.0
         self.direction: float = 90.0
@@ -64,11 +66,21 @@ class ProjectTarget:
             raise ValueError(f"Variable '{name}' already exists")
         self._variables[name] = default
 
+    def list_(self, name: str, items: list[Any] | None = None) -> None:
+        """Declare a list with optional initial items.
+
+        Usage::
+
+            sprite.list_("scores", [10, 20, 30])
+        """
+        lid = uuid.uuid4().hex[:8]
+        self._lists[lid] = ListVar(name=name, contents=list(items or []))
+
     def costume(
         self,
         name: str,
         *,
-        path: str | None = None,
+        path: str | Path | None = None,
         data_format: str = 'png',
         asset_id: str = '',
         md5ext: str = '',
@@ -133,6 +145,25 @@ class ProjectTarget:
                 rotation_center_y=rc_y,
                 asset_id=asset_id,
                 md5ext=md5ext,
+            )
+        )
+
+    def sound(self, name: str, *, path: str | Path) -> None:
+        """Add a sound to this target from a file.
+
+        Usage::
+
+            sprite.sound("pop", path="examples/pop.wav")
+        """
+        data = Path(path).read_bytes()
+        md5 = hashlib.md5(data).hexdigest()
+        self._sounds.append(
+            Sound(
+                name=name,
+                data_format=Path(path).suffix.lstrip('.'),
+                data=data,
+                asset_id=md5,
+                md5ext=f'{md5}.{Path(path).suffix.lstrip(".")}',
             )
         )
 
@@ -246,6 +277,7 @@ class Project:
             target.visible = pt.visible
             target.layer_order = pt.layer_order
             target.costumes = list(pt._costumes)
+            target.sounds = list(pt._sounds)
 
             # Stage must have at least one backdrop (Scratch 3 schema requirement).
             if target.is_stage and not target.costumes:
@@ -257,6 +289,10 @@ class Project:
             for name, vid in var_map.items():
                 var_map_rev[vid] = name
                 target.variables[vid] = Variable(name=name, value=pt._variables[name])
+
+            # Transfer lists
+            for lid, lst in pt._lists.items():
+                target.lists[lid] = lst
 
             # Build all scripts with var_map
             for script in pt._scripts:
