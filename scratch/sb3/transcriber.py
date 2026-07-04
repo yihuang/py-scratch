@@ -690,8 +690,12 @@ def _emit_costumes(
         readable_path = asset_dir / readable
         if hash_path.exists() and not readable_path.exists():
             hash_path.rename(readable_path)
+        rc_args = ''
+        if c.rotation_center_x != 0.0 or c.rotation_center_y != 0.0:
+            rc_args = f', rotation_center_x={c.rotation_center_x}, rotation_center_y={c.rotation_center_y}'
         lines.append(
-            f'{indent}{target_var}.costume("{c.name}", path=HERE / "{asset_dir.name}" / "{readable}")'
+            f'{indent}{target_var}.costume("{c.name}",'
+            f' path=HERE / "{asset_dir.name}" / "{readable}"{rc_args})'
         )
         lines.append(f'{indent}#   asset: {c.md5ext}')
 
