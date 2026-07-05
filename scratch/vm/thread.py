@@ -13,6 +13,7 @@ from collections.abc import Generator
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
+from .scheduler import SchedulerThread
 from .types import Block
 
 if TYPE_CHECKING:
@@ -41,10 +42,15 @@ class Wait:
     seconds: float
 
 
-# ── Status ──────────────────────────────────────────────────────────────
+# ── Status (backward-compatible re-export) ──────────────────────────────
 
 
 class ThreadStatus:
+    """Possible thread states.
+
+    Mirrors ``scheduler.ThreadStatus`` for backward compatibility.
+    """
+
     RUNNING = 'running'
     WAITING = 'waiting'
     DONE = 'done'
@@ -76,14 +82,14 @@ class Frame:
 
 
 @dataclass
-class Thread:
+class Thread(SchedulerThread):
     """One thread of execution.
 
     The thread holds a stack of frames. Each frame is a block being stepped.
     The ``target`` is the sprite or stage this thread runs on.
     """
 
-    target: Target
+    target: 'Target'
     top_block: str  # block ID of the first block
     status: str = ThreadStatus.RUNNING
     stack: list[Frame] = field(default_factory=list)

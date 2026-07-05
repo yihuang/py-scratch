@@ -432,7 +432,9 @@ class TestTranscribeIntegration:
 
             # single .py file + assets inside the dir
             assert (out_dir / 'main.py').exists()
-            assert (out_dir / 'assets' / 'cat_a.png').exists()
+            # Asset files are extracted using their zip-entry name (md5ext).
+            # In the test sb3, the costume's md5ext is 'a.png'.
+            assert (out_dir / 'assets' / 'a.png').exists()
 
     def test_transcribed_code_has_expected_content(self) -> None:
         """Verify the generated Python code contains expected DSL patterns."""
