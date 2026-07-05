@@ -40,11 +40,11 @@ from scratch.vm.types import Costume, Sound
 from .builder import Script
 from .expr import Reporter, StackExpr
 from . import events as _events
+from ..vm.renderer import _render_svg_data
 
 
 def _render_svg_surface(data: bytes) -> pygame.Surface | None:
     """Render SVG bytes to a pygame surface, handling embedded images."""
-    from scratch.vm.renderer import _render_svg_data  # noqa: PLC0415
 
     return _render_svg_data(data)
 

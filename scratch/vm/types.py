@@ -94,7 +94,7 @@ class Costume:
     data: bytes = b''  # raw image bytes from the .sb3 archive
     surface: Any = None  # pygame.Surface | None
 
-    def __deepcopy__(self, memo: dict) -> Costume:  # type: ignore[type-arg]
+    def __deepcopy__(self) -> Costume:
         cls = type(self)
         cp = cls.__new__(cls)
         cp.name = self.name
@@ -141,7 +141,7 @@ class Sound:
     data: bytes = b''
     sound: Any = None  # pygame.mixer.Sound | None
 
-    def __deepcopy__(self, memo: dict) -> Sound:  # type: ignore[type-arg]
+    def __deepcopy__(self) -> Sound:
         cls = type(self)
         cp = cls.__new__(cls)
         cp.name = self.name

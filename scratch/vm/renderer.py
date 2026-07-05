@@ -5,7 +5,6 @@ Renderer — pygame-based stage and sprite drawing.
 from __future__ import annotations
 
 import io
-import re
 import math
 from collections.abc import Callable
 from typing import Any
@@ -140,7 +139,6 @@ def _render_svg_data(data: bytes) -> pygame.Surface | None:
         return pygame.image.load(io.BytesIO(png_data))
     except Exception:  # noqa: BLE001
         pass
-
     try:
         return pygame.image.load(io.BytesIO(data), 'svg')
     except Exception:  # noqa: BLE001
@@ -154,6 +152,8 @@ def _adjust_rotation_centre(costume: Costume, data: bytes, surf: pygame.Surface)
     fractional (e.g. 87.424\u00d714).  Scale the stored rotation centre
     to match the actual rendered surface size.
     """
+    import re  # noqa: PLC0415
+
     text = data.decode('utf-8', errors='replace')
     w = re.search(r'width="([\d.]+)"', text)
     h = re.search(r'height="([\d.]+)"', text)
@@ -170,37 +170,38 @@ def _adjust_rotation_centre(costume: Costume, data: bytes, surf: pygame.Surface)
 
 
 def _load_costume_surface(costume: Costume) -> pygame.Surface | None:
-    """Return a pygame surface for *costume*, rasterising lazily if needed.
+    """Return a pygame surface for *costume*, loading lazily if needed.
 
-    For SVG costumes the rasterisation is deferred until first access so we
-    can render at the current ``STAGE_SCALE`` (which includes the Retina factor
-    once the ``Renderer`` has initialised).  The SVG is loaded at its intrinsic
-    size; the renderer handles display-pixel scaling via bilinear interpolation
-    (matching official Scratch's WebGL ``GL_LINEAR`` texture filtering).
+    All costume types (SVG, PNG, JPG, …) are loaded on first access instead
+    of during ``load_assets``.  Handles embedded ``<image>`` data URIs in
+    SVGs which pygame's built-in renderer does not support.
 
-    Handles embedded ``<image>`` elements with ``data:image/...`` URIs which
-    pygame's built-in SVG renderer does not support.
-
-    Returns ``None`` when no surface can be produced — no fallback placeholder
-    is created, making missing costumes visible during development.
+    Returns ``None`` when no surface can be produced.
     """
     if costume.surface is not None:
         surf = costume.surface
         assert isinstance(surf, pygame.Surface)
         return surf
 
-    # Deferred SVG rasterisation
-    if costume.data_format == 'svg' and costume.data:
-        try:
-            surf = _render_svg_data(costume.data)
-            if surf is not None:
-                _adjust_rotation_centre(costume, costume.data, surf)
-            costume.surface = surf
-            return surf
-        except Exception:  # noqa: BLE001
-            return None
+    if not costume.data:
+        return None
 
-    return None
+    if costume.data_format == 'svg':
+        surf = _render_svg_data(costume.data)
+        if surf is not None:
+            _adjust_rotation_centre(costume, costume.data, surf)
+        if not isinstance(surf, pygame.Surface):
+            surf = None
+    else:
+        try:
+            surf = pygame.image.load(io.BytesIO(costume.data))
+            if not isinstance(surf, pygame.Surface):
+                surf = None
+        except Exception:  # noqa: BLE001
+            surf = None
+
+    costume.surface = surf
+    return surf  # type: ignore[no-any-return]
 
 
 # ── Pen layer cache ──────────────────────────────────────────────────────

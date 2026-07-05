@@ -389,12 +389,9 @@ def _load_costume_image(
     if image_data is None:
         _make_placeholder(costume)
         return
-    # SVGs are rasterised lazily by ``_load_costume_surface`` (renderer).
-    # Just store the raw SVG bytes; the surface stays ``None``.
-    if costume.data_format == 'svg':
-        costume.data = image_data
-    else:
-        _load_bitmap(costume, image_data)
+    # Costume surfaces are loaded lazily by ``_load_costume_surface`` (renderer).
+    # Just store the raw image bytes; the surface stays ``None``.
+    costume.data = image_data
 
 
 def _read_asset_data(
@@ -412,13 +409,6 @@ def _read_asset_data(
         return zf.read(filename)
     except KeyError:
         return None
-
-
-def _load_bitmap(costume: Costume, data: bytes) -> None:
-    costume.data = data
-    buf = io.BytesIO(data)
-    surf = pygame.image.load(buf)
-    costume.surface = surf
 
 
 def _make_placeholder(costume: Costume) -> None:
