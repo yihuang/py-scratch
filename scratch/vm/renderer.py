@@ -5,9 +5,10 @@ Renderer — pygame-based stage and sprite drawing.
 from __future__ import annotations
 
 import io
+import re
 import math
 from collections.abc import Callable
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import pygame
 
@@ -15,9 +16,6 @@ from .constants import ROTATION_DONT_ROTATE, ROTATION_LEFT_RIGHT
 from .runtime import Runtime
 from .target import Target
 from .types import Costume
-
-if TYPE_CHECKING:
-    pass
 
 
 # ── Constants ────────────────────────────────────────────────────────────
@@ -115,31 +113,6 @@ KEY_MAP: dict[str, int] = {
 KEY_CODE_TO_NAME: dict[int, str] = {code: name for name, code in KEY_MAP.items()}
 
 
-def _render_svg(data: bytes) -> pygame.Surface | None:
-    """Render an SVG byte string to a ``pygame.Surface``.
-
-    Uses **cairosvg** (if available) which supports `<image>` elements with
-    embedded ``data:image/...`` URIs.  Falls back to pygame's built-in SVG
-    renderer when cairosvg is not installed or fails.
-
-    Returns ``None`` on failure.
-    """
-    # Try cairosvg first (handles embedded images correctly)
-    try:
-        import cairosvg  # noqa: PLC0415  # type: ignore[import-untyped]
-
-        png_data = cairosvg.svg2png(bytestring=data)
-        return pygame.image.load(io.BytesIO(png_data))
-    except Exception:  # noqa: BLE001
-        pass
-
-    # Fallback: pygame's built-in SVG renderer (no embedded image support)
-    try:
-        return pygame.image.load(io.BytesIO(data), 'svg')
-    except Exception:  # noqa: BLE001
-        return None
-
-
 def scratch_to_screen(x: float, y: float) -> tuple[float, float]:
     """Convert Scratch coordinates to screen coordinates.
 
@@ -152,6 +125,48 @@ def scratch_to_screen(x: float, y: float) -> tuple[float, float]:
 
 
 # ── Costume loading ──────────────────────────────────────────────────────
+
+
+def _render_svg_data(data: bytes) -> pygame.Surface | None:
+    """Render SVG bytes to a pygame surface.
+
+    Tries **cairosvg** first (handles embedded ``<image>`` data URIs), falls
+    back to pygame's built-in SVG renderer when cairosvg is unavailable.
+    """
+    try:
+        import cairosvg  # noqa: PLC0415  # type: ignore[import-untyped]
+
+        png_data = cairosvg.svg2png(bytestring=data)
+        return pygame.image.load(io.BytesIO(png_data))
+    except Exception:  # noqa: BLE001
+        pass
+
+    try:
+        return pygame.image.load(io.BytesIO(data), 'svg')
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _adjust_rotation_centre(costume: Costume, data: bytes, surf: pygame.Surface) -> None:
+    """Adjust rotation centre for fractional SVG dimensions.
+
+    pygame surfaces use integer pixel sizes, but SVG dimensions can be
+    fractional (e.g. 87.424\u00d714).  Scale the stored rotation centre
+    to match the actual rendered surface size.
+    """
+    text = data.decode('utf-8', errors='replace')
+    w = re.search(r'width="([\d.]+)"', text)
+    h = re.search(r'height="([\d.]+)"', text)
+    nom_w = float(w.group(1)) if w else 0.0
+    nom_h = float(h.group(1)) if h else 0.0
+    if nom_w <= 0 or nom_h <= 0:
+        return
+    sw, sh = surf.get_size()
+    if sw <= 0 or sh <= 0:
+        return
+    if sw != nom_w or sh != nom_h:
+        costume.rotation_center_x *= sw / nom_w
+        costume.rotation_center_y *= sh / nom_h
 
 
 def _load_costume_surface(costume: Costume) -> pygame.Surface | None:
@@ -177,7 +192,9 @@ def _load_costume_surface(costume: Costume) -> pygame.Surface | None:
     # Deferred SVG rasterisation
     if costume.data_format == 'svg' and costume.data:
         try:
-            surf = _render_svg(costume.data)
+            surf = _render_svg_data(costume.data)
+            if surf is not None:
+                _adjust_rotation_centre(costume, costume.data, surf)
             costume.surface = surf
             return surf
         except Exception:  # noqa: BLE001
@@ -400,16 +417,16 @@ class Renderer:
         if stage and stage.costume and stage.costume.surface:
             self._draw_costume(stage, is_stage=True)
 
-        # Draw sprite layers (sorted by layer_order)
+        # Draw pen layer (behind sprites, matching Scratch behaviour)
+        self.screen.blit(self.pen_layer.surface, (0, 0))
+
+        # Draw sprite layers (sorted by layer_order), on top of pen
         sprites = sorted(self.runtime.sprite_targets(), key=lambda t: t.layer_order)
         for sprite in sprites:
             if not sprite.visible:
                 continue
             self._draw_sprite(sprite)
             self._draw_bubble(sprite)
-
-        # Draw pen layer on top
-        self.screen.blit(self.pen_layer.surface, (0, 0))
 
         # Draw overlay info
         self._draw_info()
@@ -482,12 +499,20 @@ class Renderer:
             a = math.radians(angle)
             cos_a = math.cos(a)
             sin_a = math.sin(a)
-            # Offset from surface centre to rotation centre
-            dx = cx - sw / 2.0
-            dy = cy - sh / 2.0
-            # Rotate the offset, then add back the new surface centre
-            ox = sw / 2.0 + dx * cos_a - dy * sin_a
-            oy = sh / 2.0 + dx * sin_a + dy * cos_a
+            # ``cx``, ``cy`` are in the pre-rotation coordinate system (scaled
+            # but not yet rotated).  Compute the offset from the pre-rotation
+            # image centre, then rotate that offset.
+            #
+            # pygame uses a y-down coordinate system, but the standard rotation
+            # formula assumes y-up.  The sign of the y-terms is flipped:
+            #   y-up:      ox = cx*cos - cy*sin,  oy = cx*sin + cy*cos
+            #   y-down:    ox = cx*cos + cy*sin,  oy = -cx*sin + cy*cos
+            orig_w = base.get_width() * render_scale
+            orig_h = base.get_height() * render_scale
+            dx = cx - orig_w / 2.0
+            dy = cy - orig_h / 2.0
+            ox = sw / 2.0 + dx * cos_a + dy * sin_a
+            oy = sh / 2.0 - dx * sin_a + dy * cos_a
         else:
             ox = cx
             oy = cy

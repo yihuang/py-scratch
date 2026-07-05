@@ -43,22 +43,10 @@ from . import events as _events
 
 
 def _render_svg_surface(data: bytes) -> pygame.Surface | None:
-    """Render SVG bytes to a pygame surface, handling embedded images.
+    """Render SVG bytes to a pygame surface, handling embedded images."""
+    from scratch.vm.renderer import _render_svg_data  # noqa: PLC0415
 
-    Tries cairosvg first (full SVG support), falls back to pygame's
-    built-in renderer (no embedded ``<image>`` support).
-    """
-    try:
-        import cairosvg  # noqa: PLC0415  # type: ignore[import-untyped]
-
-        png_data = cairosvg.svg2png(bytestring=data)
-        return pygame.image.load(io.BytesIO(png_data))
-    except Exception:  # noqa: BLE001
-        pass
-    try:
-        return pygame.image.load(io.BytesIO(data), 'svg')
-    except Exception:  # noqa: BLE001
-        return None
+    return _render_svg_data(data)
 
 
 class ProjectTarget:

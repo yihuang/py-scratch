@@ -389,8 +389,10 @@ def _load_costume_image(
     if image_data is None:
         _make_placeholder(costume)
         return
+    # SVGs are rasterised lazily by ``_load_costume_surface`` (renderer).
+    # Just store the raw SVG bytes; the surface stays ``None``.
     if costume.data_format == 'svg':
-        _rasterise_svg(costume, image_data)
+        costume.data = image_data
     else:
         _load_bitmap(costume, image_data)
 
@@ -414,18 +416,8 @@ def _read_asset_data(
 
 def _load_bitmap(costume: Costume, data: bytes) -> None:
     costume.data = data
-    try:
-        buf = io.BytesIO(data)
-        surf = pygame.image.load(buf)
-        costume.surface = surf
-    except Exception as exc:
-        logger.warning('Failed to load image for %s: %s', costume.name, exc)
-
-
-def _rasterise_svg(costume: Costume, data: bytes) -> None:
-    costume.data = data
     buf = io.BytesIO(data)
-    surf = pygame.image.load(buf, 'svg')
+    surf = pygame.image.load(buf)
     costume.surface = surf
 
 
