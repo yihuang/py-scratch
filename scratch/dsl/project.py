@@ -40,13 +40,6 @@ from scratch.vm.types import Costume, Sound
 from .builder import Script
 from .expr import Reporter, StackExpr
 from . import events as _events
-from ..vm.renderer import _render_svg_data
-
-
-def _render_svg_surface(data: bytes) -> pygame.Surface | None:
-    """Render SVG bytes to a pygame surface, handling embedded images."""
-
-    return _render_svg_data(data)
 
 
 class ProjectTarget:
@@ -156,6 +149,7 @@ class ProjectTarget:
 
         # For SVG, default rotation centre = centre of viewBox
         if fmt == 'svg' and rotation_center_x is None:
+            # find rotation center in viewBox attribute, e.g. viewBox="0 0 480 360"
             m = re.search(
                 r'viewBox="-?[\d.]+\s+-?[\d.]+\s+([\d.]+)\s+([\d.]+)"', data.decode('utf-8')
             )
@@ -165,17 +159,11 @@ class ProjectTarget:
                 rc_x = rc_x or (vb_w / 2)
                 rc_y = rc_y or (vb_h / 2)
 
-        # Load surface immediately so scratch_bounds work for bounce etc.
-        surface = None
-        if fmt == 'svg':
-            surface = _render_svg_surface(data)
-
         self._costumes.append(
             Costume(
                 name=name,
                 data_format=fmt,
                 data=data,
-                surface=surface,
                 rotation_center_x=rc_x,
                 rotation_center_y=rc_y,
                 asset_id=md5,

@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from ..target import Target
     from ..types import Block
 
-from . import (
+from ._helpers import (
     _field_val,
     _num,
     _scratch_compare,

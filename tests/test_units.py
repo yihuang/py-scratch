@@ -21,6 +21,7 @@ from scratch.sb3.io import (
 from scratch.vm import BroadcastMsg, ListVar, Runtime, Target, Variable, make_block
 from scratch.vm.opcodes import OPCODE_MAP
 from scratch.vm.types import Block, Costume, Field, Input, Sound
+from scratch.sb3.io import _build_project_json
 from scratch.vm.constants import PrimitiveType
 
 #  Helpers
@@ -2532,7 +2533,6 @@ class TestDataVariables:
 
     def test_cloud_sb3_round_trip(self) -> None:
         """Cloud flag survives SB3 serialization."""
-        from scratch.sb3.io import _build_project_json  # noqa: PLC0415
 
         rt = Runtime()
         rt._real_time = False

@@ -20,7 +20,7 @@ from ..constants import (
     YEAR_2000_EPOCH,
 )
 from ..thread import YIELD
-from . import _field_val, _str, _touching_object_check
+from ._helpers import _field_val, _str, _touching_object_check
 
 
 def sensing_touchingobject(rt: Runtime, tgt: Target, block: Block) -> Any:

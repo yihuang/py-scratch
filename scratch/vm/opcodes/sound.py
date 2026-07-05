@@ -20,8 +20,10 @@ from ..constants import (
     VOLUME_MAX,
     VOLUME_MIN,
 )
+import pygame
+
 from ..thread import YIELD
-from . import _clamp_effect, _field_val, _find_sound, _ensure_sound_loaded, _str
+from ._helpers import _clamp_effect, _field_val, _find_sound, _ensure_sound_loaded, _str
 
 
 def sound_sounds_menu(rt: Runtime, tgt: Target, block: Block) -> Any:
@@ -56,8 +58,6 @@ def sound_playuntildone(rt: Runtime, tgt: Target, block: Block) -> Any:
 
 def sound_stopallsounds(rt: Runtime, tgt: Target, block: Block) -> None:
     """Stop all currently playing sounds."""
-    import pygame  # noqa: PLC0415
-
     if pygame.mixer.get_init():
         pygame.mixer.stop()
 

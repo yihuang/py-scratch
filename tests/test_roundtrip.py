@@ -1,5 +1,4 @@
 """Roundtrip tests: DSL → sb3 → transcribe → DSL project, assert structural equality."""
-# ruff: noqa: E501
 
 from __future__ import annotations
 

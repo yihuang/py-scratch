@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 
 from ..thread import YIELD
 from ..constants import SCRATCH_RIGHT, STAGE_RIGHT, STAGE_TOP
-from . import _field_val, _str, _target_xy
+from ._helpers import _field_val, _str, _target_xy
 
 
 def motion_movesteps(rt: Runtime, tgt: Target, block: Block) -> None:

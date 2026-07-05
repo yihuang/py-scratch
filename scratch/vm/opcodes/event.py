@@ -12,7 +12,8 @@ if TYPE_CHECKING:
     from ..types import Block
 
 from ..thread import YIELD
-from . import _field_val
+from ._helpers import _field_val
+from ._helpers import _touching_object_check
 
 
 def event_whenflagclicked(rt: Runtime, tgt: Target, block: Block) -> None:
@@ -45,7 +46,6 @@ def event_whentouchingobject(rt: Runtime, tgt: Target, block: Block) -> Any:
     obj_name = _field_val(obj) if obj else ''
     if obj_name == '':
         return False
-    from . import _touching_object_check  # noqa: PLC0415
 
     touching = _touching_object_check(rt, tgt, obj_name)
     return rt._check_edge_hat('event_whentouchingobject', tgt, block, touching)

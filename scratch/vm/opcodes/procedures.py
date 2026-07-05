@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from ..target import Target
     from ..types import Block
 
-from . import _field_val
+from ._helpers import _field_val
 
 
 def procedures_definition(rt: Runtime, tgt: Target, block: Block) -> None:

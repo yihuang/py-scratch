@@ -7,6 +7,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Any
+import pygame
+
 import uuid
 
 # ── Block Inputs & Fields ────────────────────────────────────────────────
@@ -94,7 +96,7 @@ class Costume:
     data: bytes = b''  # raw image bytes from the .sb3 archive
     surface: Any = None  # pygame.Surface | None
 
-    def __deepcopy__(self) -> Costume:
+    def __deepcopy__(self, _memo: dict[Any, Any]) -> Costume:
         cls = type(self)
         cp = cls.__new__(cls)
         cp.name = self.name
@@ -105,13 +107,11 @@ class Costume:
         cp.asset_id = self.asset_id
         cp.md5ext = self.md5ext
         cp.data = self.data
-        # pygame.Surface is not deep-copyable; use a copy via blit
+        # pygame.Surface is not deep-copyable; copy via its own ``.copy()``
         if self.surface is not None:
-            from pygame import Surface as _PySurf  # noqa: PLC0415
-
-            if isinstance(self.surface, _PySurf):
+            try:
                 cp.surface = self.surface.copy()
-            else:
+            except AttributeError:
                 cp.surface = self.surface
         else:
             cp.surface = None
@@ -141,7 +141,7 @@ class Sound:
     data: bytes = b''
     sound: Any = None  # pygame.mixer.Sound | None
 
-    def __deepcopy__(self) -> Sound:
+    def __deepcopy__(self, _memo: dict[Any, Any]) -> Sound:
         cls = type(self)
         cp = cls.__new__(cls)
         cp.name = self.name
@@ -151,16 +151,11 @@ class Sound:
         cp.asset_id = self.asset_id
         cp.md5ext = self.md5ext
         cp.data = self.data
-        # pygame.mixer.Sound supports copy via ``buffer=`` bytes
-        if self.sound is not None:
-            from pygame.mixer import Sound as _PySound  # noqa: PLC0415
-
-            if isinstance(self.sound, _PySound):
-                cp.sound = _PySound(buffer=self.data)
-            else:
-                cp.sound = self.sound
+        # pygame.mixer.Sound is not deep-copyable; rebuild from raw audio data
+        if self.sound is not None and self.data:
+            cp.sound = pygame.mixer.Sound(buffer=self.data)
         else:
-            cp.sound = None
+            cp.sound = self.sound if self.sound is not None else None
         return cp
 
 

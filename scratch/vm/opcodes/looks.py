@@ -12,7 +12,8 @@ if TYPE_CHECKING:
     from ..types import Block
 
 from ..thread import Wait
-from . import (
+from ..constants import LOOKS_NEXTCOSTUME_OFFSET
+from ._helpers import (
     _field_val,
     _format_bubble_text,
     _set_backdrop,
@@ -26,8 +27,6 @@ def looks_switchcostumeto(rt: Runtime, tgt: Target, block: Block) -> None:
 
 
 def looks_nextcostume(rt: Runtime, tgt: Target, block: Block) -> None:
-    from ..constants import LOOKS_NEXTCOSTUME_OFFSET  # noqa: PLC0415
-
     _set_costume(tgt, tgt.costume_index + LOOKS_NEXTCOSTUME_OFFSET)
 
 

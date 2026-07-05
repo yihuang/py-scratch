@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 
 from ..thread import ThreadStatus, Wait, YIELD
 from ..constants import STOP_ALL, STOP_OTHER_IN_SPRITE, STOP_OTHER_IN_STAGE, STOP_THIS_SCRIPT
-from . import _substack_val, _field_val, _str
+from ._helpers import _substack_val, _field_val, _str
 
 
 def control_wait(rt: Runtime, tgt: Target, block: Block) -> Any:

@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from ..types import Block
 
 from ..constants import MATH_TRIG_PRECISION
-from . import _field_val, _scratch_compare, _str
+from ._helpers import _field_val, _scratch_compare, _str
 
 
 def operator_add(rt: Runtime, tgt: Target, block: Block) -> Any:

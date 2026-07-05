@@ -18,6 +18,7 @@ from .thread import Thread, ThreadStatus, Wait, YieldPass
 from .scheduler import Scheduler, SchedulerThread
 from .constants import CLICK_HIT_RADIUS, CLONE_START_HATS, PrimitiveType
 from .types import Block, Input
+from .cloud import Cloud
 
 # Type alias: an opcode handler is a generator that yields control signals
 # and (for reporters) ends by returning a value.
@@ -126,8 +127,6 @@ class Runtime(Scheduler):
     def _init_cloud(self) -> None:
         """Lazily create the Cloud IO device."""
         if self._cloud is None:
-            from .cloud import Cloud  # noqa: PLC0415
-
             self._cloud = Cloud(self)
             if self.stage is not None:
                 self._cloud.set_stage(self.stage)

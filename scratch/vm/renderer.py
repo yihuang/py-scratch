@@ -6,7 +6,9 @@ from __future__ import annotations
 
 import io
 import math
+import re
 from collections.abc import Callable
+import cairosvg
 from typing import Any
 
 import pygame
@@ -126,23 +128,15 @@ def scratch_to_screen(x: float, y: float) -> tuple[float, float]:
 # ── Costume loading ──────────────────────────────────────────────────────
 
 
-def _render_svg_data(data: bytes) -> pygame.Surface | None:
+def _render_svg_data(data: bytes) -> pygame.Surface:
     """Render SVG bytes to a pygame surface.
 
-    Tries **cairosvg** first (handles embedded ``<image>`` data URIs), falls
-    back to pygame's built-in SVG renderer when cairosvg is unavailable.
+    Use **cairosvg** to handle embedded ``<image>`` data URIs.
     """
-    try:
-        import cairosvg  # noqa: PLC0415  # type: ignore[import-untyped]
-
-        png_data = cairosvg.svg2png(bytestring=data)
-        return pygame.image.load(io.BytesIO(png_data))
-    except Exception:  # noqa: BLE001
-        pass
-    try:
-        return pygame.image.load(io.BytesIO(data), 'svg')
-    except Exception:  # noqa: BLE001
-        return None
+    # Detect zero-dimension SVGs (e.g. width="0" height="0") to avoid
+    # cairosvg crashing with "The SVG size is undefined".
+    png_data = cairosvg.svg2png(bytestring=data)
+    return pygame.image.load(io.BytesIO(png_data))
 
 
 def _adjust_rotation_centre(costume: Costume, data: bytes, surf: pygame.Surface) -> None:
@@ -152,8 +146,6 @@ def _adjust_rotation_centre(costume: Costume, data: bytes, surf: pygame.Surface)
     fractional (e.g. 87.424\u00d714).  Scale the stored rotation centre
     to match the actual rendered surface size.
     """
-    import re  # noqa: PLC0415
-
     text = data.decode('utf-8', errors='replace')
     w = re.search(r'width="([\d.]+)"', text)
     h = re.search(r'height="([\d.]+)"', text)
@@ -188,20 +180,12 @@ def _load_costume_surface(costume: Costume) -> pygame.Surface | None:
 
     if costume.data_format == 'svg':
         surf = _render_svg_data(costume.data)
-        if surf is not None:
-            _adjust_rotation_centre(costume, costume.data, surf)
-        if not isinstance(surf, pygame.Surface):
-            surf = None
+        _adjust_rotation_centre(costume, costume.data, surf)
     else:
-        try:
-            surf = pygame.image.load(io.BytesIO(costume.data))
-            if not isinstance(surf, pygame.Surface):
-                surf = None
-        except Exception:  # noqa: BLE001
-            surf = None
+        surf = pygame.image.load(io.BytesIO(costume.data))
 
     costume.surface = surf
-    return surf  # type: ignore[no-any-return]
+    return surf
 
 
 # ── Pen layer cache ──────────────────────────────────────────────────────
@@ -268,7 +252,7 @@ class Renderer:
         pygame.init()
 
         # We'll update these module globals once we know the actual pixel ratio.
-        global STAGE_SCALE, WINDOW_W, WINDOW_H  # noqa: PLW0603
+        global STAGE_SCALE, WINDOW_W, WINDOW_H
 
         # SCALED flag lets SDL2 create the framebuffer at the OS's native pixel
         # resolution (e.g. 2x on Retina displays), keeping the window at the
