@@ -15,7 +15,7 @@ from scratch.dsl import Project, control, motion, pen
 project = Project('Pen Artist', assets_dir=Path(__file__).parent)
 writer = project.sprite('PenWriter')
 
-writer.costume('pen', 'pen.svg', rotation_center_x=100, rotation_center_y=50)
+writer.costume('pen', 'pen.svg', rotation_center_x=87.33, rotation_center_y=6.88)
 writer.x = -200
 writer.y = -150
 writer.direction = 90

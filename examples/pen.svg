@@ -1,13 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="-50 -50 100 100" width="100" height="100">
-  <!-- Pen designed facing RIGHT (Scratch convention: direction=90 = unrotated, tip forward) -->
-  <g transform="translate(0, 0)">
-    <!-- Pen body: triangular shape pointing right -->
-    <polygon points="-35,-6 30,-6 42,0 30,6 -35,6" fill="#f39c12" stroke="#d68910" stroke-width="2" stroke-linejoin="round"/>
-    <!-- Pen tip at the right end -->
-    <polygon points="42,0 30,-6 30,6" fill="#e67e22"/>
-    <!-- Nib (black tip) -->
-    <polygon points="42,-3 50,0 42,3" fill="#333" stroke="#222" stroke-width="1"/>
-    <!-- Highlight -->
-    <polygon points="-28,-4 10,-4 10,4 -28,4" fill="rgba(255,255,255,0.25)"/>
-  </g>
-</svg>
+<svg version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="87.424" height="14" viewBox="0,0,87.424,14"><g transform="translate(-152.67179,-173.12424)"><g data-paper-data="{&quot;isPaintingLayer&quot;:true}" fill-rule="nonzero" stroke-linecap="butt" stroke-miterlimit="10" stroke-dasharray="" stroke-dashoffset="0" style="mix-blend-mode: normal"><path d="M153.67179,174.12424h65l12,6l-12,6h-65z" fill="#f39c12" stroke="#d68910" stroke-width="2" stroke-linejoin="round"/><path d="M218.67179,186.12424v-12l12,6z" fill="#e67e22" stroke="none" stroke-width="1" stroke-linejoin="miter"/><path d="M230.67179,177.12424l8,3l-8,3z" fill="#333333" stroke="#222222" stroke-width="1" stroke-linejoin="miter"/><path d="M160.67179,176.12424h38v8h-38z" fill-opacity="0.25" fill="#ffffff" stroke="none" stroke-width="1" stroke-linejoin="miter"/></g></g></svg>
