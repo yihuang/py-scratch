@@ -18,9 +18,15 @@ from scratch.sb3.transcriber import (
     _decompile_chain,
     _decompile_block,
     transcribe_to_dir,
+    _build_input_args,
+    _emit_variables,
+    _emit_lists,
+    _INPUT_PARAM_MAP,
+    _FIELD_PARAM_MAP,
+    _FIELD_POSITIONAL_ARGS,
 )
-from scratch.vm.target import Target, Variable
-from scratch.vm.types import Block, Input, Field
+from scratch.vm.target import Target, Variable, ListVar
+from scratch.vm.types import Block, Input, Field, Mutation
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────
@@ -525,3 +531,380 @@ class TestTranscribeIntegration:
 
             code = (out_dir / 'main.py').read_text()
             compile(code, 'main.py', 'exec')
+
+
+# ═════════════════════════════════════════════════════════════════════════
+#  Decompile — additional blocks
+# ═════════════════════════════════════════════════════════════════════════
+
+
+class TestDecompileBlockExtended:
+    """Decompile blocks that were previously uncovered."""
+
+    def test_procedures_call_no_args(self) -> None:
+        """procedures_call with no arguments."""
+        mut = Mutation(
+            proccode='my_block', argumentids='[]', argumentnames='[]', argumentdefaults='[]'
+        )
+        bid = 'call1'
+        block = Block(id=bid, opcode='procedures_call', inputs={}, fields={}, mutation=mut)
+        tgt = _make_tgt()
+        tgt.blocks[bid] = block
+        expr = _decompile_block(tgt, block)
+        assert expr['kind'] == 'call'
+        assert expr['func'] == 'call'
+        assert expr['mod'] == 'procedures'
+        assert "'my_block'" in str(expr['args'][0])
+
+    def test_procedures_call_with_args(self) -> None:
+        """procedures_call with one argument."""
+        arg_id = 'arg1'
+        mut = Mutation(
+            proccode='delete %s',
+            argumentids=json.dumps([arg_id]),
+            argumentnames=json.dumps(['item']),
+            argumentdefaults=json.dumps(['']),
+        )
+        bid = 'call1'
+        block = Block(
+            id=bid,
+            opcode='procedures_call',
+            inputs={arg_id: _inp('hello')},
+            fields={},
+            mutation=mut,
+        )
+        tgt = _make_tgt()
+        tgt.blocks[bid] = block
+        expr = _decompile_block(tgt, block)
+        assert expr['kind'] == 'call'
+        assert len(expr['args']) >= 1
+        assert "'delete %s'" in str(expr['args'][0])
+
+    def test_procedures_call_no_mutation(self) -> None:
+        """procedures_call without mutation → comment placeholder."""
+        block = _op('procedures_call', bid='call1')
+        tgt = _make_tgt()
+        tgt.blocks['call1'] = block
+        expr = _decompile_block(tgt, block)
+        assert expr['kind'] == 'comment'
+
+    def test_argument_reporter_string_number(self) -> None:
+        """argument_reporter_string_number → procedures.arg()."""
+        block = _op(
+            'argument_reporter_string_number',
+            bid='arg1',
+            fields={'VALUE': Field(value='param1')},
+        )
+        tgt = _make_tgt()
+        tgt.blocks['arg1'] = block
+        expr = _decompile_block(tgt, block)
+        assert expr['kind'] == 'reporter'
+        assert 'procedures.arg' in expr['code']
+        assert 'param1' in expr['code']
+
+    def test_argument_reporter_boolean(self) -> None:
+        """argument_reporter_boolean → procedures.arg()."""
+        block = _op(
+            'argument_reporter_boolean',
+            bid='arg1',
+            fields={'VALUE': Field(value='cond')},
+        )
+        tgt = _make_tgt()
+        tgt.blocks['arg1'] = block
+        expr = _decompile_block(tgt, block)
+        assert expr['kind'] == 'reporter'
+        assert 'procedures.arg' in expr['code']
+
+    def test_operator_not_with_operand(self) -> None:
+        """operator_not with OPERAND input."""
+        block = _op(
+            'operator_not',
+            bid='not1',
+            inputs={'OPERAND': _inp(1)},
+        )
+        tgt = _make_tgt()
+        tgt.blocks['not1'] = block
+        expr = _decompile_block(tgt, block)
+        assert expr['kind'] == 'call'
+        assert len(expr['args']) == 1
+        assert '1' in str(expr['args'][0]) or '1' in str(expr['args'])
+
+    def test_operator_not_no_inputs(self) -> None:
+        """operator_not with no inputs → defaults to 0."""
+        block = _op('operator_not', bid='not1', inputs={})
+        tgt = _make_tgt()
+        tgt.blocks['not1'] = block
+        expr = _decompile_block(tgt, block)
+        assert expr['kind'] == 'call'
+        # Should have default '0' for missing OPERAND
+        args_str = str(expr['args'])
+        assert '0' in args_str
+
+    def test_control_if_with_condition(self) -> None:
+        """control_if with CONDITION input."""
+        block = _op(
+            'control_if',
+            bid='if1',
+            inputs={'CONDITION': _inp(1)},
+        )
+        tgt = _make_tgt()
+        tgt.blocks['if1'] = block
+        expr = _decompile_block(tgt, block)
+        assert expr['kind'] == 'call'
+        assert expr['opcode'] == 'control_if'
+
+    def test_control_if_no_condition(self) -> None:
+        """control_if with no CONDITION input → defaults to 0."""
+        block = _op(
+            'control_if',
+            bid='if1',
+            inputs={'SUBSTACK': _inp('body1')},
+        )
+        tgt = _make_tgt()
+        tgt.blocks['if1'] = block
+        tgt.blocks['body1'] = _op('motion_movesteps', bid='body1')
+        expr = _decompile_block(tgt, block)
+        assert expr['kind'] == 'call'
+        # Should have default '0' for missing CONDITION after _INPUT_PARAM_MAP fix
+        args_str = str(expr['args'])
+        assert '0' in args_str
+
+    def test_control_if_else(self) -> None:
+        """control_if_else with both branches."""
+        block = _op(
+            'control_if_else',
+            bid='ife1',
+            inputs={'CONDITION': _inp(1)},
+        )
+        tgt = _make_tgt()
+        tgt.blocks['ife1'] = block
+        expr = _decompile_block(tgt, block)
+        assert expr['kind'] == 'call'
+        assert expr['opcode'] == 'control_if_else'
+
+    def test_sensing_keypressed(self) -> None:
+        """sensing_keypressed field mapped to 'key' not 'key_option'."""
+        block = _op(
+            'sensing_keypressed',
+            bid='key1',
+            fields={'KEY_OPTION': Field(value='right arrow')},
+        )
+        tgt = _make_tgt()
+        tgt.blocks['key1'] = block
+        expr = _decompile_block(tgt, block)
+        assert expr['kind'] == 'call'
+        # The keyword arg should be 'key=' not 'key_option='
+        kwargs_str = str(expr['kwargs'])
+        assert "'key'" in kwargs_str or 'key=' in kwargs_str
+        # 'key_option' should not appear
+        assert 'key_option' not in kwargs_str
+
+    def test_operator_mathop_ceiling(self) -> None:
+        """operator_mathop with 'ceiling' — not in special list → _mathop."""
+        block = _op(
+            'operator_mathop',
+            bid='m1',
+            inputs={'NUM': _inp(3.5)},
+            fields={'OPERATOR': Field(value='ceiling')},
+        )
+        tgt = _make_tgt()
+        tgt.blocks['m1'] = block
+        expr = _decompile_block(tgt, block)
+        # 'ceiling' is NOT in the special handler list
+        # Falls through to general handler → _mathop with 'ceiling' as positional
+        assert expr['func'] == '_mathop'
+        args_str = str(expr.get('args', []))
+        assert "'ceiling'" in args_str
+
+    def test_operator_mathop_unknown(self) -> None:
+        """operator_mathop with unknown operator → _mathop('op', n) positional."""
+        block = _op(
+            'operator_mathop',
+            bid='m1',
+            inputs={'NUM': _inp(42)},
+            fields={'OPERATOR': Field(value='e ^')},
+        )
+        tgt = _make_tgt()
+        tgt.blocks['m1'] = block
+        expr = _decompile_block(tgt, block)
+        assert expr['kind'] == 'call'
+        assert expr['func'] == '_mathop'
+        # Should have operator name as first positional arg
+        args = expr.get('args', [])
+        assert len(args) >= 1
+
+    def test_looks_costume_number_name(self) -> None:
+        """looks_costumenumbername returns call with number_name kwarg."""
+        block = _op(
+            'looks_costumenumbername',
+            bid='c1',
+            fields={'NUMBER_NAME': Field(value='name')},
+        )
+        tgt = _make_tgt()
+        tgt.blocks['c1'] = block
+        expr = _decompile_block(tgt, block)
+        assert expr['func'] == 'costume_number_name'
+        assert 'number_name' in str(expr.get('kwargs', {}))
+
+    def test_pen_set_pen_color_param(self) -> None:
+        """pen_setPenColorParamTo skips VALUE input."""
+        block = _op(
+            'pen_setPenColorParamTo',
+            bid='p1',
+            inputs={
+                'COLOR_PARAM': _inp('color'),
+                'VALUE': _inp(50),
+            },
+        )
+        tgt = _make_tgt()
+        tgt.blocks['p1'] = block
+        expr = _decompile_block(tgt, block)
+        assert expr['kind'] == 'call'
+        # VALUE should be excluded; only COLOR_PARAM remains
+        arg_names = [a.get('name', '') if isinstance(a, dict) else '' for a in expr.get('args', [])]
+        assert 'color' in arg_names
+        assert 'value' not in arg_names
+
+    def test_data_variable_reporter_field(self) -> None:
+        """data_variable reporter resolves name."""
+        block = _op(
+            'data_variable',
+            bid='v1',
+            fields={'VARIABLE': Field(value='score', variable_type='', id='v1')},
+        )
+        tgt = _make_tgt()
+        tgt.variables['v1'] = Variable('score', 0)
+        tgt.blocks['v1'] = block
+        expr = _decompile_block(tgt, block)
+        assert expr['kind'] == 'reporter'
+        assert 'score' in expr['code']
+
+    def test_unknown_opcode_fallback(self) -> None:
+        """Unknown opcode → comment."""
+        block = _op('some_unknown_opcode', bid='u1')
+        tgt = _make_tgt()
+        tgt.blocks['u1'] = block
+        expr = _decompile_block(tgt, block)
+        assert expr['kind'] == 'comment'
+
+
+# ═════════════════════════════════════════════════════════════════════════
+#  Emit — variables and lists deduplication
+# ═════════════════════════════════════════════════════════════════════════
+
+
+class TestEmitDeduplicate:
+    """_emit_variables and _emit_lists deduplicate by name."""
+
+    def test_deduplicate_variables(self) -> None:
+        """Same variable name emitted only once."""
+        tgt = _make_tgt()
+        tgt.variables['a'] = Variable('x', 1)
+        tgt.variables['b'] = Variable('x', 2)  # same name, different ID
+        lines: list[str] = []
+        _emit_variables(lines, '', tgt, 'sprite')
+        var_lines = [line for line in lines if '.var(' in line]
+        assert len(var_lines) == 1  # only one declaration
+
+    def test_deduplicate_variables_takes_first(self) -> None:
+        """When deduplicating, the first occurrence's value is used."""
+        tgt = _make_tgt()
+        tgt.variables['a'] = Variable('score', 0)
+        tgt.variables['b'] = Variable('score', 100)  # duplicate name
+        lines: list[str] = []
+        _emit_variables(lines, '', tgt, 'sprite')
+        var_lines = [line for line in lines if '.var(' in line]
+        assert len(var_lines) == 1
+        assert '0' in var_lines[0]  # uses first value
+
+    def test_deduplicate_lists(self) -> None:
+        """Same list name emitted only once."""
+
+        tgt = _make_tgt()
+        tgt.lists['a'] = ListVar('items', [1, 2])
+        tgt.lists['b'] = ListVar('items', [3, 4])  # same name
+        lines: list[str] = []
+        _emit_lists(lines, '', tgt, 'sprite')
+        list_lines = [line for line in lines if '.list_' in line]
+        assert len(list_lines) == 1
+
+    def test_different_names_not_deduplicated(self) -> None:
+        """Different variable names are both emitted."""
+        tgt = _make_tgt()
+        tgt.variables['a'] = Variable('x', 1)
+        tgt.variables['b'] = Variable('y', 2)
+        lines: list[str] = []
+        _emit_variables(lines, '', tgt, 'sprite')
+        var_lines = [line for line in lines if '.var(' in line]
+        assert len(var_lines) == 2
+
+
+# ═════════════════════════════════════════════════════════════════════════
+#  Build input args — edge cases
+# ═════════════════════════════════════════════════════════════════════════
+
+
+class TestBuildInputArgs:
+    """_build_input_args edge cases."""
+
+    def test_missing_input_default(self) -> None:
+        """Missing required input gets default 0."""
+        block = _op('operator_not', bid='n1', inputs={})
+        tgt = _make_tgt()
+        args = _build_input_args(tgt, block)
+        # Should supply default '0' for missing OPERAND
+        assert len(args) == 1
+        assert args[0]['value'] == '0'  # type: ignore[index]
+
+    def test_missing_input_control_if(self) -> None:
+        """control_if with missing CONDITION gets default."""
+        block = _op('control_if', bid='if1', inputs={'SUBSTACK': _inp('b1')})
+        tgt = _make_tgt()
+        args = _build_input_args(tgt, block)
+        # After _INPUT_PARAM_MAP fix, should supply default
+        assert len(args) >= 1
+
+    def test_pen_value_skipped(self) -> None:
+        """pen_setPenColorParamTo skips VALUE input."""
+        block = _op(
+            'pen_setPenColorParamTo',
+            bid='p1',
+            inputs={'COLOR_PARAM': _inp('color'), 'VALUE': _inp(50)},
+        )
+        tgt = _make_tgt()
+        args = _build_input_args(tgt, block)
+        arg_names = [a['name'] for a in args]  # type: ignore[index]
+        assert 'color' in arg_names
+        assert 'value' not in arg_names  # VALUE should be skipped
+
+    def test_pen_change_skipped(self) -> None:
+        """pen_changePenColorParamBy skips VALUE input."""
+        block = _op(
+            'pen_changePenColorParamBy',
+            bid='p1',
+            inputs={'COLOR_PARAM': _inp('color'), 'VALUE': _inp(10)},
+        )
+        tgt = _make_tgt()
+        args = _build_input_args(tgt, block)
+        arg_names = [a['name'] for a in args]  # type: ignore[index]
+        assert 'change' in arg_names
+        assert 'value' not in arg_names
+
+    def test_input_param_map_has_control_if(self) -> None:
+        """control_if is in _INPUT_PARAM_MAP."""
+        assert 'control_if' in _INPUT_PARAM_MAP
+        assert _INPUT_PARAM_MAP['control_if']['CONDITION'] == 'condition'
+
+    def test_field_param_map_has_sensing_keypressed(self) -> None:
+        """sensing_keypressed is in _FIELD_PARAM_MAP (not _INPUT_PARAM_MAP)."""
+        assert 'sensing_keypressed' in _FIELD_PARAM_MAP
+        assert _FIELD_PARAM_MAP['sensing_keypressed']['KEY_OPTION'] == 'key'
+        # Should NOT be in _INPUT_PARAM_MAP
+        assert 'sensing_keypressed' not in _INPUT_PARAM_MAP
+
+    def test_field_param_map_has_operator_mathop_positional(self) -> None:
+        """operator_mathop has OPERATOR as positional arg."""
+
+        assert 'operator_mathop' in _FIELD_POSITIONAL_ARGS
+        pos_args = _FIELD_POSITIONAL_ARGS['operator_mathop']
+        assert ('OPERATOR', 'name') in pos_args

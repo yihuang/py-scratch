@@ -64,6 +64,7 @@ def variable(variable: str) -> Reporter:
     return Reporter(
         opcode='data_variable',
         fields={'VARIABLE': Field(value=variable)},
+        shadow=True,
     )
 
 
@@ -198,4 +199,5 @@ def list_contents(list_: str) -> Reporter:
     return Reporter(
         opcode='data_listcontents',
         fields={'LIST': Field(value=list_, variable_type='list')},
+        shadow=True,
     )

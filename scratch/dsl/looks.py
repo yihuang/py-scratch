@@ -129,12 +129,21 @@ def set_volume_to(volume: int | float | Reporter = 100) -> StackExpr:
 # ── Reporters ─────────────────────────────────────────────────────────────
 
 
-def costume_number_name() -> Reporter:
-    """``looks_costumenumbername`` — returns the current costume index/name number.
+def costume_number_name(number_name: str = 'number') -> Reporter:
+    """``looks_costumenumbername`` — returns the current costume index or name.
 
-    Usage: ``costume_number_name()`` — returns current costume index.
+    Usage::
+
+        costume_number_name()           # → costume number
+        costume_number_name('name')     # → costume name
+
+    Args:
+        number_name: ``'number'`` (index) or ``'name'``.
     """
-    return Reporter(opcode='looks_costumenumbername')
+    return Reporter(
+        opcode='looks_costumenumbername',
+        fields={'NUMBER_NAME': Field(value=number_name)},
+    )
 
 
 def size() -> Reporter:

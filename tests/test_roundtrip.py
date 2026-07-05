@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import importlib
 import io
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
+
+import pytest
 
 from scratch.dsl import Project, control, data, looks, motion, operators, sensing
 from scratch.sb3.transcriber import transcribe_to_dir
@@ -381,4 +384,54 @@ class TestRoundtripDSL:
 
         rt_orig = project.build_runtime()
         rt_rebuilt = _roundtrip(project, tmp_path)
+        _assert_runtimes_equal(rt_orig, rt_rebuilt)
+
+
+# ═════════════════════════════════════════════════════════════════════════
+#  Example roundtrips — every example/sb3 → transcribe → compare
+# ═════════════════════════════════════════════════════════════════════════
+
+
+def _load_example_project(example_name: str) -> Project:
+    """Import an example module and return its ``project``."""
+    mod = importlib.import_module(f'examples.{example_name}')
+    return cast(Project, mod.project)
+
+
+def _roundtrip_example(example_name: str, tmp_path: Path) -> tuple[Runtime, Runtime]:
+    """Roundtrip an example project: original → sb3 → transcribe → rebuilt.
+
+    Returns ``(rt_orig, rt_rebuilt)`` for comparison.
+    """
+    project = _load_example_project(example_name)
+
+    # Build original runtime
+    rt_orig = project.build_runtime()
+
+    # Roundtrip via sb3 and transcribe
+    rt_rebuilt = _roundtrip(project, tmp_path)
+
+    return rt_orig, rt_rebuilt
+
+
+EXAMPLES = [
+    'bouncing_ball',
+    'calculator',
+    'cat_chase_mouse',
+    'circle_walker',
+    'key_mover',
+    'mouse_follower',
+    'pen_artist',
+    'all_in_one',
+    'procedures_demo',
+]
+
+
+class TestExampleRoundtrips:
+    """Roundtrip every example in ``examples/``."""
+
+    @pytest.mark.parametrize('example', EXAMPLES)
+    def test_example_roundtrip(self, example: str, tmp_path: Path) -> None:
+        """Example DSL → sb3 → transcribe → rebuilt Runtime matches original."""
+        rt_orig, rt_rebuilt = _roundtrip_example(example, tmp_path)
         _assert_runtimes_equal(rt_orig, rt_rebuilt)

@@ -40,6 +40,7 @@ from scratch.vm.types import Costume, Sound
 from .builder import Script
 from .expr import Reporter, StackExpr
 from . import events as _events
+from . import procedures as _procedures
 
 
 class ProjectTarget:
@@ -275,6 +276,29 @@ class ProjectTarget:
             Script(hat=StackExpr(opcode='control_start_as_clone'), body=list(body))
         )
 
+    def define(self, proc_name: str, *param_names: str) -> Callable[..., None]:
+        """Define a custom block (My Block) procedure on this sprite.
+
+        Usage::
+
+            sprite.define('step %s %n', 'dir', 'px')(
+                motion.change_x(procedures.arg('px')),
+            )
+
+        Args:
+            proc_name: The proccode (e.g. ``"step %s %n"``).
+            *param_names: Parameter names, one per ``%`` placeholder.
+
+        Returns:
+            A callable that accepts the procedure body blocks.
+        """
+        hat = _procedures.define(proc_name, *param_names)
+
+        def _reg(*body: StackExpr) -> None:
+            self._scripts.append(Script(hat=hat, body=list(body)))
+
+        return _reg
+
 
 class Project:
     """High-level project entry point.
@@ -331,6 +355,12 @@ class Project:
             # Transfer lists
             for lid, lst in pt._lists.items():
                 target.lists[lid] = lst
+
+            # Include stage variables in var_map so scripts on sprites can
+            # reference stage variables by name (e.g. ``data.variable('beat')``).
+            if not target.is_stage and self._stage is not None:
+                stage_var_map = self._stage._make_var_map()
+                var_map = {**var_map, **stage_var_map}
 
             # Build all scripts with var_map
             for script in pt._scripts:

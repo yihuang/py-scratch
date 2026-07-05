@@ -76,6 +76,7 @@ class StackExpr(Expr):
             opcode=self.opcode,
             inputs=dict(self.inputs),
             fields=dict(self.fields),
+            mutation=self._mutation,
         )
 
 
@@ -93,12 +94,14 @@ class Reporter(Expr):
         inputs: dict[str, Input] | None = None,
         fields: dict[str, Field] | None = None,
         shadow_reporters: dict[str, Reporter] | None = None,
+        shadow: bool = False,
     ) -> None:
         super().__init__()
         self.opcode = opcode
         self.inputs = inputs or {}
         self.fields = fields or {}
         self._shadow_reporters = shadow_reporters or {}
+        self._shadow = shadow
 
     def as_input(self) -> str:
         """Return this reporter's block ID for use as an input reference."""
@@ -112,25 +115,54 @@ class Reporter(Expr):
             opcode=self.opcode,
             inputs=dict(self.inputs),
             fields=dict(self.fields),
-            shadow=True,
+            shadow=self._shadow,
         )
 
 
 # ── Input resolution helper ──────────────────────────────────────────────
 
 
-def _resolve_inputs(kwargs: dict[str, Any]) -> tuple[dict[str, Input], dict[str, Reporter]]:
+# Primitive type codes used by Scratch compact primitives.
+# See ``docs/sb3-serialization.md`` for the full list.
+NUMBER = 4  # number value
+POSITIVE_NUMBER = 5  # positive number value (e.g. wait duration)
+WHOLE_NUMBER = 6  # whole number value (e.g. repeat count)
+INTEGER = 7  # integer value
+ANGLE = 8  # angle value
+TEXT = 10  # text/string value
+
+
+def _resolve_inputs(
+    kwargs: dict[str, Any],
+    types: dict[str, int] | None = None,
+) -> tuple[dict[str, Input], dict[str, Reporter]]:
     """Convert ``{Scratch_input_name: literal_or_reporter}`` → ``{name: Input}``.
+
+    ``types`` optionally maps input names to Scratch compact-primitive type
+    codes (e.g. ``POSITIVE_NUMBER``, ``WHOLE_NUMBER``).  When a literal is
+    provided for a typed input, the value is wrapped as a compact primitive
+    of that type for correct serialization.
 
     Returns (inputs, shadow_reporters) where shadow_reporters maps input names
     to Reporter objects for block-referenced inputs.
     """
+    types = types or {}
     inputs: dict[str, Input] = {}
     shadows: dict[str, Reporter] = {}
     for name, val in kwargs.items():
         if isinstance(val, Reporter):
-            inputs[name] = Input(value=val.as_input())
-            shadows[name] = val
+            # Inline variable references as OBSOLETE_FLAG with VARIABLE primitive
+            # instead of creating a separate data_variable block.
+            if val.opcode == 'data_variable':
+                var_name = str(val.fields.get('VARIABLE', Field(value='')).value)
+                inputs[name] = Input(value=None, variable_name=var_name)
+            else:
+                inputs[name] = Input(value=val.as_input())
+                shadows[name] = val
         else:
-            inputs[name] = Input(value=val, is_literal=True)
+            type_code = types.get(name)
+            if type_code is not None:
+                inputs[name] = Input(value=[type_code, str(val)], shadow=True, is_literal=False)
+            else:
+                inputs[name] = Input(value=val, is_literal=True)
     return inputs, shadows

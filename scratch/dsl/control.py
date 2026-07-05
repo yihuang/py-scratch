@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from scratch.vm.types import Field
 
-from .expr import Reporter, StackExpr, _resolve_inputs
+from .expr import Reporter, StackExpr, _resolve_inputs, POSITIVE_NUMBER, WHOLE_NUMBER
 
 
 def repeat(times: int | float | Reporter = 10) -> StackExpr:
@@ -16,7 +16,7 @@ def repeat(times: int | float | Reporter = 10) -> StackExpr:
 
         repeat(10)(motion.move(5), ...)
     """
-    ins, shadows = _resolve_inputs({'TIMES': times})
+    ins, shadows = _resolve_inputs({'TIMES': times}, types={'TIMES': WHOLE_NUMBER})
     return StackExpr(opcode='control_repeat', inputs=ins, shadow_reporters=shadows)
 
 
@@ -54,7 +54,7 @@ def if_else(condition: Reporter) -> StackExpr:
 
 def wait(duration: int | float | Reporter = 1) -> StackExpr:
     """``control_wait`` — pause for *duration* seconds."""
-    ins, shadows = _resolve_inputs({'DURATION': duration})
+    ins, shadows = _resolve_inputs({'DURATION': duration}, types={'DURATION': POSITIVE_NUMBER})
     return StackExpr(opcode='control_wait', inputs=ins, shadow_reporters=shadows)
 
 

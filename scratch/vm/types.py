@@ -36,6 +36,7 @@ class Input:
     value: Any
     shadow: bool = False  # whether the block in this slot is a shadow
     is_literal: bool = False  # True when value is a literal, not a block ID
+    variable_name: str | None = None  # if set, inline as VARIABLE primitive (OBSOLETE_FLAG)
 
 
 # ── Mutation (for procedures / custom blocks) ────────────────────────────

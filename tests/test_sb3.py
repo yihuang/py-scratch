@@ -13,7 +13,7 @@ from typing import Any
 from scratch.sb3.io import load_assets, load_project, save_project
 from scratch.vm.opcodes import OPCODE_MAP
 import tempfile
-from scratch.sb3.io import _build_project_json
+from scratch.sb3.serialize import build_project_json as _build_project_json
 
 # ── Helpers ──────────────────────────────────────────────────────────────
 

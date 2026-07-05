@@ -20,7 +20,10 @@ from ._helpers import _field_val, _str, _target_xy
 def motion_movesteps(rt: Runtime, tgt: Target, block: Block) -> None:
     steps = rt.num(tgt, block, 'STEPS')
     rad = math.radians(SCRATCH_RIGHT - tgt.direction)
-    tgt.set_xy(tgt.x + steps * math.cos(rad), tgt.y + steps * math.sin(rad))
+    tgt.set_xy(
+        _finite(tgt.x + steps * math.cos(rad)),
+        _finite(tgt.y + steps * math.sin(rad)),
+    )
 
 
 def motion_goto(rt: Runtime, tgt: Target, block: Block) -> None:
@@ -33,31 +36,39 @@ def motion_goto(rt: Runtime, tgt: Target, block: Block) -> None:
 
 
 def motion_gotoxy(rt: Runtime, tgt: Target, block: Block) -> None:
-    tgt.set_xy(rt.num(tgt, block, 'X'), rt.num(tgt, block, 'Y'))
+    tgt.set_xy(
+        _finite(rt.num(tgt, block, 'X')),
+        _finite(rt.num(tgt, block, 'Y')),
+    )
+
+
+def _finite(val: float) -> float:
+    """Clamp infinity/NaN to zero to prevent renderer crashes."""
+    return val if math.isfinite(val) else 0.0
 
 
 def motion_gox(rt: Runtime, tgt: Target, block: Block) -> None:
-    tgt.x = rt.num(tgt, block, 'X')
+    tgt.x = _finite(rt.num(tgt, block, 'X'))
 
 
 def motion_goy(rt: Runtime, tgt: Target, block: Block) -> None:
-    tgt.y = rt.num(tgt, block, 'Y')
+    tgt.y = _finite(rt.num(tgt, block, 'Y'))
 
 
 def motion_setx(rt: Runtime, tgt: Target, block: Block) -> None:
-    tgt.x = rt.num(tgt, block, 'X')
+    tgt.x = _finite(rt.num(tgt, block, 'X'))
 
 
 def motion_sety(rt: Runtime, tgt: Target, block: Block) -> None:
-    tgt.y = rt.num(tgt, block, 'Y')
+    tgt.y = _finite(rt.num(tgt, block, 'Y'))
 
 
 def motion_changexby(rt: Runtime, tgt: Target, block: Block) -> None:
-    tgt.x = tgt.x + rt.num(tgt, block, 'DX')
+    tgt.x = _finite(tgt.x + rt.num(tgt, block, 'DX'))
 
 
 def motion_changeyby(rt: Runtime, tgt: Target, block: Block) -> None:
-    tgt.y = tgt.y + rt.num(tgt, block, 'DY')
+    tgt.y = _finite(tgt.y + rt.num(tgt, block, 'DY'))
 
 
 def motion_setdirection(rt: Runtime, tgt: Target, block: Block) -> None:
@@ -146,14 +157,14 @@ def motion_setrotationstyle(rt: Runtime, tgt: Target, block: Block) -> None:
 
 def motion_xposition(rt: Runtime, tgt: Target, block: Block) -> Any:
     val = tgt.x
-    if abs(val - round(val)) < 1e-9:
+    if math.isfinite(val) and abs(val - round(val)) < 1e-9:
         val = round(val)
     return val
 
 
 def motion_yposition(rt: Runtime, tgt: Target, block: Block) -> Any:
     val = tgt.y
-    if abs(val - round(val)) < 1e-9:
+    if math.isfinite(val) and abs(val - round(val)) < 1e-9:
         val = round(val)
     return val
 

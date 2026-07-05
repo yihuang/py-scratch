@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import io
+import zipfile
 
 import pytest
+
+import json
 
 from scratch.dsl import (
     Project,
@@ -15,7 +18,9 @@ from scratch.dsl import (
     motion,
     operators,
     pen,
+    procedures,
     sensing,
+    sound,
 )
 from scratch.dsl.builder import Script, chain
 from scratch.dsl.expr import Reporter
@@ -385,7 +390,8 @@ class TestCategoryControl:
         assert control.forever().opcode == 'control_forever'
 
     def test_repeat_defaults(self) -> None:
-        assert control.repeat().inputs['TIMES'].value == 10
+        # TIMES uses WHOLE_NUMBER type: [6, '10']
+        assert control.repeat().inputs['TIMES'].value[1] == '10'
 
     def test_if_opcode(self) -> None:
         ex = control.if_(sensing.touching('edge'))
@@ -396,7 +402,8 @@ class TestCategoryControl:
         assert ex.opcode == 'control_if_else'
 
     def test_wait_defaults(self) -> None:
-        assert control.wait().inputs['DURATION'].value == 1
+        # DURATION uses POSITIVE_NUMBER type: [5, '1']
+        assert control.wait().inputs['DURATION'].value[1] == '1'
 
     def test_repeat_until_opcode(self) -> None:
         ex = control.repeat_until(sensing.key_pressed('space'))
@@ -456,7 +463,8 @@ class TestCategorySensing:
     def test_touching_reporter(self) -> None:
         ex = sensing.touching(data.variable('target'))
         assert ex.opcode == 'sensing_touchingobject'
-        assert 'TOUCHINGOBJECTMENU' in ex._shadow_reporters
+        # Variable reporter is now inlined via variable_name, not shadow_reporter
+        assert ex.inputs['TOUCHINGOBJECTMENU'].variable_name == 'target'
 
 
 class TestCategoryPen:
@@ -668,3 +676,501 @@ class TestRoundTrip:
         assert isinstance(sub_id, str)
         assert sub_id in target.blocks
         assert target.blocks[sub_id].opcode == 'motion_movesteps'
+
+    def test_sprite_define(self) -> None:
+        """sprite.define() registers a procedure definition as a top-level hat."""
+        project = Project('ProcTest')
+        s = project.sprite('Cat')
+        s.define('greet %s', 'name')(
+            motion.move(10),
+        )
+        rt = project.build_runtime()
+        target = rt.get_target_by_name('Cat')
+        assert target is not None
+        def_blocks = [b for b in target.blocks.values() if b.opcode == 'procedures_definition']
+        assert len(def_blocks) == 1
+        def_block = def_blocks[0]
+        assert def_block.top_level is True
+        # Body should be attached to the definition
+        assert def_block.next is not None
+        assert target.blocks[def_block.next].opcode == 'motion_movesteps'
+
+    def test_sprite_define_and_call(self) -> None:
+        """sprite.define() + procedures.call() produces a valid sb3."""
+        project = Project('ProcTest')
+        s = project.sprite('Cat')
+        s.define('jump %n', 'height')(
+            motion.change_y(procedures.arg('height')),
+        )
+        s.when_flag_clicked(
+            procedures.call('jump %n', 50),
+        )
+        buf = io.BytesIO()
+        project.save(buf)
+        buf.seek(0)
+        with zipfile.ZipFile(buf) as zf:
+            data = json.loads(zf.read('project.json'))
+        # Both definition and call should be present
+        cat_target = data['targets'][1]
+        def_blocks = [
+            b
+            for b in cat_target['blocks'].values()
+            if isinstance(b, dict) and b.get('opcode') == 'procedures_definition'
+        ]
+        call_blocks = [
+            b
+            for b in cat_target['blocks'].values()
+            if isinstance(b, dict) and b.get('opcode') == 'procedures_call'
+        ]
+        assert len(def_blocks) == 1
+        assert len(call_blocks) == 1
+
+
+# ═════════════════════════════════════════════════════════════════════════
+#  Category -- Procedures (custom blocks)
+# ═════════════════════════════════════════════════════════════════════════
+
+
+class TestCategoryProcedures:
+    """procedures.define(), procedures.arg(), procedures.call()."""
+
+    def test_define_no_params(self) -> None:
+
+        ex = procedures.define('my_block')
+        assert ex.opcode == 'procedures_definition'
+        assert ex._mutation is not None
+        assert ex._mutation.proccode == 'my_block'
+        assert ex._mutation.argumentids == '[]'
+
+    def test_define_with_params(self) -> None:
+
+        ex = procedures.define('move %n %s', 'steps', 'direction')
+        assert ex.opcode == 'procedures_definition'
+        assert ex._mutation is not None
+        assert ex._mutation.proccode == 'move %n %s'
+
+        names = json.loads(ex._mutation.argumentnames)
+        assert names == ['steps', 'direction']
+
+    def test_define_with_body(self) -> None:
+
+        ex = procedures.define('my_block')
+        ex(motion.move(10), motion.turn_right(90))
+        assert ex._body is not None
+        assert len(ex._body) == 2
+        assert ex._body[0].opcode == 'motion_movesteps'
+        assert ex._body[1].opcode == 'motion_turnright'
+
+    def test_call_no_args(self) -> None:
+
+        ex = procedures.call('my_block')
+        assert ex.opcode == 'procedures_call'
+        assert ex._mutation is not None
+        assert ex._mutation.proccode == 'my_block'
+
+    def test_call_with_args(self) -> None:
+
+        ex = procedures.call('add %n %n', 3, 5)
+        assert ex.opcode == 'procedures_call'
+        assert ex._mutation is not None
+        arg_ids = json.loads(ex._mutation.argumentids)
+        assert len(arg_ids) == 2
+        assert arg_ids[0] in ex.inputs
+        assert arg_ids[1] in ex.inputs
+        # Procedure call args use SHADOW_FLAG with TEXT primitives
+        assert ex.inputs[arg_ids[0]].value == [10, '3']
+        assert ex.inputs[arg_ids[1]].value == [10, '5']
+
+    def test_call_with_reporter_arg(self) -> None:
+
+        ex = procedures.call('say %s', data.variable('score'))
+        assert ex.opcode == 'procedures_call'
+        assert ex._mutation is not None
+        arg_ids = json.loads(ex._mutation.argumentids)
+        assert len(arg_ids) == 1
+        aid = arg_ids[0]
+        assert aid in ex.inputs
+        # Reporter is stored as shadow
+        assert aid in ex._shadow_reporters
+
+    def test_arg_reporter(self) -> None:
+
+        ex = procedures.arg('param1')
+        assert ex.opcode == 'argument_reporter_string_number'
+        assert ex.fields['VALUE'].value == 'param1'
+
+    def test_define_builds_runtime(self) -> None:
+        """Integration: define + call via builder."""
+
+        project = Project('ProcTest')
+        s = project.sprite('Cat')
+        s.when_flag_clicked(
+            procedures.call('hello'),
+        )
+        # Add definition as a Script
+        hat = procedures.define('hello')
+        hat(motion.move(10))
+        script = Script(hat)
+        target = project.build_runtime().get_target_by_name('Cat')
+        assert target is not None
+        script.build(target)
+        # Check both blocks exist
+        def_blocks = [b for b in target.blocks.values() if b.opcode == 'procedures_definition']
+        assert len(def_blocks) == 1
+        call_blocks = [b for b in target.blocks.values() if b.opcode == 'procedures_call']
+        assert len(call_blocks) == 1
+
+
+class TestCategoryLooks:
+    """looks.* blocks."""
+
+    def test_show_hide(self) -> None:
+        assert looks.show().opcode == 'looks_show'
+        assert looks.hide().opcode == 'looks_hide'
+
+    def test_say(self) -> None:
+        ex = looks.say('hello')
+        assert ex.opcode == 'looks_say'
+        assert ex.inputs['MESSAGE'].value == 'hello'
+
+    def test_say_for_seconds(self) -> None:
+        ex = looks.say_for_seconds('hi', 2)
+        assert ex.opcode == 'looks_sayforsecs'
+        assert ex.inputs['MESSAGE'].value == 'hi'
+        assert ex.inputs['SECS'].value == 2
+
+    def test_think(self) -> None:
+        ex = looks.think('hmm')
+        assert ex.opcode == 'looks_think'
+
+    def test_switch_costume(self) -> None:
+        ex = looks.switch_costume_to('costume1')
+        assert ex.opcode == 'looks_switchcostumeto'
+
+    def test_next_costume(self) -> None:
+        assert looks.next_costume().opcode == 'looks_nextcostume'
+
+    def test_switch_backdrop(self) -> None:
+        ex = looks.switch_backdrop_to('backdrop1')
+        assert ex.opcode == 'looks_switchbackdropto'
+
+    def test_costume_number_name_default(self) -> None:
+        ex = looks.costume_number_name()
+        assert ex.opcode == 'looks_costumenumbername'
+        # Default field value should be 'number'
+        assert 'NUMBER_NAME' in ex.fields
+        assert ex.fields['NUMBER_NAME'].value == 'number'
+
+    def test_costume_number_name_with_arg(self) -> None:
+        ex = looks.costume_number_name('name')
+        assert ex.opcode == 'looks_costumenumbername'
+        assert ex.fields['NUMBER_NAME'].value == 'name'
+
+    def test_backdrop_number_name(self) -> None:
+        ex = looks.backdrop_number_name('number')
+        assert ex.opcode == 'looks_backdropnumbername'
+        assert ex.fields['NUMBER_NAME'].value == 'number'
+
+    def test_set_effect(self) -> None:
+        ex = looks.set_effect('GHOST', 50)
+        assert ex.opcode == 'looks_seteffectto'
+
+    def test_change_effect(self) -> None:
+        ex = looks.change_effect('GHOST', 10)
+        assert ex.opcode == 'looks_changeeffectby'
+
+    def test_clear_effects(self) -> None:
+        assert looks.clear_effects().opcode == 'looks_cleargraphiceffects'
+
+    def test_set_size(self) -> None:
+        ex = looks.set_size_to(200)
+        assert ex.opcode == 'looks_setsizeto'
+
+    def test_change_size(self) -> None:
+        ex = looks.change_size_by(10)
+        assert ex.opcode == 'looks_changesizeby'
+
+    def test_size_reporter(self) -> None:
+        assert looks.size().opcode == 'looks_size'
+
+    def test_go_to_front_back(self) -> None:
+        ex = looks.go_to_front_back('front')
+        assert ex.opcode == 'looks_gotofrontback'
+        assert ex.fields['FRONT_BACK'].value == 'front'
+
+
+class TestCategoryEvents:
+    """events.* blocks."""
+
+    def test_broadcast(self) -> None:
+        ex = events.broadcast('done')
+        assert ex.opcode == 'event_broadcast'
+
+    def test_broadcast_and_wait(self) -> None:
+        ex = events.broadcast_and_wait('done')
+        assert ex.opcode == 'event_broadcastandwait'
+
+    def test_when_backdrop_switches_to(self) -> None:
+        ex = events.when_backdrop_switches_to('backdrop1')
+        assert ex.opcode == 'event_whenbackdropswitchesto'
+
+    def test_when_greater_than(self) -> None:
+        ex = events.when_greater_than(metric='loudness', value=10)
+        assert ex.opcode == 'event_whengreaterthan'
+        assert ex.fields['WHENGREATERTHAN_MENU'].value == 'loudness'
+
+
+class TestCategoryDataExtended:
+    """data.* blocks beyond the basics."""
+
+    def test_change_variable(self) -> None:
+        ex = data.change_variable('score', 1)
+        assert ex.opcode == 'data_changevariableby'
+
+    def test_show_variable(self) -> None:
+        ex = data.show_variable('score')
+        assert ex.opcode == 'data_showvariable'
+
+    def test_hide_variable(self) -> None:
+        ex = data.hide_variable('score')
+        assert ex.opcode == 'data_hidevariable'
+
+    def test_delete_of_list(self) -> None:
+        ex = data.delete_of_list('items', 1)
+        assert ex.opcode == 'data_deleteoflist'
+
+    def test_delete_all_of_list(self) -> None:
+        ex = data.delete_all_of_list('items')
+        assert ex.opcode == 'data_deletealloflist'
+
+    def test_insert_at_list(self) -> None:
+        ex = data.insert_at_list('items', 1, data.variable('x'))
+        assert ex.opcode == 'data_insertatlist'
+
+    def test_replace_item_of_list(self) -> None:
+        ex = data.replace_item_of_list('items', 1, 'y')
+        assert ex.opcode == 'data_replaceitemoflist'
+
+    def test_item_of_list(self) -> None:
+        ex = data.item_of_list('items', 1)
+        assert ex.opcode == 'data_itemoflist'
+
+    def test_length_of_list(self) -> None:
+        ex = data.length_of_list('items')
+        assert ex.opcode == 'data_lengthoflist'
+
+    def test_list_contains_item(self) -> None:
+        ex = data.list_contains_item('items', 'x')
+        assert ex.opcode == 'data_listcontainsitem'
+
+
+class TestCategorySensingExtended:
+    """sensing.* blocks beyond the basics."""
+
+    def test_ask_and_wait(self) -> None:
+        ex = sensing.ask_and_wait('what?')
+        assert ex.opcode == 'sensing_askandwait'
+
+    def test_key_pressed(self) -> None:
+        ex = sensing.key_pressed('space')
+        assert ex.opcode == 'sensing_keypressed'
+        assert ex.fields['KEY_OPTION'].value == 'space'
+
+    def test_mouse_x(self) -> None:
+        assert sensing.mouse_x().opcode == 'sensing_mousex'
+
+    def test_mouse_y(self) -> None:
+        assert sensing.mouse_y().opcode == 'sensing_mousey'
+
+    def test_mouse_down(self) -> None:
+        assert sensing.mouse_down().opcode == 'sensing_mousedown'
+
+    def test_timer(self) -> None:
+        assert sensing.timer().opcode == 'sensing_timer'
+
+    def test_reset_timer(self) -> None:
+        assert sensing.reset_timer().opcode == 'sensing_resettimer'
+
+    def test_current(self) -> None:
+        ex = sensing.current('year')
+        assert ex.opcode == 'sensing_current'
+        assert ex.fields['CURRENTMENU'].value == 'year'
+
+    def test_days_since_2000(self) -> None:
+        assert sensing.days_since_2000().opcode == 'sensing_dayssince2000'
+
+    def test_username(self) -> None:
+        assert sensing.username().opcode == 'sensing_username'
+
+    def test_answer(self) -> None:
+        assert sensing.answer().opcode == 'sensing_answer'
+
+
+class TestCategoryControlExtended:
+    """control.* blocks beyond basics."""
+
+    def test_stop_all(self) -> None:
+        ex = control.stop('all')
+        assert ex.opcode == 'control_stop'
+        assert ex.fields['STOP_OPTION'].value == 'all'
+
+    def test_stop_this_script(self) -> None:
+        ex = control.stop('this script')
+        assert ex.fields['STOP_OPTION'].value == 'this script'
+
+    def test_create_clone_of(self) -> None:
+        ex = control.create_clone_of('_myself_')
+        assert ex.opcode == 'control_create_clone_of'
+
+    def test_delete_this_clone(self) -> None:
+        assert control.delete_this_clone().opcode == 'control_delete_this_clone'
+
+    def test_wait(self) -> None:
+        ex = control.wait(0.5)
+        assert ex.opcode == 'control_wait'
+
+    def test_wait_until(self) -> None:
+        ex = control.wait_until(operators.eq(1, 1))
+        assert ex.opcode == 'control_wait_until'
+
+
+class TestCategorySound:
+    """sound.* blocks."""
+
+    def test_play(self) -> None:
+        ex = sound.play('meow')
+        assert ex.opcode == 'sound_play'
+
+    def test_play_until_done(self) -> None:
+        ex = sound.play_until_done('meow')
+        assert ex.opcode == 'sound_playuntildone'
+
+    def test_stop_all_sounds(self) -> None:
+        assert sound.stop_all_sounds().opcode == 'sound_stopallsounds'
+
+    def test_set_volume(self) -> None:
+        ex = sound.set_volume_to(50)
+        assert ex.opcode == 'sound_setvolumeto'
+
+    def test_change_volume(self) -> None:
+        ex = sound.change_volume_by(10)
+        assert ex.opcode == 'sound_changevolumeby'
+
+    def test_volume(self) -> None:
+        assert sound.volume().opcode == 'sound_volume'
+
+
+class TestCategoryOperatorsExtended:
+    """operators.* blocks beyond basics."""
+
+    def test_mathop_ceiling(self) -> None:
+        ex = operators._mathop('ceiling', 3.5)
+        assert ex.opcode == 'operator_mathop'
+        assert ex.fields['OPERATOR'].value == 'ceiling'
+        assert ex.inputs['NUM'].value == 3.5
+
+    def test_mathop_floor(self) -> None:
+        ex = operators.floor_(3.5)
+        assert ex.opcode == 'operator_mathop'
+        assert ex.fields['OPERATOR'].value == 'floor'
+
+    def test_mathop_abs(self) -> None:
+        ex = operators.abs_(-5)
+        assert ex.opcode == 'operator_mathop'
+        assert ex.fields['OPERATOR'].value == 'abs'
+
+    def test_mathop_sin(self) -> None:
+        ex = operators.sin(90)
+        assert ex.opcode == 'operator_mathop'
+
+    def test_subtract(self) -> None:
+        ex = operators.sub(10, 3)
+        assert ex.opcode == 'operator_subtract'
+
+    def test_multiply(self) -> None:
+        ex = operators.mult(4, 5)
+        assert ex.opcode == 'operator_multiply'
+
+    def test_divide(self) -> None:
+        ex = operators.div(10, 2)
+        assert ex.opcode == 'operator_divide'
+
+    def test_random(self) -> None:
+        ex = operators.random(1, 10)
+        assert ex.opcode == 'operator_random'
+        assert ex.inputs['FROM'].value == 1
+        assert ex.inputs['TO'].value == 10
+
+    def test_join(self) -> None:
+        ex = operators.join('a', 'b')
+        assert ex.opcode == 'operator_join'
+
+    def test_letter_of(self) -> None:
+        ex = operators.letter_of(1, 'hello')
+        assert ex.opcode == 'operator_letter_of'
+
+    def test_length(self) -> None:
+        ex = operators.length('hello')
+        assert ex.opcode == 'operator_length'
+
+    def test_contains(self) -> None:
+        ex = operators.contains('hello', 'el')
+        assert ex.opcode == 'operator_contains'
+
+    def test_mod(self) -> None:
+        ex = operators.mod(10, 3)
+        assert ex.opcode == 'operator_mod'
+
+    def test_round(self) -> None:
+        ex = operators.round_(3.7)
+        assert ex.opcode == 'operator_round'
+
+    def test_lt(self) -> None:
+        ex = operators.lt(1, 2)
+        assert ex.opcode == 'operator_lt'
+
+    def test_gt(self) -> None:
+        ex = operators.gt(3, 2)
+        assert ex.opcode == 'operator_gt'
+
+    def test_eq(self) -> None:
+        ex = operators.eq(1, 1)
+        assert ex.opcode == 'operator_equals'
+
+
+class TestVariableInlining:
+    """data.variable() is inlined as OBSOLETE_FLAG when used as an input."""
+
+    def test_variable_inlined_in_control_wait(self) -> None:
+        """control.wait(data.variable('x')) inlines the variable."""
+        ex = control.wait(data.variable('x'))
+        assert ex.opcode == 'control_wait'
+        dur = ex.inputs['DURATION']
+        assert dur.variable_name == 'x'
+        assert dur.value is None  # not a block reference
+
+    def test_variable_inlined_in_sensing_touching(self) -> None:
+        """sensing.touching(data.variable('x')) inlines the variable."""
+        ex = sensing.touching(data.variable('x'))
+        assert ex.opcode == 'sensing_touchingobject'
+        inp = ex.inputs['TOUCHINGOBJECTMENU']
+        assert inp.variable_name == 'x'
+
+    def test_variable_not_inlined_when_standalone(self) -> None:
+        """data.variable('x') alone (not as input) is still a Reporter block."""
+        ex = data.variable('x')
+        assert ex.opcode == 'data_variable'
+        assert ex.fields['VARIABLE'].value == 'x'
+
+    def test_literal_not_inlined(self) -> None:
+        """Literal values use shadow flag, not variable_name."""
+        ex = control.wait(0.5)
+        dur = ex.inputs['DURATION']
+        assert dur.variable_name is None
+
+    def test_reporter_not_inlined(self) -> None:
+        """Non-variable reporters (e.g. operators.add) use block ref."""
+        ex = control.wait(operators.add(data.variable('x'), 1))
+        dur = ex.inputs['DURATION']
+        assert dur.variable_name is None  # not a variable, it's a block ref
+        assert dur.value is not None  # block ID reference

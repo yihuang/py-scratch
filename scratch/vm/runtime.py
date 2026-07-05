@@ -251,7 +251,10 @@ class Runtime(Scheduler):
         return self.resolve_num(target, value)
 
     def num_int(self, target: Target, block: Block, name: str) -> int:
-        return int(self.num(target, block, name) + 0.5)
+        val = self.num(target, block, name)
+        if not math.isfinite(val):
+            return 0
+        return int(val + 0.5)
 
     def truthy(self, target: Target, block: Block, name: str) -> bool:
         value, is_shadow = self._input_value(block, name)

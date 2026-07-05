@@ -119,10 +119,26 @@ def scratch_to_screen(x: float, y: float) -> tuple[float, float]:
 
     Scratch: origin at centre, +x right, +y up.
     Screen: origin at top-left, +x right, +y down.
+
+    Infinity/NaN values are clamped to the stage boundary to prevent
+    ``OverflowError`` in pygame drawing functions.
     """
     sx = (x + STAGE_W / 2) * STAGE_SCALE
     sy = (STAGE_H / 2 - y) * STAGE_SCALE
+    if not math.isfinite(sx):
+        sx = 0.0 if math.isnan(sx) else (float('inf') if sx > 0 else float('-inf'))
+        sx = _clamp_screen(sx, STAGE_W * STAGE_SCALE)
+    if not math.isfinite(sy):
+        sy = 0.0 if math.isnan(sy) else (float('inf') if sy > 0 else float('-inf'))
+        sy = _clamp_screen(sy, STAGE_H * STAGE_SCALE)
     return sx, sy
+
+
+def _clamp_screen(v: float, limit: float) -> float:
+    """Clamp a screen coordinate to a finite range."""
+    if not math.isfinite(v):
+        return limit if v > 0 else -limit
+    return v
 
 
 # ── Costume loading ──────────────────────────────────────────────────────
@@ -133,9 +149,13 @@ def _render_svg_data(data: bytes) -> pygame.Surface:
 
     Use **cairosvg** to handle embedded ``<image>`` data URIs.
     """
-    # Detect zero-dimension SVGs (e.g. width="0" height="0") to avoid
-    # cairosvg crashing with "The SVG size is undefined".
-    png_data = cairosvg.svg2png(bytestring=data)
+    try:
+        png_data = cairosvg.svg2png(bytestring=data)
+    except ValueError:
+        # return placeholder for zero sized svg
+        surf = pygame.Surface((1, 1), pygame.SRCALPHA)
+        surf.fill((0, 0, 0, 0))
+        return surf
     return pygame.image.load(io.BytesIO(png_data))
 
 
@@ -503,6 +523,9 @@ class Renderer:
             oy = cy
 
         rect = scaled.get_rect()
+        # Guard against infinity/NaN positions (e.g. from div-by-zero)
+        if not (math.isfinite(sx) and math.isfinite(sy)):
+            return
         rect.x = int(round(sx - ox))
         rect.y = int(round(sy - oy))
         self.screen.blit(scaled, rect)

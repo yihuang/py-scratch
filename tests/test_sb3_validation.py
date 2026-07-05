@@ -37,6 +37,7 @@ EXAMPLES = [
     'mouse_follower',
     'pen_artist',
     'all_in_one',
+    'procedures_demo',
 ]
 
 

@@ -37,7 +37,12 @@ import pygame
 
 
 def _num(inp: Any) -> float:
-    """Coerce to number; Scratch treats non-numeric as 0.
+    """Coerce to number, matching Scratch's ``Number()``.
+
+    * Empty string / whitespace-only → 0.
+    * ``'Infinity'`` / ``'-Infinity'`` (exact case) → Infinity.
+    * ``'NaN'`` (exact case) → NaN.
+    * Everything else non-numeric → NaN.
 
     Scratch's ``Number()`` is case-sensitive: ``Number('Infinity')`` → Infinity,
     but ``Number('INFINITY')`` → NaN → 0.  Python's ``float()`` is
@@ -48,10 +53,21 @@ def _num(inp: Any) -> float:
             return float('inf')
         if inp == '-Infinity':
             return float('-inf')
+        if inp == 'NaN':
+            return float('nan')
+        if inp.strip() == '':
+            return 0.0
+        # Try numeric parse; if it fails, Scratch returns NaN
+        try:
+            return float(inp)
+        except (ValueError, TypeError):
+            return float('nan')
+    if inp is None:
+        return 0.0
     try:
         return float(inp)
     except (ValueError, TypeError):
-        return 0.0
+        return float('nan')
 
 
 def _str(inp: Any) -> str:

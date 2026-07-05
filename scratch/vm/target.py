@@ -7,6 +7,7 @@ rendering state (position, direction, size, visibility).
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from typing import Any, Iterable
 
@@ -106,8 +107,8 @@ class Target:
     rotation_style: str = ROTATION_ALL_AROUND
 
     def set_xy(self, x: float, y: float) -> None:
-        self.x = x
-        self.y = y
+        self.x = x if math.isfinite(x) else 0.0
+        self.y = y if math.isfinite(y) else 0.0
 
     @property
     def direction(self) -> float:

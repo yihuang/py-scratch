@@ -7,21 +7,22 @@ from itertools import count
 from typing import Any
 
 import datetime
+import json
 import math
 
 import pytest
 import pygame
-from scratch.sb3.io import (
+from scratch.sb3.parse import (
     _parse_block,
-    _parse_field,
-    _parse_input,
-    _serialize_field,
-    _serialize_input,
+    parse_field as _parse_field,
+    parse_input as _parse_input,
 )
+from scratch.sb3.serialize import serialize_field
+from scratch.sb3.serialize import serialize_input
 from scratch.vm import BroadcastMsg, ListVar, Runtime, Target, Variable, make_block
 from scratch.vm.opcodes import OPCODE_MAP
-from scratch.vm.types import Block, Costume, Field, Input, Sound
-from scratch.sb3.io import _build_project_json
+from scratch.vm.types import Block, Costume, Field, Input, Mutation, Sound
+from scratch.sb3.serialize import build_project_json as _build_project_json
 from scratch.vm.constants import PrimitiveType
 
 #  Helpers
@@ -2066,15 +2067,17 @@ class TestOperators:
         assert self._eval('operator_lt', {'OPERAND1': 3, 'OPERAND2': 5}) is True
         assert self._eval('operator_lt', {'OPERAND1': 5, 'OPERAND2': 3}) is False
         assert self._eval('operator_lt', {'OPERAND1': 4, 'OPERAND2': 4}) is False
-        assert self._eval('operator_lt', {'OPERAND1': 'a', 'OPERAND2': 1}) is True
-        assert self._eval('operator_lt', {'OPERAND1': 1, 'OPERAND2': 'a'}) is False
+        # Non-numeric strings compare as strings; 'a' > '1'
+        assert self._eval('operator_lt', {'OPERAND1': 'a', 'OPERAND2': 1}) is False
+        assert self._eval('operator_lt', {'OPERAND1': 1, 'OPERAND2': 'a'}) is True
 
     def test_equals(self) -> None:
         assert self._eval('operator_equals', {'OPERAND1': 5, 'OPERAND2': 5}) is True
         assert self._eval('operator_equals', {'OPERAND1': 5, 'OPERAND2': 4}) is False
         assert self._eval('operator_equals', {'OPERAND1': 'foo', 'OPERAND2': 'foo'}) is True
         assert self._eval('operator_equals', {'OPERAND1': 'foo', 'OPERAND2': 'FOO'}) is True
-        assert self._eval('operator_equals', {'OPERAND1': 'hello', 'OPERAND2': 'world'}) is True
+        # Non-numeric strings: 'hello' != 'world'
+        assert self._eval('operator_equals', {'OPERAND1': 'hello', 'OPERAND2': 'world'}) is False
 
     def test_gt(self) -> None:
         assert self._eval('operator_gt', {'OPERAND1': 5, 'OPERAND2': 3}) is True
@@ -3955,8 +3958,8 @@ class TestInputFieldFormat:
         assert inp.shadow is False
 
     def test_parse_input_obsolete_format(self) -> None:
-        """[3, literal, block_id] → value is the block_id, not the literal."""
-        inp = _parse_input('VALUE', [3, 42, 'reporter_block'])
+        """[3, block_id, shadow] → value is the block reference."""
+        inp = _parse_input('VALUE', [3, 'reporter_block', [10, '']])
         assert inp.value == 'reporter_block'
         assert inp.shadow is True
 
@@ -4044,22 +4047,22 @@ class TestInputFieldFormat:
     def test_serialize_input_roundtrip_shadow(self) -> None:
         """Input(shadow=True) → [1, value]."""
         inp = Input(value=10, shadow=True)
-        assert _serialize_input(inp) == [1, 10]
+        assert serialize_input(inp) == [1, 10]
 
     def test_serialize_input_roundtrip_block_ref(self) -> None:
         """Input(shadow=False) → [2, value]."""
         inp = Input(value='block_abc', shadow=False)
-        assert _serialize_input(inp) == [2, 'block_abc']
+        assert serialize_input(inp) == [2, 'block_abc']
 
     def test_serialize_field_roundtrip_with_id(self) -> None:
         """Field with id → [value, id]."""
         fld = Field(value='score', id='v1')
-        assert _serialize_field(fld) == ['score', 'v1']
+        assert serialize_field(fld) == ['score', 'v1']
 
     def test_serialize_field_roundtrip_no_id(self) -> None:
         """Field without id → [value, None]."""
         fld = Field(value='color')
-        assert _serialize_field(fld) == ['color', None]
+        assert serialize_field(fld) == ['color', None]
 
     # ── Full block parse round-trip ───────────────────────────────
 
@@ -4134,6 +4137,46 @@ class TestInputFieldFormat:
         assert _unwrap_shadow(None) is None
         assert _unwrap_shadow([1, 2, 3]) == [1, 2, 3]
         assert _unwrap_shadow([4, 10]) == [4, 10]  # type_code array is NOT a shadow pair
+
+    def test_serialize_input_variable_name(self) -> None:
+        """Input with variable_name → OBSOLETE_FLAG with VARIABLE primitive."""
+        inp = Input(value=None, variable_name='score')
+        result = serialize_input(inp)
+        assert result[0] == 3  # OBSOLETE_FLAG
+        assert result[1][0] == 12  # VARIABLE primitive type
+        assert result[1][1] == 'score'
+        assert result[1][2] == 'score'
+        assert result[2] == [5, '1']  # shadow default (POSITIVE_NUMBER)
+
+    def test_serialize_input_variable_name_preferred(self) -> None:
+        """variable_name takes priority over shadow when both are set."""
+        inp = Input(value='some_block', shadow=True, variable_name='x')
+        result = serialize_input(inp)
+        assert result[0] == 3  # OBSOLETE_FLAG, not SHADOW_FLAG
+        assert result[1][1] == 'x'
+
+    def test_build_project_json_resolves_variable_ids(self) -> None:
+        """build_project_json resolves variable IDs across targets."""
+        rt = Runtime()
+        stage = Target(name='Stage', is_stage=True)
+        stage.variables['v1'] = Variable('score', 0)
+        rt.add_target(stage)
+        sprite = Target(name='Sprite')
+        sprite.variables['v2'] = Variable('lives', 3)
+        sprite.blocks['b1'] = Block(
+            id='b1',
+            opcode='control_wait',
+            inputs={'DURATION': Input(value=None, variable_name='score')},
+        )
+        sprite._rebuild_hat_cache()
+        rt.add_target(sprite)
+
+        project = _build_project_json(rt)
+        sprite_json = project['targets'][1]
+        wait_block = list(sprite_json['blocks'].values())[0]
+        dur = wait_block['inputs']['DURATION']
+        # Variable ID should be resolved to 'v1' (stage var, not sprite var)
+        assert dur[1][2] == 'v1'
 
 
 class TestSound:
@@ -4440,3 +4483,490 @@ class TestSound:
         )
         rt.evaluate(t, 'b')
         assert t.sound_effects['PITCH'] == 360.0
+
+
+# ═════════════════════════════════════════════════════════════════════════
+#  Procedures — custom block definitions and calls
+# ═════════════════════════════════════════════════════════════════════════
+
+
+def _proc_tgt(name: str = 'Sprite') -> Target:
+    """Create a target with a procedure definition and a calling hat."""
+
+    t = Target(name=name, is_stage=False)
+
+    # Hat script that calls the procedure
+    hid = f'h{next(_id_counter)}'
+    t.blocks[hid] = make_block('event_whenflagclicked', hid, top_level=True, next_='call1')
+
+    arg_id = 'arg_x'
+    call_mut = Mutation(
+        proccode='my_block %s',
+        argumentids=json.dumps([arg_id]),
+        argumentnames=json.dumps(['x']),
+        argumentdefaults=json.dumps(['']),
+    )
+    t.blocks['call1'] = Block(
+        id='call1',
+        opcode='procedures_call',
+        next=None,
+        parent=hid,
+        inputs={arg_id: Input(value=42)},
+        mutation=call_mut,
+    )
+
+    # Procedure definition
+    body_id = 'body1'
+    proto_id = 'proto1'
+    def_mut = Mutation(
+        proccode='my_block %s',
+        argumentids=json.dumps([arg_id]),
+        argumentnames=json.dumps(['x']),
+        argumentdefaults=json.dumps(['']),
+        warp='false',
+    )
+    t.blocks[proto_id] = Block(
+        id=proto_id,
+        opcode='procedures_prototype',
+        parent='def1',
+        shadow=True,
+        mutation=def_mut,
+    )
+    t.blocks['def1'] = Block(
+        id='def1',
+        opcode='procedures_definition',
+        next=body_id,
+        parent=None,
+        top_level=True,
+        inputs={'custom_block': Input(value=proto_id)},
+    )
+    t.blocks[body_id] = Block(
+        id=body_id,
+        opcode='motion_movesteps',
+        next=None,
+        parent='def1',
+        inputs={'STEPS': Input(value=10)},
+    )
+
+    t._rebuild_hat_cache()
+    return t
+
+
+class TestProcedures:
+    """Custom block definitions and calls."""
+
+    def test_definition_is_noop_hat(self) -> None:
+        """procedures_definition hat does nothing by itself."""
+        t = _proc_tgt()
+        rt = _rt(t)
+        rt.green_flag()
+        # The definition block itself is a hat that does nothing;
+        # only its next (body) runs when called. The hat block
+        # should not be triggered by green_flag.
+        # Just verify it doesn't crash.
+        hid = next(b for b in t.blocks.values() if b.opcode == 'event_whenflagclicked')
+        assert hid.next == 'call1'
+
+    def test_call_runs_definition_body(self) -> None:
+        """Calling a custom block runs its body."""
+        t = _proc_tgt()
+        rt = _rt(t)
+        rt.green_flag()
+        for _ in range(20):
+            rt.step()
+        # The call should execute motion_movesteps(10) which moves x
+        assert t.x == 10.0
+
+    def test_call_passes_arguments(self) -> None:
+        """Arguments are passed and accessible via argument_reporter."""
+
+        t = Target(name='Test')
+
+        arg_id = 'arg_val'
+        proto_id = 'proto1'
+
+        # Hat with call
+        hid = f'h{next(_id_counter)}'
+        t.blocks[hid] = make_block('event_whenflagclicked', hid, top_level=True, next_='call1')
+
+        call_mut = Mutation(
+            proccode='set_x %s',
+            argumentids=json.dumps([arg_id]),
+            argumentnames=json.dumps(['val']),
+            argumentdefaults=json.dumps(['0']),
+        )
+        t.blocks['call1'] = Block(
+            id='call1',
+            opcode='procedures_call',
+            next=None,
+            parent=hid,
+            inputs={arg_id: Input(value=99)},
+            mutation=call_mut,
+        )
+
+        # Definition with argument reporter in body
+        arg_reporter_id = 'arg_reporter1'
+        def_mut = Mutation(
+            proccode='set_x %s',
+            argumentids=json.dumps([arg_id]),
+            argumentnames=json.dumps(['val']),
+            argumentdefaults=json.dumps(['0']),
+        )
+        t.blocks[proto_id] = Block(
+            id=proto_id,
+            opcode='procedures_prototype',
+            parent='def1',
+            shadow=True,
+            mutation=def_mut,
+        )
+        t.blocks[arg_reporter_id] = Block(
+            id=arg_reporter_id,
+            opcode='argument_reporter_string_number',
+            next=None,
+            parent='body1',
+            fields={'VALUE': Field(value='val')},
+        )
+        t.blocks['def1'] = Block(
+            id='def1',
+            opcode='procedures_definition',
+            next='body1',
+            parent=None,
+            top_level=True,
+            inputs={'custom_block': Input(value=proto_id)},
+        )
+        t.blocks['body1'] = Block(
+            id='body1',
+            opcode='motion_gox',
+            next=None,
+            parent='def1',
+            inputs={'X': Input(value=arg_reporter_id)},
+        )
+
+        t._rebuild_hat_cache()
+        rt = _rt(t)
+        rt.green_flag()
+        for _ in range(30):
+            rt.step()
+        # The procedure should have executed and set x
+        assert t.x == 99.0
+
+    def test_call_without_definition_does_nothing(self) -> None:
+        """Calling a procedure with no matching definition is a no-op."""
+
+        t = Target(name='Test')
+        hid = f'h{next(_id_counter)}'
+        t.blocks[hid] = make_block('event_whenflagclicked', hid, top_level=True, next_='call1')
+
+        call_mut = Mutation(
+            proccode='nonexistent',
+            argumentids='[]',
+            argumentnames='[]',
+            argumentdefaults='[]',
+        )
+        t.blocks['call1'] = Block(
+            id='call1',
+            opcode='procedures_call',
+            next=None,
+            parent=hid,
+            mutation=call_mut,
+        )
+        t._rebuild_hat_cache()
+        rt = _rt(t)
+        rt.green_flag()
+        for _ in range(5):
+            rt.step()  # Should not crash
+
+    def test_nested_procedure_param_search(self) -> None:
+        """Inner procedure can access outer procedure's params via stack search.
+
+        Mirrors the official VM's getParam which searches up the stack.
+        """
+
+        t = Target(name='Test')
+
+        # ── Outer procedure: add_to_x %s ─────────────────────────────
+        outer_arg_id = 'outer_val'
+        outer_proto_id = 'outer_proto'
+        outer_def_id = 'outer_def'
+
+        # Hat that calls outer procedure
+        hid = f'h{next(_id_counter)}'
+        t.blocks[hid] = make_block('event_whenflagclicked', hid, top_level=True, next_='outer_call')
+
+        outer_call_mut = Mutation(
+            proccode='outer %s',
+            argumentids=json.dumps([outer_arg_id]),
+            argumentnames=json.dumps(['x']),
+            argumentdefaults=json.dumps(['0']),
+        )
+        t.blocks['outer_call'] = Block(
+            id='outer_call',
+            opcode='procedures_call',
+            next=None,
+            parent=hid,
+            inputs={outer_arg_id: Input(value=42)},
+            mutation=outer_call_mut,
+        )
+
+        # Outer definition — its body calls inner, then references outer param
+        inner_call_arg_id = 'ic_arg'
+        outer_def_mut = Mutation(
+            proccode='outer %s',
+            argumentids=json.dumps([outer_arg_id]),
+            argumentnames=json.dumps(['x']),
+            argumentdefaults=json.dumps(['0']),
+        )
+        t.blocks[outer_proto_id] = Block(
+            id=outer_proto_id,
+            opcode='procedures_prototype',
+            parent=outer_def_id,
+            shadow=True,
+            mutation=outer_def_mut,
+        )
+
+        # Inner call: procedures_call('inner 42')
+        inner_call_mut = Mutation(
+            proccode='inner %s',
+            argumentids=json.dumps([inner_call_arg_id]),
+            argumentnames=json.dumps(['y']),
+            argumentdefaults=json.dumps(['0']),
+        )
+        t.blocks['inner_call'] = Block(
+            id='inner_call',
+            opcode='procedures_call',
+            next='outer_body_gox',
+            parent=outer_def_id,
+            inputs={inner_call_arg_id: Input(value=99)},
+            mutation=inner_call_mut,
+        )
+
+        # After inner call, set_x using outer param 'x' — this is the key test:
+        # argument_reporter for 'x' must search up past the inner call's frame
+        outer_arg_rep = 'outer_arg_rep'
+        t.blocks[outer_arg_rep] = Block(
+            id=outer_arg_rep,
+            opcode='argument_reporter_string_number',
+            next=None,
+            parent='outer_body_gox',
+            fields={'VALUE': Field(value='x')},
+        )
+        t.blocks['outer_body_gox'] = Block(
+            id='outer_body_gox',
+            opcode='motion_gox',
+            next=None,
+            parent=outer_def_id,
+            inputs={'X': Input(value=outer_arg_rep)},
+        )
+
+        t.blocks[outer_def_id] = Block(
+            id=outer_def_id,
+            opcode='procedures_definition',
+            next='inner_call',
+            parent=None,
+            top_level=True,
+            inputs={'custom_block': Input(value=outer_proto_id)},
+        )
+
+        # ── Inner procedure: inner %s ─────────────────────────────────
+        inner_arg_id = 'inner_arg_val'
+        inner_proto_id = 'inner_proto'
+        inner_def_id = 'inner_def'
+
+        # Inner body: set x to its own param y
+        inner_arg_rep = 'inner_arg_rep'
+        t.blocks[inner_arg_rep] = Block(
+            id=inner_arg_rep,
+            opcode='argument_reporter_string_number',
+            next=None,
+            parent='inner_body_gox',
+            fields={'VALUE': Field(value='y')},
+        )
+        t.blocks['inner_body_gox'] = Block(
+            id='inner_body_gox',
+            opcode='motion_gox',
+            next=None,
+            parent=inner_def_id,
+            inputs={'X': Input(value=inner_arg_rep)},
+        )
+
+        inner_def_mut = Mutation(
+            proccode='inner %s',
+            argumentids=json.dumps([inner_arg_id]),
+            argumentnames=json.dumps(['y']),
+            argumentdefaults=json.dumps(['0']),
+        )
+        t.blocks[inner_proto_id] = Block(
+            id=inner_proto_id,
+            opcode='procedures_prototype',
+            parent=inner_def_id,
+            shadow=True,
+            mutation=inner_def_mut,
+        )
+        t.blocks[inner_def_id] = Block(
+            id=inner_def_id,
+            opcode='procedures_definition',
+            next='inner_body_gox',
+            parent=None,
+            top_level=True,
+            inputs={'custom_block': Input(value=inner_proto_id)},
+        )
+
+        t._rebuild_hat_cache()
+        rt = _rt(t)
+        rt.green_flag()
+        for _ in range(60):
+            rt.step()
+
+        # Inner procedure should set x = 99 first
+        # Then outer procedure should set x = 42 via outer param 'x'
+        # The outer param reporter accesses 'x' from the outer frame
+        assert t.x == 42.0
+
+    def test_arg_reporter_string_number_outside_call(self) -> None:
+        """argument_reporter outside a procedure call returns 0."""
+        t = Target(name='Test')
+        bid = _id()
+        t.blocks[bid] = Block(
+            id=bid,
+            opcode='argument_reporter_string_number',
+            fields={'VALUE': Field(value='some_arg')},
+        )
+        t._rebuild_hat_cache()
+        rt = _rt(t)
+        val = rt.evaluate(t, bid)
+        # Returns 0 or None when no call frame
+        assert val is None or val == 0
+
+    def test_arg_reporter_boolean_outside_call(self) -> None:
+        """argument_reporter_boolean outside a procedure call returns 0."""
+        t = Target(name='Test')
+        bid = _id()
+        t.blocks[bid] = Block(
+            id=bid,
+            opcode='argument_reporter_boolean',
+            fields={'VALUE': Field(value='some_arg')},
+        )
+        t._rebuild_hat_cache()
+        rt = _rt(t)
+        val = rt.evaluate(t, bid)
+        # Returns 0 or None when no call frame
+        assert val is None or val == 0
+
+
+# ═════════════════════════════════════════════════════════════════════════
+#  Infinity / NaN handling
+# ═════════════════════════════════════════════════════════════════════════
+
+
+class TestInfinityHandling:
+    """Motion and rendering blocks handle infinity/NaN gracefully."""
+
+    def test_gotoxy_infinity_clamped(self) -> None:
+        """Setting position to infinity clamps to 0."""
+        t = _make_tgt()
+        bid = _id()
+        t.blocks[bid] = _op(
+            'motion_gotoxy',
+            inputs={'X': Input(value=float('inf')), 'Y': Input(value=float('nan'))},
+        )
+        t._rebuild_hat_cache()
+        rt = _rt(t)
+        rt.green_flag()
+        for _ in range(5):
+            rt.step()
+        # After motion_gotoxy executes, position should be finite
+        assert math.isfinite(t.x)
+        assert math.isfinite(t.y)
+
+    def test_setx_infinity_clamped(self) -> None:
+        """Setting x to infinity clamps to 0."""
+        t = _make_tgt()
+        bid = _id()
+        t.blocks[bid] = _op(
+            'motion_setx',
+            inputs={'X': Input(value=float('inf'))},
+        )
+        t._rebuild_hat_cache()
+        rt = _rt(t)
+        rt.green_flag()
+        for _ in range(5):
+            rt.step()
+        assert math.isfinite(t.x)
+
+    def test_changexby_infinity_clamped(self) -> None:
+        """Adding infinity to x clamps to 0."""
+        t = _make_tgt()
+        t.x = 5.0
+        bid = _id()
+        t.blocks[bid] = _op(
+            'motion_changexby',
+            inputs={'DX': Input(value=float('inf'))},
+        )
+        t._rebuild_hat_cache()
+        rt = _rt(t)
+        rt.green_flag()
+        for _ in range(5):
+            rt.step()
+        assert math.isfinite(t.x)
+
+    def test_xposition_infinity_returns_infinity(self) -> None:
+        """motion_xposition with infinity returns infinity (doesn't crash)."""
+        t = _make_tgt()
+        t.x = float('inf')
+        bid = _id()
+        t.blocks[bid] = _op('motion_xposition')
+        t._rebuild_hat_cache()
+        rt = _rt(t)
+        val = rt.evaluate(t, bid)
+        assert not math.isfinite(val)  # returns infinity as-is
+
+    def test_yposition_infinity_returns_infinity(self) -> None:
+        """motion_yposition with infinity doesn't crash."""
+        t = _make_tgt()
+        t.y = float('inf')
+        bid = _id()
+        t.blocks[bid] = _op('motion_yposition')
+        t._rebuild_hat_cache()
+        rt = _rt(t)
+        val = rt.evaluate(t, bid)
+        assert not math.isfinite(val)  # returns infinity as-is
+
+    def test_move_infinity_clamped(self) -> None:
+        """motion_movesteps with infinite steps clamps position."""
+        t = _make_tgt()
+        bid = _id()
+        t.blocks[bid] = _op(
+            'motion_movesteps',
+            inputs={'STEPS': Input(value=float('inf'))},
+        )
+        t._rebuild_hat_cache()
+        rt = _rt(t)
+        rt.green_flag()
+        for _ in range(5):
+            rt.step()
+        assert math.isfinite(t.x)
+        assert math.isfinite(t.y)
+
+    def test_divide_by_zero_doesnt_crash_sprite(self) -> None:
+        """Division by zero produces infinity, but setting position clamps it."""
+
+        t = _make_tgt()
+        # operator_divide with b=0 returns inf
+        div_bid = _id()
+        t.blocks[div_bid] = _op(
+            'operator_divide',
+            inputs={'NUM1': Input(value=1), 'NUM2': Input(value=0)},
+        )
+        # Use the division result as X for gotoxy
+        gox_bid = _id()
+        t.blocks[gox_bid] = _op(
+            'motion_setx',
+            inputs={'X': Input(value=div_bid)},
+        )
+        t._rebuild_hat_cache()
+        rt = _rt(t)
+        rt.green_flag()
+        for _ in range(10):
+            rt.step()
+        # Should not crash; x should be finite
+        assert math.isfinite(t.x)

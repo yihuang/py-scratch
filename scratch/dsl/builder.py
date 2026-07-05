@@ -11,6 +11,8 @@ Key functions
 
 from __future__ import annotations
 
+import json
+
 from scratch.vm.target import Target
 from scratch.vm.types import Block, Field, Input
 from .expr import Reporter, StackExpr
@@ -185,6 +187,59 @@ class Script:
 
         hat_block.top_level = True
         hat_block.parent = None
+
+        # For ``procedures_definition`` hats: Scratch expects the mutation
+        # to live on a separate ``procedures_prototype`` block (NOT shadow)
+        # referenced by a ``custom_block`` input using BLOCK_REF_FLAG (2).
+        # The prototype also owns the argument_reporter blocks as its inputs.
+        if hat_block.opcode == 'procedures_definition' and hat_block.mutation is not None:
+            mutation = hat_block.mutation
+            hat_block.mutation = None
+
+            proto_bid = f'_{hat_id}_proto'
+            arg_ids: list[str] = json.loads(mutation.argumentids) if mutation.argumentids else []
+            arg_names: list[str] = (
+                json.loads(mutation.argumentnames) if mutation.argumentnames else []
+            )
+
+            # Build the prototype: NOT a shadow, with inputs pointing to
+            # argument_reporter blocks (one per parameter).
+            proto_inputs: dict[str, Input] = {}
+            proto_body_blocks: dict[str, Block] = {}
+            for i, arg_id in enumerate(arg_ids):
+                reporter_id = f'_{hat_id}_arg_{arg_id}'
+                arg_name = arg_names[i] if i < len(arg_names) else ''
+                # Create an argument_reporter block for this parameter
+                arg_reporter = Block(
+                    id=reporter_id,
+                    opcode='argument_reporter_string_number',
+                    next=None,
+                    parent=proto_bid,
+                    shadow=False,
+                    top_level=False,
+                    fields={'VALUE': Field(value=arg_name)},
+                )
+                proto_body_blocks[reporter_id] = arg_reporter
+                # Prototype input references the argument_reporter
+                proto_inputs[arg_id] = Input(value=reporter_id)
+
+            proto_block = Block(
+                id=proto_bid,
+                opcode='procedures_prototype',
+                next=None,
+                parent=hat_id,
+                shadow=False,  # NOT a shadow in the official format
+                top_level=False,
+                mutation=mutation,
+                inputs=proto_inputs,
+            )
+            target.blocks[proto_bid] = proto_block
+            target.blocks.update(proto_body_blocks)
+
+            # custom_block uses BLOCK_REF_FLAG (2), not SHADOW_FLAG
+            hat_block.inputs['custom_block'] = Input(
+                value=proto_bid, shadow=False, is_literal=False
+            )
 
         # Register reporter blocks from the hat itself
         _register_reporters(target.blocks, self.hat, visited)

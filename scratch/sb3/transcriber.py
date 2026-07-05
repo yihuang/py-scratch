@@ -137,6 +137,11 @@ _DSL_MODULES = {
     'data_lengthoflist': ('data', 'length_of_list'),
     'data_listcontainsitem': ('data', 'list_contains_item'),
     'data_listcontents': ('data', 'list_contents'),
+    # Procedures (argument reporters — handled specially as reporters)
+    'argument_reporter_string_number': ('procedures', 'arg'),
+    'argument_reporter_boolean': ('procedures', 'arg'),
+    'procedures_call': ('procedures', 'call'),
+    'procedures_definition': ('procedures', 'define'),
     # Operators
     'operator_add': ('operators', 'add'),
     'operator_subtract': ('operators', 'sub'),
@@ -183,7 +188,6 @@ _DSL_MODULES = {
     'pen_changePenSizeBy': ('pen', 'change_pen_size_by'),
     'pen_setPenSizeTo': ('pen', 'set_pen_size_to'),
     'pen_setPenColorToColor': ('pen', 'pen_color'),
-    'procedures_call': ('procedures', 'call'),
 }
 
 # Opcodes that take a SUBSTACK input (C-shaped)
@@ -210,6 +214,7 @@ _MENU_OPCODES = {
     'sensing_of_object_menu',
     'data_variable_menu',
     'data_list_menu',
+    'procedures_prototype',
 }
 
 # ── Input name mapping: scratch input name → DSL parameter name ────────────
@@ -244,6 +249,8 @@ _INPUT_PARAM_MAP: dict[str, dict[str, str]] = {
     'control_wait': {'DURATION': 'duration'},
     'control_wait_until': {'CONDITION': 'condition'},
     'control_repeat_until': {'CONDITION': 'condition'},
+    'control_if': {'CONDITION': 'condition'},
+    'control_if_else': {'CONDITION': 'condition'},
     'data_setvariableto': {'VALUE': 'value'},
     'data_changevariableby': {'VALUE': 'change'},
     'data_addtolist': {'ITEM': 'item'},
@@ -290,7 +297,6 @@ _INPUT_PARAM_MAP: dict[str, dict[str, str]] = {
     'event_broadcast': {'BROADCAST_INPUT': 'message'},
     'event_broadcastandwait': {'BROADCAST_INPUT': 'message'},
     'event_whenbroadcastreceived': {},  # field only
-    'sensing_keypressed': {'KEY_OPTION': 'key'},
     'sensing_touchingobject': {'TOUCHINGOBJECTMENU': 'object'},
     'sensing_distanceto': {'DISTANCETOMENU': 'object'},
     'pen_changePenColorParamBy': {'COLOR_PARAM': 'change'},
@@ -326,6 +332,7 @@ _FIELD_PARAM_MAP: dict[str, dict[str, str]] = {
     'event_whenbroadcastreceived': {'BROADCAST_OPTION': 'message'},
     'event_whengreaterthan': {'WHENGREATERTHAN_MENU': 'metric'},
     'sensing_current': {'CURRENTMENU': 'unit'},
+    'sensing_keypressed': {'KEY_OPTION': 'key'},
     'looks_costumenumbername': {'NUMBER_NAME': 'number_name'},
     'looks_backdropnumbername': {'NUMBER_NAME': 'number_name'},
     'looks_changeeffectby': {'EFFECT': 'effect'},
@@ -363,6 +370,7 @@ _FIELD_POSITIONAL_ARGS: dict[str, list[tuple[str, str]]] = {
     'sound_seteffectto': [('EFFECT', 'effect')],
     'sound_changeeffectby': [('EFFECT', 'effect')],
     'looks_goforwardbackwardlayers': [('FORWARD_BACKWARD', 'forward_backward')],
+    'operator_mathop': [('OPERATOR', 'name')],
 }
 
 
@@ -619,7 +627,11 @@ def _emit_variables(lines: list[str], indent: str, tgt: Target, target_var: str)
         return
     lines.append('')
     lines.append(f'{indent}# ── Variables ─────────────────────────────────────')
+    seen: set[str] = set()
     for var_id, var in tgt.variables.items():
+        if var.name in seen:
+            continue
+        seen.add(var.name)
         val = _format_literal(var.value)
         lines.append(f'{indent}{target_var}.var("{var.name}", {val})')
 
@@ -630,7 +642,11 @@ def _emit_lists(lines: list[str], indent: str, tgt: Target, target_var: str) -> 
         return
     lines.append('')
     lines.append(f'{indent}# --- Lists ---')
+    seen: set[str] = set()
     for lst_id, lst in tgt.lists.items():
+        if lst.name in seen:
+            continue
+        seen.add(lst.name)
         items = lst.contents
         if items:
             formatted = ', '.join(repr(v) for v in items)
@@ -738,17 +754,122 @@ def _emit_scripts(lines: list[str], indent: str, tgt: Target, target_var: str) -
         body_exprs = _decompile_chain(tgt, block.next) if block.next else []
         hat_chains.append((block, body_exprs))
 
-    if not hat_chains:
+    if hat_chains:
+        lines.append('')
+        lines.append(f'{indent}# ── Scripts ─────────────────────────────────────────')
+
+        for hat_block, body_exprs in hat_chains:
+            hat_mod, hat_func = _HAT_OPCODES[hat_block.opcode]
+
+            # Build hat arguments from fields
+            hat_args = _build_hat_args(hat_block, tgt)
+
+            if body_exprs:
+                body_indent = f'{indent}    '
+                body_lines = []
+                for expr in body_exprs:
+                    body_lines.extend(_format_body_lines(expr, body_indent))
+                body_text = '\n'.join(body_lines)
+
+                # Hat blocks that return a callable — hat_args go in the outer call
+                if hat_block.opcode in (
+                    'event_whenkeypressed',
+                    'event_whenbroadcastreceived',
+                    'event_whenbackdropswitchesto',
+                    'event_whengreaterthan',
+                ):
+                    # Hat that returns a callable — hat_args in the outer call
+                    lines.append(f'{indent}{target_var}.{hat_func}({hat_args})(')
+                    lines.append(f'{body_text}')
+                    lines.append(f'{indent})')
+                else:
+                    lines.append(f'{indent}{target_var}.{hat_func}(')
+                    lines.append(f'{body_text}')
+                    lines.append(f'{indent})')
+            else:
+                if hat_block.opcode in (
+                    'event_whenkeypressed',
+                    'event_whenbroadcastreceived',
+                    'event_whenbackdropswitchesto',
+                    'event_whengreaterthan',
+                ):
+                    lines.append(f'{indent}# {target_var}.{hat_func}({hat_args})(...)')
+                else:
+                    lines.append(f'{indent}# {target_var}.{hat_func}(...)  # (empty script)')
+
+    # ── Procedure definitions ────────────────────────────────────────────
+    _emit_procedure_definitions(lines, indent, tgt, target_var)
+
+
+def _emit_procedure_definitions(
+    lines: list[str], indent: str, tgt: Target, target_var: str
+) -> None:
+    """Emit ``target_var.define(...)`` for each custom block definition.
+
+    ``procedures_definition`` blocks are top-level hat blocks.  The mutation
+    (proccode, argument names) may be stored directly on the definition block
+    (DSL builder) or on a ``procedures_prototype`` shadow referenced via the
+    ``custom_block`` input (sb3 editor).
+    """
+    definitions: list[tuple[str, list[str], list[dict[str, Any]]]] = []
+
+    for bid, block in tgt.blocks.items():
+        if not block.top_level:
+            continue
+        if block.opcode != 'procedures_definition':
+            continue
+
+        # Mutation may be directly on the definition block (DSL builder) or
+        # on a prototype block referenced via ``custom_block`` input (sb3 editor).
+        mutation = block.mutation
+        if mutation is None:
+            # Fallback: try reading mutation from the prototype block
+            custom_block_inp = block.inputs.get('custom_block')
+            if custom_block_inp is not None:
+                raw_val = custom_block_inp.value
+                if (
+                    isinstance(raw_val, (list, tuple))
+                    and len(raw_val) >= 2
+                    and isinstance(raw_val[0], int)
+                ):
+                    proto_bid = str(raw_val[1])
+                elif raw_val is not None:
+                    proto_bid = str(raw_val)
+                else:
+                    proto_bid = None
+                if proto_bid is not None and proto_bid in tgt.blocks:
+                    proto_block = tgt.blocks[proto_bid]
+                    mutation = proto_block.mutation
+        if mutation is None:
+            continue
+
+        proccode = mutation.proccode
+        try:
+            arg_names: list[str] = json.loads(mutation.argumentnames)
+        except (json.JSONDecodeError, TypeError):
+            arg_names = []
+
+        # Decompile the body chain
+        body_exprs = _decompile_chain(tgt, block.next) if block.next else []
+        definitions.append((proccode, arg_names, body_exprs))
+
+    if not definitions:
         return
 
-    lines.append('')
-    lines.append(f'{indent}# ── Scripts ─────────────────────────────────────────')
+    if lines and lines[-1] != '':
+        lines.append('')
+    lines.append(f'{indent}# ── Procedure definitions ──────────────────────────────')
 
-    for hat_block, body_exprs in hat_chains:
-        hat_mod, hat_func = _HAT_OPCODES[hat_block.opcode]
+    for proccode, arg_names, body_exprs in definitions:
+        # Build the proccode argument string
+        quoted_proccode = _format_literal(proccode)
 
-        # Build hat arguments from fields
-        hat_args = _build_hat_args(hat_block, tgt)
+        # Build param name args (only non-empty ones)
+        param_args = ', '.join(_format_literal(n) for n in arg_names if n)
+        if param_args:
+            define_args = f'{quoted_proccode}, {param_args}'
+        else:
+            define_args = quoted_proccode
 
         if body_exprs:
             body_indent = f'{indent}    '
@@ -756,32 +877,11 @@ def _emit_scripts(lines: list[str], indent: str, tgt: Target, target_var: str) -
             for expr in body_exprs:
                 body_lines.extend(_format_body_lines(expr, body_indent))
             body_text = '\n'.join(body_lines)
-
-            # Hat blocks that return a callable — hat_args go in the outer call
-            if hat_block.opcode in (
-                'event_whenkeypressed',
-                'event_whenbroadcastreceived',
-                'event_whenbackdropswitchesto',
-                'event_whengreaterthan',
-            ):
-                # Hat that returns a callable — hat_args in the outer call
-                lines.append(f'{indent}{target_var}.{hat_func}({hat_args})(')
-                lines.append(f'{body_text}')
-                lines.append(f'{indent})')
-            else:
-                lines.append(f'{indent}{target_var}.{hat_func}(')
-                lines.append(f'{body_text}')
-                lines.append(f'{indent})')
+            lines.append(f'{indent}{target_var}.define({define_args})(')
+            lines.append(f'{body_text}')
+            lines.append(f'{indent})')
         else:
-            if hat_block.opcode in (
-                'event_whenkeypressed',
-                'event_whenbroadcastreceived',
-                'event_whenbackdropswitchesto',
-                'event_whengreaterthan',
-            ):
-                lines.append(f'{indent}# {target_var}.{hat_func}({hat_args})(...)')
-            else:
-                lines.append(f'{indent}# {target_var}.{hat_func}(...)  # (empty script)')
+            lines.append(f'{indent}# {target_var}.define({define_args})(...)  # (empty definition)')
 
 
 def _build_hat_args(hat_block: Block, tgt: Target | None = None) -> str:
@@ -854,6 +954,15 @@ def _decompile_block(tgt: Target, block: Block) -> dict[str, Any]:
             'kind': 'reporter',
             'opcode': opcode,
             'code': f'data.list_contents({_format_literal(lst_name)})',
+        }
+
+    # Argument reporters (procedure parameter references)
+    if opcode in ('argument_reporter_string_number', 'argument_reporter_boolean'):
+        arg_name = _get_field_value(block, 'VALUE', '')
+        return {
+            'kind': 'reporter',
+            'opcode': opcode,
+            'code': f'procedures.arg({_format_literal(arg_name)})',
         }
 
     if opcode == 'operator_mathop':
@@ -946,20 +1055,40 @@ def _decompile_block(tgt: Target, block: Block) -> dict[str, Any]:
 
 def _build_input_args(tgt: Target, block: Block) -> list[dict[str, str] | str]:
     """Build the positional argument list from a block's inputs."""
-    if not block.inputs:
-        return []
-
     opcode = block.opcode
     param_map = _INPUT_PARAM_MAP.get(opcode, {})
 
+    # Input names excluded from positional args for specific opcodes.
+    # The DSL handles these internally (e.g. pen VALUE is baked into
+    # the DSL function's own block inputs).
+    _SKIP_INPUTS: dict[str, set[str]] = {
+        'pen_setPenColorParamTo': {'VALUE'},
+        'pen_changePenColorParamBy': {'VALUE'},
+    }
+
     # Collect named input values
     result: list[dict[str, str] | str] = []
+    skip_for_opcode = _SKIP_INPUTS.get(opcode, set())
     for iname, inp in block.inputs.items():
         if iname in ('SUBSTACK', 'SUBSTACK2'):
+            continue
+        if iname in skip_for_opcode:
             continue
         param_name = param_map.get(iname, iname.lower())
         val_str = _format_input_value(tgt, inp, block)
         result.append({'name': param_name, 'value': val_str})
+
+    # Supply defaults for missing inputs that the DSL requires
+    if not result and param_map:
+        for iname, param_name in param_map.items():
+            if iname in ('SUBSTACK', 'SUBSTACK2'):
+                continue
+            if iname in block.inputs:
+                continue
+            if iname in block.fields:
+                continue
+            # This input is missing — supply `0` as default
+            result.append({'name': param_name, 'value': '0'})
 
     return result
 
@@ -1049,37 +1178,48 @@ def _format_input_value(tgt: Target, inp: Input, parent_block: Block) -> str:
         ref = value[1]
         value = ref
 
-    # Resolve menu-block references: a shadow TEXT primitive whose value is a
-    # block ID referencing a menu block (e.g. ``looks_backdrops``, ``looks_costume``).
-    if isinstance(value, str) and value in tgt.blocks:
-        ref_block = tgt.blocks[value]
-        # Menu blocks store the actual value in their first field
-        if ref_block.fields:
-            for fld in ref_block.fields.values():
-                if hasattr(fld, 'value'):
-                    val = fld.value
-                    if isinstance(val, (list, tuple)):
-                        val = val[0]  # scratch field format: [value, id]
-                    if isinstance(val, (str, int, float)):
-                        return _format_literal(val)
-                    return repr(val)
-
     if inp.is_literal:
         return _format_literal(value)
+
+    # For shadow inputs that reference a block by ID (OBSOLETE_FLAG format
+    # [3, block_id, shadow_value]), resolve the referenced block.
+    # For regular shadow literals (compact primitives), format as literal.
     if inp.shadow:
+        if isinstance(value, str) and value in tgt.blocks:
+            # Shadow input with a block reference — resolve it
+            ref_block = tgt.blocks[value]
+            # Menu blocks: return the field value directly
+            if ref_block.opcode in _MENU_OPCODES and ref_block.fields:
+                for fld in ref_block.fields.values():
+                    if hasattr(fld, 'value'):
+                        val = fld.value
+                        if isinstance(val, (list, tuple)):
+                            val = val[0]
+                        if isinstance(val, (str, int, float)):
+                            return _format_literal(val)
+                        return repr(val)
+            # Other shadow blocks (argument_reporter, etc.): decompile
+            expr_dict = _decompile_block(tgt, ref_block)
+            kind = expr_dict.get('kind', '')
+            if kind == 'reporter' and 'code' in expr_dict:
+                return str(expr_dict['code'])
+            elif kind == 'call':
+                return str(_format_call_expr(expr_dict, True))
+        # Genuine literal shadow — format as literal
         return _format_literal(value) if value is not None else '0'
-    # It's a block reference
+
+    # Non-shadow input: value is a block ID string
     bid = str(value)
     if bid in tgt.blocks:
         ref_block = tgt.blocks[bid]
         expr_dict = _decompile_block(tgt, ref_block)
-        if expr_dict['kind'] == 'reporter':
+        if expr_dict.get('kind') == 'reporter' and 'code' in expr_dict:
             return str(expr_dict['code'])
-        elif expr_dict['kind'] == 'call':
+        elif expr_dict.get('kind') == 'call':
             return str(_format_call_expr(expr_dict, True))
-        elif expr_dict['kind'] == 'raw':
+        elif expr_dict.get('kind') == 'raw':
             return str(expr_dict['code'])
-        elif expr_dict['kind'] == 'comment':
+        elif expr_dict.get('kind') == 'comment':
             return str(expr_dict['text'])
     return repr(value)
 

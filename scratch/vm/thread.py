@@ -75,7 +75,8 @@ class Frame:
     substack_pc: int = 0
     # Loop count, iteration state, etc.
     loop_count: int = 0
-    saved: dict[str, Any] = field(default_factory=dict)
+    # Procedure parameters (set by procedures_call, read by argument_reporter_*)
+    params: dict[str, Any] = field(default_factory=dict)
 
 
 # ── Thread ──────────────────────────────────────────────────────────────

@@ -10,8 +10,7 @@ dependencies = [
 ]
 
 [project.scripts]
-scratch-vm = "scratch.vm.__main__:main"
-scratch-sb3-transcribe = "scratch.sb3.__main__:main"
+scratch = "scratch.__main__:main"
 
 [tool.uv]
 package = true
