@@ -70,27 +70,27 @@ def parse_target(data: dict[str, Any]) -> Target:
 
     # Costumes
     for c_data in data.get('costumes', []):
-        target.costumes.append(_parse_costume(c_data))
+        target.costumes.append(parse_costume(c_data))
 
     # Sounds
     for s_data in data.get('sounds', []):
-        target.sounds.append(_parse_sound(s_data))
+        target.sounds.append(parse_sound(s_data))
 
     # Blocks
     for block_id, block_data in data.get('blocks', {}).items():
         if isinstance(block_data, list):
-            target.blocks[block_id] = _parse_primitive_block(block_id, block_data)
+            target.blocks[block_id] = parse_primitive_block(block_id, block_data)
         else:
-            target.blocks[block_id] = _parse_block(block_id, block_data)
+            target.blocks[block_id] = parse_block(block_id, block_data)
 
     return target
 
 
-def _parse_block(block_id: str, data: dict[str, Any]) -> Block:
+def parse_block(block_id: str, data: dict[str, Any]) -> Block:
     """Convert a single block dict into a Block instance."""
     inputs: dict[str, Input] = {}
     for name, inp_data in data.get('inputs', {}).items():
-        inputs[name] = parse_input(name, inp_data)
+        inputs[name] = parse_input(inp_data)
 
     fields: dict[str, Field] = {}
     for name, fld_data in data.get('fields', {}).items():
@@ -107,11 +107,11 @@ def _parse_block(block_id: str, data: dict[str, Any]) -> Block:
         top_level=data.get('topLevel', False),
         x=data.get('x'),
         y=data.get('y'),
-        mutation=_parse_mutation(data.get('mutation')),
+        mutation=parse_mutation(data.get('mutation')),
     )
 
 
-def _parse_primitive_block(block_id: str, data: list[Any]) -> Block:
+def parse_primitive_block(block_id: str, data: list[Any]) -> Block:
     """Expand an inlined primitive array into a full :class:`Block`."""
     type_code = data[0] if data else 0
     try:
@@ -166,7 +166,7 @@ def _parse_primitive_block(block_id: str, data: list[Any]) -> Block:
     )
 
 
-def parse_input(name: str, data: list[Any]) -> Input:  # noqa: ARG001
+def parse_input(data: list[Any]) -> Input:
     """Parse a block input array ``[shadow_flag, value, ...]``.
 
     See ``docs/sb3-serialization.md`` for the format spec.
@@ -192,7 +192,7 @@ def parse_input(name: str, data: list[Any]) -> Input:  # noqa: ARG001
     return Input(value=value, shadow=is_shadow)
 
 
-def _parse_mutation(data: dict[str, Any] | None) -> Mutation | None:
+def parse_mutation(data: dict[str, Any] | None) -> Mutation | None:
     """Parse the mutation dict from a block, or ``None`` if absent."""
     if not data or not isinstance(data, dict):
         return None
@@ -224,7 +224,7 @@ def parse_field(name: str, data: list[Any]) -> Field:
     return Field(value=value, id=field_id, variable_type=var_type)
 
 
-def _parse_costume(data: dict[str, Any]) -> Costume:
+def parse_costume(data: dict[str, Any]) -> Costume:
     """Parse a costume dict."""
     return Costume(
         name=data.get('name', ''),
@@ -237,7 +237,7 @@ def _parse_costume(data: dict[str, Any]) -> Costume:
     )
 
 
-def _parse_sound(data: dict[str, Any]) -> Sound:
+def parse_sound(data: dict[str, Any]) -> Sound:
     """Parse a sound dict."""
     return Sound(
         name=data.get('name', ''),

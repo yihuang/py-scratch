@@ -12,11 +12,7 @@ import math
 
 import pytest
 import pygame
-from scratch.sb3.parse import (
-    _parse_block,
-    parse_field as _parse_field,
-    parse_input as _parse_input,
-)
+from scratch.sb3.parse import (parse_block, parse_field, parse_input)
 from scratch.sb3.serialize import serialize_field
 from scratch.sb3.serialize import serialize_input
 from scratch.vm import BroadcastMsg, ListVar, Runtime, Target, Variable, make_block
@@ -3909,43 +3905,43 @@ class TestInputFieldFormat:
 
     def test_parse_input_normalizes_number(self) -> None:
         """[1, 42] → normalized to [4, 42] (NUMBER)."""
-        inp = _parse_input('STEPS', [1, 42])
+        inp = parse_input([1, 42])
         assert inp.value == [PrimitiveType.NUMBER, 42]
         assert inp.shadow is True
 
     def test_parse_input_normalizes_float(self) -> None:
         """[1, 0.5] → normalized to [4, 0.5] (NUMBER)."""
-        inp = _parse_input('DURATION', [1, 0.5])
+        inp = parse_input([1, 0.5])
         assert inp.value == [PrimitiveType.NUMBER, 0.5]
         assert inp.shadow is True
 
     def test_parse_input_normalizes_string(self) -> None:
         """[1, "hello"] → normalized to [10, "hello"] (TEXT)."""
-        inp = _parse_input('MESSAGE', [1, 'hello'])
+        inp = parse_input([1, 'hello'])
         assert inp.value == [PrimitiveType.TEXT, 'hello']
         assert inp.shadow is True
 
     def test_parse_input_normalizes_bool(self) -> None:
         """[1, true] → normalized to [4, 1] (NUMBER)."""
-        inp = _parse_input('FLAG', [1, True])
+        inp = parse_input([1, True])
         assert inp.value == [PrimitiveType.NUMBER, 1]
         assert inp.shadow is True
 
     def test_parse_input_preserves_compact_primitive(self) -> None:
         """[1, [4, 10]] passes through unchanged (already canonical)."""
-        inp = _parse_input('STEPS', [1, [4, 10]])
+        inp = parse_input([1, [4, 10]])
         assert inp.value == [4, 10]
         assert inp.shadow is True
 
     def test_parse_input_preserves_variable_primitive(self) -> None:
         """[1, [12, name, id]] passes through — already compact."""
-        inp = _parse_input('VARIABLE', [1, [12, 'score', 'v1']])
+        inp = parse_input([1, [12, 'score', 'v1']])
         assert inp.value == [12, 'score', 'v1']
         assert inp.shadow is True
 
     def test_parse_input_preserves_text_primitive(self) -> None:
         """[1, [10, "text"]] passes through."""
-        inp = _parse_input('MESSAGE', [1, [10, 'text']])
+        inp = parse_input([1, [10, 'text']])
         assert inp.value == [10, 'text']
         assert inp.shadow is True
 
@@ -3953,13 +3949,13 @@ class TestInputFieldFormat:
 
     def test_parse_input_block_ref(self) -> None:
         """[2, block_id] → value is the block ID string (not normalized)."""
-        inp = _parse_input('VALUE', [2, 'reporter_block'])
+        inp = parse_input([2, 'reporter_block'])
         assert inp.value == 'reporter_block'
         assert inp.shadow is False
 
     def test_parse_input_obsolete_format(self) -> None:
         """[3, block_id, shadow] → value is the block reference."""
-        inp = _parse_input('VALUE', [3, 'reporter_block', [10, '']])
+        inp = parse_input([3, 'reporter_block', [10, '']])
         assert inp.value == 'reporter_block'
         assert inp.shadow is True
 
@@ -4012,34 +4008,34 @@ class TestInputFieldFormat:
 
     def test_parse_field_preserves_name(self) -> None:
         """_parse_field stores the field name."""
-        fld = _parse_field('VARIABLE', ['score', 'v1'])
+        fld = parse_field('VARIABLE', ['score', 'v1'])
         assert fld.value == 'score'
         assert fld.id == 'v1'
         assert fld.variable_type == ''
 
     def test_parse_field_no_id(self) -> None:
-        fld = _parse_field('EFFECT', ['color'])
+        fld = parse_field('EFFECT', ['color'])
         assert fld.value == 'color'
         assert fld.id is None
 
     def test_parse_field_variable_type_variable(self) -> None:
         """VARIABLE field → variable_type = '' (scalar)."""
-        fld = _parse_field('VARIABLE', ['score', 'v1'])
+        fld = parse_field('VARIABLE', ['score', 'v1'])
         assert fld.variable_type == ''
 
     def test_parse_field_variable_type_list(self) -> None:
         """LIST field → variable_type = 'list'."""
-        fld = _parse_field('LIST', ['items', 'l1'])
+        fld = parse_field('LIST', ['items', 'l1'])
         assert fld.variable_type == 'list'
 
     def test_parse_field_variable_type_broadcast(self) -> None:
         """BROADCAST_OPTION field → variable_type = 'broadcast_msg'."""
-        fld = _parse_field('BROADCAST_OPTION', ['message1', 'm1'])
+        fld = parse_field('BROADCAST_OPTION', ['message1', 'm1'])
         assert fld.variable_type == 'broadcast_msg'
 
     def test_parse_field_plain_dropdown(self) -> None:
         """Plain field like EFFECT, STYLE → variable_type = None."""
-        fld = _parse_field('EFFECT', ['color'])
+        fld = parse_field('EFFECT', ['color'])
         assert fld.variable_type is None
 
     # ── Serialize round-trip ──────────────────────────────────────
@@ -4077,7 +4073,7 @@ class TestInputFieldFormat:
             'inputs': {'VALUE': [1, 42]},
             'fields': {'VARIABLE': ['score', 'v1']},
         }
-        block = _parse_block('b1', data)
+        block = parse_block('b1', data)
         assert block.id == 'b1'
         assert block.opcode == 'data_setvariableto'
         assert block.inputs['VALUE'].value == [PrimitiveType.NUMBER, 42]
