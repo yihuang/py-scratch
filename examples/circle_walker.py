@@ -14,12 +14,10 @@ from pathlib import Path
 
 from scratch.dsl import Project, control, motion
 
-HERE = Path(__file__).parent
-
-project = Project('Circle Walker')
+project = Project('Circle Walker', assets_dir=Path(__file__).parent)
 
 tri = project.sprite('Triangle')
-tri.costume('triangle', path=str(HERE / 'triangle.svg'))
+tri.costume('triangle', 'triangle.svg')
 tri.x = 0
 tri.y = 0
 tri.direction = 0

@@ -3,9 +3,14 @@ Project — high-level entry point for the Scratch DSL.
 
 Usage::
 
-    project = Project("My Game")
+    from pathlib import Path
+
+    project = Project("My Game", assets_dir=Path(__file__).parent / "assets")
     sprite = project.sprite("Cat")
     sprite.var("score", 0)
+
+    # Costume filename resolved against ``assets_dir``
+    sprite.costume("Cat", "cat.svg")
 
     sprite.when_flag_clicked(
         motion.move(10),
@@ -63,9 +68,15 @@ class ProjectTarget:
     ``scratch.vm.target.Target`` during ``Project.build_runtime()``.
     """
 
-    def __init__(self, name: str = 'Sprite', is_stage: bool = False) -> None:
+    def __init__(
+        self,
+        name: str = 'Sprite',
+        is_stage: bool = False,
+        assets_dir: str | Path | None = None,
+    ) -> None:
         self.name = name
         self.is_stage = is_stage
+        self.assets_dir = Path(assets_dir) if assets_dir else None
         self._scripts: list[Script] = []
         self._variables: dict[str, Any] = {}  # name → default value
         self._lists: dict[str, ListVar] = {}
@@ -95,9 +106,19 @@ class ProjectTarget:
         lid = uuid.uuid4().hex[:8]
         self._lists[lid] = ListVar(name=name, contents=list(items or []))
 
+    def _resolve_asset(self, filename: str | Path) -> Path:
+        """Resolve *filename* to an absolute path using the target's assets_dir."""
+        p = Path(filename)
+        if p.is_absolute():
+            return p
+        if self.assets_dir is not None:
+            return self.assets_dir / p
+        return p
+
     def costume(
         self,
         name: str,
+        filename: str | Path | None = None,
         *,
         path: str | Path | None = None,
         data_format: str = 'png',
@@ -108,78 +129,102 @@ class ProjectTarget:
     ) -> None:
         """Add a costume to this target.
 
-        If *path* is given, the costume data is loaded from that file and
-        the format is inferred from the extension (``.svg``, ``.png``, etc.).
+        Usage::
+
+            # Simple: filename resolved against ``assets_dir`` (set on Project)
+            sprite.costume("Cat", "cat.svg")
+
+            # Explicit path (no assets_dir needed)
+            sprite.costume("Cat", path="/path/to/cat.png")
+
+        If *filename* is given (positional), it is resolved against the
+        project's ``assets_dir`` when set.  If *path* is given (keyword),
+        it is used as-is.
+
         For SVG files the rotation centre defaults to the viewBox centre;
         pass ``rotation_center_x`` / ``rotation_center_y`` to override.
         """
-        rc_x: float = rotation_center_x or 0
-        rc_y: float = rotation_center_y or 0
-
-        if path is not None:
-            data = Path(path).read_bytes()
-            fmt = Path(path).suffix.lstrip('.')
-            md5 = hashlib.md5(data).hexdigest()
-
-            # For SVG, default rotation centre = centre of viewBox
-            if fmt == 'svg' and rotation_center_x is None:
-                m = re.search(
-                    r'viewBox="-?[\d.]+\s+-?[\d.]+\s+([\d.]+)\s+([\d.]+)"', data.decode('utf-8')
-                )
-                if m:
-                    vb_w = float(m.group(1))
-                    vb_h = float(m.group(2))
-                    rc_x = rc_x or (vb_w / 2)
-                    rc_y = rc_y or (vb_h / 2)
-
-            # Load surface immediately so scratch_bounds work for bounce etc.
-            surface = None
-            if fmt == 'svg':
-                surface = _render_svg_surface(data)
-
+        src = path or filename
+        if src is None:
             self._costumes.append(
                 Costume(
                     name=name,
-                    data_format=fmt,
-                    data=data,
-                    surface=surface,
-                    rotation_center_x=rc_x,
-                    rotation_center_y=rc_y,
-                    asset_id=md5,
-                    md5ext=f'{md5}.{fmt}',
+                    data_format=data_format,
+                    rotation_center_x=rotation_center_x or 0,
+                    rotation_center_y=rotation_center_y or 0,
+                    asset_id=asset_id,
+                    md5ext=md5ext,
                 )
             )
             return
 
-        rc_x = rotation_center_x or 0
-        rc_y = rotation_center_y or 0
+        src_path = self._resolve_asset(src)
+        data = src_path.read_bytes()
+        fmt = src_path.suffix.lstrip('.')
+        md5 = hashlib.md5(data).hexdigest()
+
+        rc_x: float = rotation_center_x or 0
+        rc_y: float = rotation_center_y or 0
+
+        # For SVG, default rotation centre = centre of viewBox
+        if fmt == 'svg' and rotation_center_x is None:
+            m = re.search(
+                r'viewBox="-?[\d.]+\s+-?[\d.]+\s+([\d.]+)\s+([\d.]+)"', data.decode('utf-8')
+            )
+            if m:
+                vb_w = float(m.group(1))
+                vb_h = float(m.group(2))
+                rc_x = rc_x or (vb_w / 2)
+                rc_y = rc_y or (vb_h / 2)
+
+        # Load surface immediately so scratch_bounds work for bounce etc.
+        surface = None
+        if fmt == 'svg':
+            surface = _render_svg_surface(data)
+
         self._costumes.append(
             Costume(
                 name=name,
-                data_format=data_format,
+                data_format=fmt,
+                data=data,
+                surface=surface,
                 rotation_center_x=rc_x,
                 rotation_center_y=rc_y,
-                asset_id=asset_id,
-                md5ext=md5ext,
+                asset_id=md5,
+                md5ext=f'{md5}.{fmt}',
             )
         )
 
-    def sound(self, name: str, *, path: str | Path) -> None:
+    def sound(
+        self,
+        name: str,
+        filename: str | Path | None = None,
+        *,
+        path: str | Path | None = None,
+    ) -> None:
         """Add a sound to this target from a file.
 
         Usage::
 
-            sprite.sound("pop", path="examples/pop.wav")
+            sprite.sound("pop", "pop.wav")
+            sprite.sound("pop", path="/path/to/pop.wav")
+
+        If *filename* is given (positional), it is resolved against the
+        project's ``assets_dir`` when set.
         """
-        data = Path(path).read_bytes()
+        src = path or filename
+        if src is None:
+            return
+        src_path = self._resolve_asset(src)
+        data = src_path.read_bytes()
         md5 = hashlib.md5(data).hexdigest()
         self._sounds.append(
             Sound(
                 name=name,
-                data_format=Path(path).suffix.lstrip('.'),
+                data_format=src_path.suffix.lstrip('.'),
                 data=data,
                 asset_id=md5,
-                md5ext=f'{md5}.{Path(path).suffix.lstrip(".")}',
+                md5ext=f'{md5}.{src_path.suffix.lstrip(".")}',
             )
         )
 
@@ -261,14 +306,15 @@ class Project:
     Manages the stage, sprites, and produces an .sb3 file.
     """
 
-    def __init__(self, name: str = 'Project') -> None:
+    def __init__(self, name: str = 'Project', assets_dir: str | Path | None = None) -> None:
         self.name = name
-        self._stage = ProjectTarget(name='Stage', is_stage=True)
+        self.assets_dir = Path(assets_dir) if assets_dir else None
+        self._stage = ProjectTarget(name='Stage', is_stage=True, assets_dir=self.assets_dir)
         self._sprites: list[ProjectTarget] = []
 
     def sprite(self, name: str) -> ProjectTarget:
         """Add and return a new sprite target."""
-        t = ProjectTarget(name=name, is_stage=False)
+        t = ProjectTarget(name=name, is_stage=False, assets_dir=self.assets_dir)
         self._sprites.append(t)
         return t
 

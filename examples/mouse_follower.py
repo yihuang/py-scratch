@@ -12,12 +12,10 @@ from pathlib import Path
 
 from scratch.dsl import Project, control, motion
 
-HERE = Path(__file__).parent
-
-project = Project('Mouse Follower')
+project = Project('Mouse Follower', assets_dir=Path(__file__).parent)
 
 square = project.sprite('Follower')
-square.costume('square', path=HERE / 'square.svg')
+square.costume('square', 'square.svg')
 square.x = 0
 square.y = 0
 

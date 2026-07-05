@@ -19,9 +19,7 @@ from pathlib import Path
 
 from scratch.dsl import Project, data, looks, motion, operators
 
-HERE = Path(__file__).parent
-
-project = Project('Key Mover')
+project = Project('Key Mover', assets_dir=Path(__file__).parent)
 
 # ── Stage ─────────────────────────────────────────────────────────────
 project.stage.var('score', 0)
@@ -29,7 +27,7 @@ project.stage.var('moves', 0)
 
 # ── Player sprite ────────────────────────────────────────────────────
 player = project.sprite('Player')
-player.costume('ball', path=str(HERE / 'ball.svg'))
+player.costume('ball', 'ball.svg')
 player.x = 0
 player.y = 0
 

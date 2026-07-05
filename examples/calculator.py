@@ -15,13 +15,11 @@ from pathlib import Path
 
 from scratch.dsl import Project, control, data, motion, operators
 
-HERE = Path(__file__).parent
-
-project = Project('Calculator')
+project = Project('Calculator', assets_dir=Path(__file__).parent)
 
 # ── Sprite with variables for operands ────────────────────────────────
 sprite = project.sprite('Calc')
-sprite.costume('ball', path=str(HERE / 'ball.svg'))
+sprite.costume('ball', 'ball.svg')
 sprite.var('a', 10)
 sprite.var('b', 3)
 sprite.var('result', 0)

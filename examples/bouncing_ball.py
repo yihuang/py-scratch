@@ -12,12 +12,10 @@ from pathlib import Path
 
 from scratch.dsl import Project, control, motion
 
-HERE = Path(__file__).parent
-
-project = Project('Bouncing Ball')
+project = Project('Bouncing Ball', assets_dir=Path(__file__).parent)
 ball = project.sprite('Ball')
 
-ball.costume('ball', path=str(HERE / 'ball.svg'))
+ball.costume('ball', 'ball.svg')
 ball.x = 0
 ball.y = 100
 ball.direction = 45

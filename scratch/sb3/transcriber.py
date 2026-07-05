@@ -534,12 +534,12 @@ def _generate_source(rt: Runtime, asset_dir: Path) -> list[str]:
     lines.append('')
     lines.append('from pathlib import Path')
     lines.append('')
-    lines.append('HERE = Path(__file__).parent')
-    lines.append('')
     _add_dsl_imports(lines, all_opcodes)
     lines.append('')
     lines.append('')
-    lines.append(f'project = Project({_format_literal(project_name)})')
+    lines.append(
+        f'project = Project({_format_literal(project_name)}, assets_dir=Path(__file__).parent / {_format_literal(asset_dir.name)})'
+    )
     lines.append('')
 
     for tgt in rt.targets:
@@ -660,10 +660,7 @@ def _emit_costumes(
         rc_args = ''
         if c.rotation_center_x != 0.0 or c.rotation_center_y != 0.0:
             rc_args = f', rotation_center_x={c.rotation_center_x}, rotation_center_y={c.rotation_center_y}'
-        lines.append(
-            f'{indent}{target_var}.costume("{c.name}",'
-            f' path=HERE / "{asset_dir.name}" / "{c.md5ext}"{rc_args})'
-        )
+        lines.append(f'{indent}{target_var}.costume("{c.name}", "{c.md5ext}"{rc_args})')
         lines.append(f'{indent}#   asset: {c.md5ext}')
 
 
@@ -682,10 +679,7 @@ def _emit_sounds(
     for i, snd in enumerate(tgt.sounds):
         if not snd.md5ext:
             continue
-        lines.append(
-            f'{indent}{target_var}.sound("{snd.name}",'
-            f' path=HERE / "{asset_dir.name}" / "{snd.md5ext}")'
-        )
+        lines.append(f'{indent}{target_var}.sound("{snd.name}", "{snd.md5ext}")')
         lines.append(f'{indent}#   asset: {snd.md5ext}')
 
 

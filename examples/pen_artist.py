@@ -12,12 +12,10 @@ from pathlib import Path
 
 from scratch.dsl import Project, control, motion, pen
 
-HERE = Path(__file__).parent
-
-project = Project('Pen Artist')
+project = Project('Pen Artist', assets_dir=Path(__file__).parent)
 writer = project.sprite('PenWriter')
 
-writer.costume('pen', path=HERE / 'pen.svg', rotation_center_x=100, rotation_center_y=50)
+writer.costume('pen', 'pen.svg', rotation_center_x=100, rotation_center_y=50)
 writer.x = -200
 writer.y = -150
 writer.direction = 90
