@@ -12,7 +12,7 @@ import math
 
 import pytest
 import pygame
-from scratch.sb3.parse import (parse_block, parse_field, parse_input)
+from scratch.sb3.parse import parse_block, parse_field, parse_input
 from scratch.sb3.serialize import serialize_field
 from scratch.sb3.serialize import serialize_input
 from scratch.vm import BroadcastMsg, ListVar, Runtime, Target, Variable, make_block
