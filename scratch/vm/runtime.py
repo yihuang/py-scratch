@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import copy
 import math
-import types
 from collections.abc import Callable, Generator
 from typing import Any, Iterable, cast
 
@@ -63,6 +62,20 @@ def _input_raw(block: Block, name: str) -> Any:
     return inp.value
 
 
+def _input_value(block: Block, name: str) -> tuple[Any, bool]:
+    """Get raw value and shadow flag for a named input on *block*.
+
+    Returns ``(raw_value, is_shadow)``.  This is a pure data accessor
+    that does not depend on ``Runtime``.
+    """
+    inp = block.inputs.get(name)
+    if inp is None:
+        return None, False
+    if isinstance(inp, Input):
+        return inp.value, inp.shadow
+    return inp, False
+
+
 # ── Runtime ──────────────────────────────────────────────────────────────
 
 
@@ -89,7 +102,6 @@ class Runtime(Scheduler):
         self._mouse_y: float = 0.0
         self._mouse_down: bool = False
         self._edge_hat_values: dict[str, bool] = {}
-        self._for_each_counter: float = 0
         self._cloud: Any = None
         self._cloud_count: int = 0
         self._cloud_limit: int = 10
@@ -238,16 +250,8 @@ class Runtime(Scheduler):
         except (ValueError, TypeError):
             return 0.0
 
-    def _input_value(self, block: Block, name: str) -> tuple[Any, bool]:
-        inp = block.inputs.get(name)
-        if inp is None:
-            return None, False
-        if isinstance(inp, Input):
-            return inp.value, inp.shadow
-        return inp, False
-
     def num(self, target: Target, block: Block, name: str) -> float:
-        value, _is_shadow = self._input_value(block, name)
+        value, _is_shadow = _input_value(block, name)
         return self.resolve_num(target, value)
 
     def num_int(self, target: Target, block: Block, name: str) -> int:
@@ -257,15 +261,76 @@ class Runtime(Scheduler):
         return int(val + 0.5)
 
     def truthy(self, target: Target, block: Block, name: str) -> bool:
-        value, is_shadow = self._input_value(block, name)
+        value, is_shadow = _input_value(block, name)
         v = self.resolve_input(target, value, is_shadow=is_shadow)
         if isinstance(v, str):
             return v.lower() not in ('', 'false', '0')
         return bool(v)
 
     def val(self, target: Target, block: Block, name: str) -> Any:
-        value, is_shadow = self._input_value(block, name)
+        value, is_shadow = _input_value(block, name)
         return self.resolve_input(target, value, is_shadow=is_shadow)
+
+    # ── Input/IO accessors ───────────────────────────────────────────
+
+    def mouse_x(self) -> float:
+        """Current mouse X in Scratch coordinates."""
+        return self._mouse_x
+
+    def mouse_y(self) -> float:
+        """Current mouse Y in Scratch coordinates."""
+        return self._mouse_y
+
+    def mouse_down(self) -> bool:
+        """Whether the mouse button is currently pressed."""
+        return self._mouse_down
+
+    def is_key_pressed(self, key_name: str) -> bool:
+        """Whether *key_name* is currently held down."""
+        if not self._keyboard:
+            return False
+        if key_name == 'any':
+            return any(self._keyboard.values())
+        return self._keyboard.get(key_name.lower(), False)
+
+    @property
+    def answer(self) -> str | None:
+        """Current answer text (set by the UI/renderer after ``ask and wait``)."""
+        return self._answer
+
+    @answer.setter
+    def answer(self, value: str | None) -> None:
+        self._answer = value
+
+    def set_answer(self, value: str | None) -> None:
+        """Set the answer (called by the renderer after user input)."""
+        self._answer = value
+
+    def set_keyboard_state(self, pressed: dict[str, bool]) -> None:
+        """Update the full keyboard state dict (called by the renderer each frame)."""
+        self._keyboard = pressed
+
+    def set_mouse_position(self, x: float, y: float) -> None:
+        """Set the current mouse position in Scratch coordinates."""
+        self._mouse_x = x
+        self._mouse_y = y
+
+    def set_mouse_down(self, down: bool) -> None:
+        """Set the current mouse button state."""
+        self._mouse_down = down
+
+    def check_edge_hat(
+        self, opcode: str, target: Target, block: Block, current_value: bool
+    ) -> bool:
+        """Check false→true edge activation for edge-activated hats.
+
+        Returns True only when *current_value* is True and the previous
+        stored value for this hat instance was False.
+        """
+        key = f'{opcode}:{id(target)}:{block.id}'
+        prev = self._edge_hat_values.get(key, False)
+        self._edge_hat_values[key] = current_value
+        return current_value and not prev
 
     # ── Thread lifecycle ──────────────────────────────────────────────
 
@@ -321,90 +386,67 @@ class Runtime(Scheduler):
         if self.stage is not None:
             self.start_hat_for('event_whenstageclicked', self.stage)
 
-    def _check_edge_hat(
-        self, opcode: str, target: Target, block: Block, current_value: bool
-    ) -> bool:
-        """Check false→true edge activation for edge-activated hats."""
-        key = f'{opcode}:{id(target)}:{block.id}'
-        prev = self._edge_hat_values.get(key, False)
-        self._edge_hat_values[key] = current_value
-        return current_value and not prev
-
     # ── Scheduler template method override ────────────────────────────
 
-    def _step_thread(self, thread: SchedulerThread) -> None:
+    def _run_block(self, target: Target, block: Block) -> Generator[Any] | Any:
+        handler = self.get_handler(block.opcode)
+        if handler is None:
+            return None
+
+        return handler(self, target, block)
+
+    def _step_thread(self, t: Thread) -> None:
         """Advance one thread by one 'instruction' (template method override)."""
-        t = cast(Thread, thread)
-        self.current_thread = t
         frame = t.peek_frame()
         if frame is None:
             t.status = ThreadStatus.DONE
-            self.current_thread = None
             return
+
         block = t.target.blocks.get(frame.block_id)
         if block is None:
             t.pop_frame()
-            self.current_thread = None
             return
-        handler = self.get_handler(block.opcode)
-        if handler is None:
-            self._advance_to_next(t)
-            self.current_thread = None
-            return
+
         if frame.gen is None:
-            gen_or_val = handler(self, t.target, block)
-            if gen_or_val is None or not hasattr(gen_or_val, '__next__'):
+            # init generator
+            gen = self._run_block(t.target, block)
+
+            if not isinstance(gen, Generator):
+                # instant block
+                # handler may stop the thread immediately
                 if t.status is ThreadStatus.DONE:
-                    self.current_thread = None
                     return
-                self._advance_to_next(t)
-                self.current_thread = None
+                t.advance_to_next()
                 return
-            if isinstance(gen_or_val, types.GeneratorType):
-                frame.gen = gen_or_val
-            else:
-                if t.status is ThreadStatus.DONE:
-                    self.current_thread = None
-                    return
-                self._advance_to_next(t)
-                self.current_thread = None
-                return
+
+            frame.gen = gen
+
+        # drive generator
         try:
             yielded = next(frame.gen)
         except StopIteration:
             if t.status is ThreadStatus.DONE:
-                self.current_thread = None
                 return
-            self._advance_to_next(t)
-            self.current_thread = None
+            t.advance_to_next()
             return
+
         match yielded:
             case Wait(seconds=secs):
                 self.schedule_wake(t, secs)
-                self.current_thread = None
                 return
             case YieldPass():
-                self.current_thread = None
                 return
             case _:
                 raise RuntimeError(
                     f'Unknown yield {yielded!r} from {block.opcode!r} (block {block.id!r})'
                 )
 
-    def _advance_to_next(self, thread: Thread) -> None:
-        """Move the thread's current frame to the next block in the chain."""
-        frame = thread.peek_frame()
-        if frame is None:
-            thread.status = ThreadStatus.DONE
-            return
-        block = thread.target.blocks.get(frame.block_id)
-        if block and block.next:
-            frame.block_id = block.next
-            frame.gen = None
-        else:
-            thread.pop_frame()
-            if not thread.stack:
-                thread.status = ThreadStatus.DONE
+    def step_thread(self, thread: SchedulerThread) -> None:
+        """Advance one thread by one 'instruction' (template method override)."""
+        t = cast(Thread, thread)
+        self.current_thread = t
+        self._step_thread(t)
+        self.current_thread = None
 
     def green_flag(self) -> None:
         """Clear all threads and start ``when flag clicked`` hats."""
@@ -450,18 +492,17 @@ class Runtime(Scheduler):
             block = target.blocks.get(bid)
             if block is None:
                 break
-            handler = self.get_handler(block.opcode)
-            if handler is None:
+
+            gen = self._run_block(target, block)
+            if not isinstance(gen, Generator):
                 bid = block.next
                 continue
-            gen = handler(self, target, block)
-            if gen is None or not hasattr(gen, '__next__'):
-                bid = block.next
-                continue
+
             try:
                 while True:
                     val = next(gen)
                     yield val
             except StopIteration:
                 pass
+
             bid = block.next

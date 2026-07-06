@@ -304,14 +304,13 @@ class Renderer:
         pressed: dict[str, bool] = {}
         for name, code in KEY_MAP.items():
             pressed[name] = code in self._keys_down
-        self.runtime._keyboard = pressed
+        self.runtime.set_keyboard_state(pressed)
 
     # ── Mouse state bridge ────────────────────────────────────────────
 
     def _sync_mouse(self) -> None:
-        self.runtime._mouse_x = self._mouse_x
-        self.runtime._mouse_y = self._mouse_y
-        self.runtime._mouse_down = self._mouse_down
+        self.runtime.set_mouse_position(self._mouse_x, self._mouse_y)
+        self.runtime.set_mouse_down(self._mouse_down)
 
     # ── Main loop ─────────────────────────────────────────────────────
 
@@ -402,7 +401,7 @@ class Renderer:
             t._pen_prev_x = t.x
             t._pen_prev_y = t.y
         # Clear expired say/think bubbles
-        tick = self.runtime.clock._tick
+        tick = self.runtime.clock.tick_count
         for t in self.runtime.sprite_targets():
             if t.say_until is not None and tick >= t.say_until:
                 t.say_text = None

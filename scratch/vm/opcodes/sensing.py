@@ -45,27 +45,21 @@ def sensing_touchingcolor(rt: Runtime, tgt: Target, block: Block) -> Any:
 
 def sensing_keypressed(rt: Runtime, tgt: Target, block: Block) -> Any:
     key_name = _field_val(block.fields.get('KEY_OPTION'))
-    if not hasattr(rt, '_keyboard'):
-        return False
-    if key_name == 'any':
-        return any(rt._keyboard.values())
-    pressed = rt._keyboard.get(key_name.lower(), False)
-    return pressed
+    return rt.is_key_pressed(key_name)
 
 
 def sensing_askandwait(rt: Runtime, tgt: Target, block: Block) -> Any:
     """Ask a question and wait for an answer."""
     question = _str(rt.val(tgt, block, 'QUESTION'))
     tgt.say_text = question or None
-    rt._answer = None
-    while rt._answer is None:
+    rt.set_answer(None)
+    while rt.answer is None:
         yield YIELD
     tgt.say_text = None
 
 
 def sensing_answer(rt: Runtime, tgt: Target, block: Block) -> Any:
-    ans = getattr(rt, '_answer', None)
-    return '' if ans is None else ans
+    return '' if rt.answer is None else rt.answer
 
 
 def sensing_resettimer(rt: Runtime, tgt: Target, block: Block) -> None:
@@ -86,8 +80,8 @@ def sensing_distanceto(rt: Runtime, tgt: Target, block: Block) -> Any:
     dest = block.fields.get('DISTANCETOMENU')
     dest_name = _field_val(dest) if dest else '_mouse_'
     if dest_name == '_mouse_':
-        dx = tgt.x - rt._mouse_x
-        dy = tgt.y - rt._mouse_y
+        dx = tgt.x - rt.mouse_x()
+        dy = tgt.y - rt.mouse_y()
         return math.sqrt(dx * dx + dy * dy)
     other = rt.get_target_by_name(dest_name)
     if other:
@@ -132,11 +126,11 @@ def sensing_of(rt: Runtime, tgt: Target, block: Block) -> Any:
 
 
 def sensing_mousex(rt: Runtime, tgt: Target, block: Block) -> Any:
-    return rt._mouse_x
+    return rt.mouse_x()
 
 
 def sensing_mousey(rt: Runtime, tgt: Target, block: Block) -> Any:
-    return rt._mouse_y
+    return rt.mouse_y()
 
 
 def sensing_setdragmode(rt: Runtime, tgt: Target, block: Block) -> None:
@@ -146,7 +140,7 @@ def sensing_setdragmode(rt: Runtime, tgt: Target, block: Block) -> None:
 
 
 def sensing_mousedown(rt: Runtime, tgt: Target, block: Block) -> Any:
-    return rt._mouse_down
+    return rt.mouse_down()
 
 
 def sensing_current(rt: Runtime, tgt: Target, block: Block) -> Any:

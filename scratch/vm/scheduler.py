@@ -72,6 +72,11 @@ class Clock:
     def __init__(self) -> None:
         self._tick: int = 0
 
+    @property
+    def tick_count(self) -> int:
+        """Number of frames elapsed since last reset."""
+        return self._tick
+
     def now(self) -> float:
         """Virtual time in seconds since start."""
         return self._tick / self.FPS
@@ -148,7 +153,7 @@ class Scheduler:
         if self._real_time and delay > 0:
             wake_at = self._time.monotonic() + delay
         else:
-            wake_at = self.clock._tick + self.clock.frames_for(delay)
+            wake_at = self.clock.tick_count + self.clock.frames_for(delay)
         seq = self._wait_seq
         self._wait_seq += 1
         heapq.heappush(self._wait_queue, (wake_at, seq, thread))
@@ -176,7 +181,7 @@ class Scheduler:
 
     # ── Template method ─────────────────────────────────────────────
 
-    def _step_thread(self, thread: SchedulerThread) -> None:
+    def step_thread(self, thread: SchedulerThread) -> None:
         """Advance *thread* by one instruction.
 
         Override in subclasses to define instruction execution.
@@ -196,10 +201,10 @@ class Scheduler:
 
         1. Wake any waiting threads whose timer has expired.
         2. Advance each runnable thread by one instruction via
-           :meth:`_step_thread`.
+           :meth:`step_thread`.
         3. Tick the virtual clock.
         """
-        now = self._time.monotonic() if self._real_time else self.clock._tick
+        now = self._time.monotonic() if self._real_time else self.clock.tick_count
 
         # 1. Wake threads whose wait has expired
         while self._wait_queue and self._wait_queue[0][0] <= now:
@@ -213,7 +218,9 @@ class Scheduler:
         for thread in self._runnable_queue:
             if thread.is_done():
                 continue
-            self._step_thread(thread)
+
+            self.step_thread(thread)
+
             if thread.status == ThreadStatus.RUNNING:
                 still_runnable.append(thread)
         self._runnable_queue[:] = still_runnable

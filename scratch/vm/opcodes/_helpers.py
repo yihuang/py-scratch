@@ -144,7 +144,7 @@ def _scratch_compare(v1: Any, v2: Any) -> int:
 def _target_xy(rt: Runtime, target_name: str) -> tuple[float, float] | None:
     """Resolve a target name to (x, y) for go-to / point-towards."""
     if target_name == '_mouse_':
-        return (rt._mouse_x, rt._mouse_y)
+        return (rt.mouse_x(), rt.mouse_y())
     if target_name == '_random_':
         return (
             round(random.uniform(STAGE_LEFT, STAGE_RIGHT)),

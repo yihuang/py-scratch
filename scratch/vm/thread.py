@@ -95,6 +95,7 @@ class Thread(SchedulerThread):
     status: str = ThreadStatus.RUNNING
     stack: list[Frame] = field(default_factory=list)
     at_top: bool = True  # True after a fresh start
+    counter: int = 0  # ``for each`` loop counter (per-thread)
 
     def push_frame(self, block_id: str) -> Frame:
         """Push a new frame onto the stack and return it."""
@@ -133,6 +134,25 @@ class Thread(SchedulerThread):
         self.stack.clear()
         self.push_frame(self.top_block)
         self.status = ThreadStatus.RUNNING
+
+    def advance_to_next(self) -> None:
+        """Move the current frame to the next block in the chain.
+
+        If the frame's block has a ``next``, the frame is updated in place.
+        Otherwise the frame is popped — the thread may become DONE.
+        """
+        frame = self.peek_frame()
+        if frame is None:
+            self.status = ThreadStatus.DONE
+            return
+        block = self.target.blocks.get(frame.block_id)
+        if block and block.next:
+            frame.block_id = block.next
+            frame.gen = None
+        else:
+            self.pop_frame()
+            if not self.stack:
+                self.status = ThreadStatus.DONE
 
     def __repr__(self) -> str:
         return f'Thread(target={self.target.name}, top={self.top_block}, status={self.status})'

@@ -15,6 +15,23 @@ from ..thread import ThreadStatus, Wait, YIELD
 from ..constants import STOP_ALL, STOP_OTHER_IN_SPRITE, STOP_OTHER_IN_STAGE, STOP_THIS_SCRIPT
 from ._helpers import _substack_val, _field_val, _str
 
+# ── Counter helpers (stored on the current thread) ─────────────────────
+
+
+def _get_counter(rt: Runtime) -> int:
+    assert rt.current_thread is not None
+    return rt.current_thread.counter
+
+
+def _incr_counter(rt: Runtime) -> None:
+    assert rt.current_thread is not None
+    rt.current_thread.counter += 1
+
+
+def _clear_counter(rt: Runtime) -> None:
+    assert rt.current_thread is not None
+    rt.current_thread.counter = 0
+
 
 def control_wait(rt: Runtime, tgt: Target, block: Block) -> Any:
     dur = rt.num(tgt, block, 'DURATION')
@@ -116,15 +133,15 @@ def control_for_each(rt: Runtime, tgt: Target, block: Block) -> Any:
 
 
 def control_get_counter(rt: Runtime, tgt: Target, block: Block) -> Any:
-    return rt._for_each_counter
+    return _get_counter(rt)
 
 
 def control_incr_counter(rt: Runtime, tgt: Target, block: Block) -> None:
-    rt._for_each_counter += 1
+    _incr_counter(rt)
 
 
 def control_clear_counter(rt: Runtime, tgt: Target, block: Block) -> None:
-    rt._for_each_counter = 0
+    _clear_counter(rt)
 
 
 def control_create_clone_of(rt: Runtime, tgt: Target, block: Block) -> None:

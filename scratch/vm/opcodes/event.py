@@ -48,7 +48,7 @@ def event_whentouchingobject(rt: Runtime, tgt: Target, block: Block) -> Any:
         return False
 
     touching = _touching_object_check(rt, tgt, obj_name)
-    return rt._check_edge_hat('event_whentouchingobject', tgt, block, touching)
+    return rt.check_edge_hat('event_whentouchingobject', tgt, block, touching)
 
 
 def event_whengreaterthan(rt: Runtime, tgt: Target, block: Block) -> Any:
@@ -62,7 +62,7 @@ def event_whengreaterthan(rt: Runtime, tgt: Target, block: Block) -> Any:
         result = False
     else:
         result = False
-    return rt._check_edge_hat('event_whengreaterthan', tgt, block, result)
+    return rt.check_edge_hat('event_whengreaterthan', tgt, block, result)
 
 
 def event_broadcast(rt: Runtime, tgt: Target, block: Block) -> None:

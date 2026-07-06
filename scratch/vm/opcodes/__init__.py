@@ -12,8 +12,7 @@ into the :data:`OPCODE_MAP` registry.
 """
 
 from __future__ import annotations
-
-from typing import Any
+from scratch.vm.runtime import Handler
 
 __all__: list[str] = [
     'OPCODE_MAP',
@@ -217,7 +216,7 @@ from .procedures import (
 #  OPCODE_MAP
 # ═════════════════════════════════════════════════════════════════════════
 
-OPCODE_MAP: dict[str, Any] = {
+OPCODE_MAP: dict[str, Handler] = {
     # ── Control ──────────────────────────────────────────────────────
     'control_wait': control_wait,
     'control_repeat': control_repeat,

@@ -29,7 +29,7 @@ def procedures_call(rt: Runtime, tgt: Target, block: Block) -> Any:
     )
     if proccode is None:
         return
-    for bid, b in tgt.blocks.items():
+    for _, b in tgt.blocks.items():
         if b.opcode in ('procedures_definition', 'procedures_def'):
             # Mutation may be on the definition block (DSL builder) or
             # on the referenced prototype block (sb3 serialization).
