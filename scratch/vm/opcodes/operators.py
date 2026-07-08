@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from ..types import Block
 
 from ..constants import MATH_TRIG_PRECISION
-from ._helpers import _scratch_compare, _str
+from ..cast import compare, to_string
 
 
 def operator_add(rt: Runtime, tgt: Target, block: Block) -> Any:
@@ -44,19 +44,19 @@ def operator_divide(rt: Runtime, tgt: Target, block: Block) -> Any:
 def operator_lt(rt: Runtime, tgt: Target, block: Block) -> Any:
     a = rt.val(tgt, block, "OPERAND1")
     b = rt.val(tgt, block, "OPERAND2")
-    return _scratch_compare(a, b) < 0
+    return compare(a, b) < 0
 
 
 def operator_equals(rt: Runtime, tgt: Target, block: Block) -> Any:
     a = rt.val(tgt, block, "OPERAND1")
     b = rt.val(tgt, block, "OPERAND2")
-    return _scratch_compare(a, b) == 0
+    return compare(a, b) == 0
 
 
 def operator_gt(rt: Runtime, tgt: Target, block: Block) -> Any:
     a = rt.val(tgt, block, "OPERAND1")
     b = rt.val(tgt, block, "OPERAND2")
-    return _scratch_compare(a, b) > 0
+    return compare(a, b) > 0
 
 
 def operator_and(rt: Runtime, tgt: Target, block: Block) -> Any:
@@ -84,24 +84,24 @@ def operator_random(rt: Runtime, tgt: Target, block: Block) -> Any:
 
 
 def operator_join(rt: Runtime, tgt: Target, block: Block) -> Any:
-    return _str(rt.val(tgt, block, "STRING1")) + _str(rt.val(tgt, block, "STRING2"))
+    return to_string(rt.val(tgt, block, "STRING1")) + to_string(rt.val(tgt, block, "STRING2"))
 
 
 def operator_letter_of(rt: Runtime, tgt: Target, block: Block) -> Any:
     idx = rt.num_int(tgt, block, "LETTER")
-    s = _str(rt.val(tgt, block, "STRING"))
+    s = to_string(rt.val(tgt, block, "STRING"))
     if 1 <= idx <= len(s):
         return s[idx - 1]
     return ""
 
 
 def operator_length(rt: Runtime, tgt: Target, block: Block) -> Any:
-    return len(_str(rt.val(tgt, block, "STRING")))
+    return len(to_string(rt.val(tgt, block, "STRING")))
 
 
 def operator_contains(rt: Runtime, tgt: Target, block: Block) -> Any:
-    s1 = _str(rt.val(tgt, block, "STRING1"))
-    s2 = _str(rt.val(tgt, block, "STRING2"))
+    s1 = to_string(rt.val(tgt, block, "STRING1"))
+    s2 = to_string(rt.val(tgt, block, "STRING2"))
     return s2.lower() in s1.lower()
 
 

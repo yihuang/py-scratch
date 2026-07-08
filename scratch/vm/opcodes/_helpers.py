@@ -13,14 +13,10 @@ if TYPE_CHECKING:
     from ..target import Target
 
 from ..types import Input
+from ..cast import to_string
 from ..constants import (
     BUBBLE_DECIMAL_THRESHOLD,
     BUBBLE_MAX_CHARS,
-    LIST_INDEX_ALL,
-    LIST_INDEX_ALL_SENTINEL,
-    LIST_INDEX_ANY,
-    LIST_INDEX_LAST,
-    LIST_INDEX_RANDOM,
     PAN_MAX,
     PAN_MIN,
     PITCH_MAX,
@@ -34,55 +30,6 @@ from ..constants import (
 )
 
 import pygame
-
-
-def _num(inp: Any) -> float:
-    """Coerce to number, matching Scratch's ``Number()``.
-
-    * Empty string / whitespace-only → 0.
-    * ``'Infinity'`` / ``'-Infinity'`` (exact case) → Infinity.
-    * ``'NaN'`` (exact case) → NaN.
-    * Everything else non-numeric → NaN.
-
-    Scratch's ``Number()`` is case-sensitive: ``Number('Infinity')`` → Infinity,
-    but ``Number('INFINITY')`` → NaN → 0.  Python's ``float()`` is
-    case-*in*sensitive, so we gate on the exact string.
-    """
-    if isinstance(inp, str):
-        if inp == "Infinity":
-            return float("inf")
-        if inp == "-Infinity":
-            return float("-inf")
-        if inp == "NaN":
-            return float("nan")
-        if inp.strip() == "":
-            return 0.0
-        # Try numeric parse; if it fails, Scratch returns NaN
-        try:
-            return float(inp)
-        except (ValueError, TypeError):
-            return float("nan")
-    if inp is None:
-        return 0.0
-    try:
-        return float(inp)
-    except (ValueError, TypeError):
-        return float("nan")
-
-
-def _str(inp: Any) -> str:
-    if isinstance(inp, float):
-        if inp == -0.0:
-            inp = 0.0
-        s = f"{inp:g}"
-        return s
-    return str(inp) if inp is not None else ""
-
-
-def _bool(inp: Any) -> bool:
-    if isinstance(inp, str):
-        return inp.lower() not in ("", "false", "0")
-    return bool(inp)
 
 
 def _field_val(field: Any) -> str:
@@ -101,41 +48,6 @@ def _substack_val(inp: Any) -> str | None:
     else:
         v = inp
     return str(v) if v else None
-
-
-def _scratch_compare(v1: Any, v2: Any) -> int:
-    """Scratch comparison: returns -1 / 0 / 1.
-
-    Mirrors ``Cast.compare()`` in scratch-vm:
-    - If both values are numeric, compare as numbers.
-    - If either converts to NaN (or is None / whitespace), compare
-      case-insensitively as strings.
-    """
-    if v1 is None or (isinstance(v1, str) and v1.strip() == ""):
-        n1 = float("nan")
-    else:
-        n1 = _num(v1)
-    if v2 is None or (isinstance(v2, str) and v2.strip() == ""):
-        n2 = float("nan")
-    else:
-        n2 = _num(v2)
-    if math.isnan(n1) or math.isnan(n2):
-        s1 = str(v1).lower()
-        s2 = str(v2).lower()
-        if s1 < s2:
-            return -1
-        if s1 > s2:
-            return 1
-        return 0
-    if n1 == float("inf") and n2 == float("inf"):
-        return 0
-    if n1 == float("-inf") and n2 == float("-inf"):
-        return 0
-    if n1 < n2:
-        return -1
-    if n1 > n2:
-        return 1
-    return 0
 
 
 # ── Motion helpers ───────────────────────────────────────────────────────
@@ -216,7 +128,7 @@ def _set_costume(tgt: Target, requested: Any) -> None:
         idx %= n
         tgt.costume_index = idx
         return
-    s = _str(requested)
+    s = to_string(requested)
     if s.strip() == "":
         return
     for i, c in enumerate(tgt.costumes):
@@ -247,7 +159,7 @@ def _set_backdrop(rt: Runtime, val: Any) -> list[Any]:
     stage = rt.stage
     if stage is None:
         return []
-    s = _str(val)
+    s = to_string(val)
     n = len(stage.costumes)
     if n == 0:
         return []
@@ -324,28 +236,3 @@ def _clamp_effect(effect: str, value: float) -> float:
 # ── Data helpers ─────────────────────────────────────────────────────────
 
 LIST_ITEM_LIMIT = 200000
-
-
-def to_list_index(value: Any, length: int) -> int | str:
-    """Convert a Scratch list index value to a usable index.
-
-    Returns:
-      'ALL'  — for the 'all' special value
-      int    — a 1-based index clamped to 1..length, or None if invalid
-      None   — invalid/unusable
-    """
-    if isinstance(value, str):
-        v = value.lower()
-        if v == LIST_INDEX_ALL:
-            return LIST_INDEX_ALL_SENTINEL
-        if v == LIST_INDEX_LAST:
-            return length
-        if v in (LIST_INDEX_RANDOM, LIST_INDEX_ANY):
-            return random.randint(1, max(1, length))
-    try:
-        idx = int(round(float(value)))
-    except (ValueError, TypeError):
-        return 0
-    if 1 <= idx <= length:
-        return idx
-    return 0

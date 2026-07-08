@@ -23,7 +23,8 @@ from ..constants import (
 import pygame
 
 from ..thread import YIELD
-from ._helpers import _clamp_effect, _find_sound, _ensure_sound_loaded, _str
+from ..cast import to_string
+from ._helpers import _clamp_effect, _find_sound, _ensure_sound_loaded
 
 
 def sound_sounds_menu(rt: Runtime, tgt: Target, block: Block) -> Any:
@@ -33,7 +34,7 @@ def sound_sounds_menu(rt: Runtime, tgt: Target, block: Block) -> Any:
 
 def sound_play(rt: Runtime, tgt: Target, block: Block) -> None:
     """Play a sound (fire-and-forget)."""
-    name = _str(rt.val(tgt, block, "SOUND_MENU"))
+    name = to_string(rt.val(tgt, block, "SOUND_MENU"))
     sound_obj = _find_sound(tgt, name)
     if sound_obj is None or not _ensure_sound_loaded(sound_obj):
         return
@@ -44,7 +45,7 @@ def sound_play(rt: Runtime, tgt: Target, block: Block) -> None:
 
 def sound_playuntildone(rt: Runtime, tgt: Target, block: Block) -> Any:
     """Play a sound and wait until it finishes."""
-    name = _str(rt.val(tgt, block, "SOUND_MENU"))
+    name = to_string(rt.val(tgt, block, "SOUND_MENU"))
     sound_obj = _find_sound(tgt, name)
     if sound_obj is None or not _ensure_sound_loaded(sound_obj):
         return

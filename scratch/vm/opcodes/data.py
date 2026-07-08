@@ -12,11 +12,8 @@ if TYPE_CHECKING:
     from ..target import Target
     from ..types import Block
 
-from ._helpers import (
-    _scratch_compare,
-    to_list_index,
-    LIST_ITEM_LIMIT,
-)
+from ..cast import compare, to_list_index
+from ._helpers import LIST_ITEM_LIMIT
 
 
 # ═════════════════════════════════════════════════════════════════════════
@@ -100,7 +97,7 @@ def data_deleteoflist(rt: Runtime, tgt: Target, block: Block) -> None:
     if not lst:
         return
 
-    idx = to_list_index(value, len(lst.contents))
+    idx = to_list_index(value, len(lst.contents), accept_all=True)
     if idx == LIST_INDEX_ALL_SENTINEL:
         lst.contents.clear()
         return
@@ -128,11 +125,10 @@ def data_insertatlist(rt: Runtime, tgt: Target, block: Block) -> None:
         lst.contents.pop()
         length = len(lst.contents)
 
-    idx = to_list_index(idx_val, length + 1)
-    if idx == 0:
-        lst.contents.append(item)
-    elif isinstance(idx, int):
-        lst.contents.insert(idx - 1, item)
+    idx = to_list_index(idx_val, length + 1, accept_all=False)
+    if not isinstance(idx, int) or idx <= 0:
+        return
+    lst.contents.insert(idx - 1, item)
 
 
 def data_replaceitemoflist(rt: Runtime, tgt: Target, block: Block) -> None:
@@ -197,7 +193,7 @@ def data_listcontainsitem(rt: Runtime, tgt: Target, block: Block) -> Any:
         if lst is None and rt.stage:
             lst = rt.stage.lookup_list(list_name)
         if lst:
-            return any(_scratch_compare(item, x) == 0 for x in lst.contents)
+            return any(compare(item, x) == 0 for x in lst.contents)
     return False
 
 
@@ -210,7 +206,7 @@ def data_itemnumoflist(rt: Runtime, tgt: Target, block: Block) -> Any:
             lst = rt.stage.lookup_list(list_name)
         if lst:
             for i, x in enumerate(lst.contents, 1):
-                if _scratch_compare(item, x) == 0:
+                if compare(item, x) == 0:
                     return i
     return 0
 

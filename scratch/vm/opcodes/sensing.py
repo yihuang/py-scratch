@@ -20,13 +20,14 @@ from ..constants import (
     YEAR_2000_EPOCH,
 )
 from ..thread import YIELD
-from ._helpers import _str, _touching_object_check
+from ..cast import to_string 
+from ._helpers import _touching_object_check
 
 
 def sensing_touchingobject(rt: Runtime, tgt: Target, block: Block) -> Any:
     obj_name = rt.field(tgt, block, "TOUCHINGOBJECTMENU")
     if not obj_name:
-        obj_name = _str(rt.val(tgt, block, "TOUCHINGOBJECTMENU"))
+        obj_name = to_string(rt.val(tgt, block, "TOUCHINGOBJECTMENU"))
     return _touching_object_check(rt, tgt, obj_name)
 
 
@@ -41,7 +42,7 @@ def sensing_keypressed(rt: Runtime, tgt: Target, block: Block) -> Any:
 
 def sensing_askandwait(rt: Runtime, tgt: Target, block: Block) -> Any:
     """Ask a question and wait for an answer."""
-    question = _str(rt.val(tgt, block, "QUESTION"))
+    question = to_string(rt.val(tgt, block, "QUESTION"))
     tgt.say_text = question or None
     rt.set_answer(None)
     while rt.answer is None:
@@ -89,7 +90,7 @@ def sensing_of(rt: Runtime, tgt: Target, block: Block) -> Any:
     obj = rt.get_target_by_name(obj_name) if obj_name else None
     if obj is None:
         obj = tgt
-    prop_name = _str(prop) if not isinstance(prop, str) else prop
+    prop_name = to_string(prop) if not isinstance(prop, str) else prop
     match prop_name:
         case "x" | "x position":
             return obj.x

@@ -14,7 +14,8 @@ if TYPE_CHECKING:
 
 from ..thread import YIELD
 from ..constants import SCRATCH_RIGHT, STAGE_RIGHT, STAGE_TOP
-from ._helpers import _str, _target_xy
+from ..cast import to_string
+from ._helpers import _target_xy
 
 
 def motion_movesteps(rt: Runtime, tgt: Target, block: Block) -> None:
@@ -29,7 +30,7 @@ def motion_movesteps(rt: Runtime, tgt: Target, block: Block) -> None:
 def motion_goto(rt: Runtime, tgt: Target, block: Block) -> None:
     target_name = rt.field(tgt, block, "TO")
     if not target_name:
-        target_name = _str(rt.val(tgt, block, "TO"))
+        target_name = to_string(rt.val(tgt, block, "TO"))
     xy = _target_xy(rt, target_name)
     if xy is not None:
         tgt.set_xy(xy[0], xy[1])
@@ -82,7 +83,7 @@ def motion_pointindirection(rt: Runtime, tgt: Target, block: Block) -> None:
 def motion_pointtowards(rt: Runtime, tgt: Target, block: Block) -> None:
     target_name = rt.field(tgt, block, "TOWARDS")
     if not target_name:
-        target_name = _str(rt.val(tgt, block, "TOWARDS"))
+        target_name = to_string(rt.val(tgt, block, "TOWARDS"))
     xy = _target_xy(rt, target_name)
     if xy is None:
         return
@@ -195,7 +196,7 @@ def motion_glideto(rt: Runtime, tgt: Target, block: Block) -> Any:
     secs = rt.num(tgt, block, "SECS")
     target_name = rt.field(tgt, block, "TO")
     if not target_name:
-        target_name = _str(rt.val(tgt, block, "TO"))
+        target_name = to_string(rt.val(tgt, block, "TO"))
     xy = _target_xy(rt, target_name)
     if xy is None:
         return
