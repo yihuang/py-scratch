@@ -12,10 +12,10 @@ from pathlib import Path
 
 from scratch.dsl import Project, control, motion, pen
 
-project = Project('Pen Artist', assets_dir=Path(__file__).parent)
-writer = project.sprite('PenWriter')
+project = Project("Pen Artist", assets_dir=Path(__file__).parent)
+writer = project.sprite("PenWriter")
 
-writer.costume('pen', 'pen.svg', rotation_center_x=87.33, rotation_center_y=6.88)
+writer.costume("pen", "pen.svg", rotation_center_x=87.33, rotation_center_y=6.88)
 writer.x = -200
 writer.y = -150
 writer.direction = 90
@@ -24,7 +24,7 @@ writer.layer_order = 3
 writer.when_flag_clicked(
     pen.pen_clear(),
     pen.pen_down(),
-    pen.pen_color('#0000FF'),
+    pen.pen_color("#0000FF"),
     control.forever()(
         motion.move(8),
         motion.if_on_edge_bounce(),
@@ -34,16 +34,16 @@ writer.when_flag_clicked(
 )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--save', '-o', type=str, help='Save project to .sb3 file')
+    parser.add_argument("--save", "-o", type=str, help="Save project to .sb3 file")
     args = parser.parse_args()
 
     if args.save:
         project.save(args.save)
-        print(f'Saved to {args.save}')
+        print(f"Saved to {args.save}")
     else:
         rt = project.build_runtime()
         from scratch.vm.renderer import Renderer

@@ -15,18 +15,18 @@ from pathlib import Path
 
 from scratch.dsl import Project, control, data, motion, operators
 
-project = Project('Calculator', assets_dir=Path(__file__).parent)
+project = Project("Calculator", assets_dir=Path(__file__).parent)
 
 # ── Sprite with variables for operands ────────────────────────────────
-sprite = project.sprite('Calc')
-sprite.costume('ball', 'ball.svg')
-sprite.var('a', 10)
-sprite.var('b', 3)
-sprite.var('result', 0)
+sprite = project.sprite("Calc")
+sprite.costume("ball", "ball.svg")
+sprite.var("a", 10)
+sprite.var("b", 3)
+sprite.var("result", 0)
 
 # On green flag, compute some expressions using reporter nesting.
 sprite.when_flag_clicked(
-    data.set_variable('result', operators.add(data.variable('a'), data.variable('b'))),
+    data.set_variable("result", operators.add(data.variable("a"), data.variable("b"))),
     control.forever()(
         motion.move(3),
         motion.if_on_edge_bounce(),
@@ -35,16 +35,16 @@ sprite.when_flag_clicked(
 )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--save', '-o', type=str, help='Save project to .sb3 file')
+    parser.add_argument("--save", "-o", type=str, help="Save project to .sb3 file")
     args = parser.parse_args()
 
     if args.save:
         project.save(args.save)
-        print(f'Saved to {args.save}')
+        print(f"Saved to {args.save}")
     else:
         rt = project.build_runtime()
         from scratch.vm.renderer import Renderer

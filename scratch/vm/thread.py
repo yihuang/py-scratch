@@ -51,9 +51,9 @@ class ThreadStatus:
     Mirrors ``scheduler.ThreadStatus`` for backward compatibility.
     """
 
-    RUNNING = 'running'
-    WAITING = 'waiting'
-    DONE = 'done'
+    RUNNING = "running"
+    WAITING = "waiting"
+    DONE = "done"
 
 
 # ── Frame ───────────────────────────────────────────────────────────────
@@ -69,7 +69,7 @@ class ThreadStatus:
 class Frame:
     block_id: str
     gen: Generator[Any] | None = None
-    status: str = 'active'  # 'active' | 'paused'
+    status: str = "active"  # 'active' | 'paused'
     result: Any = None
     # For control blocks (repeat etc.): sub-stack position
     substack_pc: int = 0
@@ -90,7 +90,7 @@ class Thread(SchedulerThread):
     The ``target`` is the sprite or stage this thread runs on.
     """
 
-    target: 'Target'
+    target: "Target"
     top_block: str  # block ID of the first block
     status: str = ThreadStatus.RUNNING
     stack: list[Frame] = field(default_factory=list)
@@ -155,4 +155,4 @@ class Thread(SchedulerThread):
                 self.status = ThreadStatus.DONE
 
     def __repr__(self) -> str:
-        return f'Thread(target={self.target.name}, top={self.top_block}, status={self.status})'
+        return f"Thread(target={self.target.name}, top={self.top_block}, status={self.status})"

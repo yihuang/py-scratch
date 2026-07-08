@@ -40,11 +40,11 @@ def load_project(path: str | Path | io.IOBase) -> Runtime:
     """Load an .sb3 file and return a configured Runtime."""
     if isinstance(path, (str, Path)):
         path = Path(path)
-        if not path.suffix == '.sb3':
-            msg = f'Expected .sb3 file, got {path.suffix}'
+        if not path.suffix == ".sb3":
+            msg = f"Expected .sb3 file, got {path.suffix}"
             raise ValueError(msg)
         with zipfile.ZipFile(path) as zf:
-            data = json.loads(zf.read('project.json'))
+            data = json.loads(zf.read("project.json"))
     else:
         data = _read_json_from_stream(path)
     return _from_json(data, path if isinstance(path, Path) else Path())
@@ -53,13 +53,13 @@ def load_project(path: str | Path | io.IOBase) -> Runtime:
 def _read_json_from_stream(stream: io.IOBase) -> dict[str, Any]:
     buf = io.BytesIO(stream.read())
     with zipfile.ZipFile(buf) as zf:
-        return json.loads(zf.read('project.json'))  # type: ignore[no-any-return]
+        return json.loads(zf.read("project.json"))  # type: ignore[no-any-return]
 
 
 def _from_json(data: dict[str, Any], source_path: Path) -> Runtime:  # noqa: ARG001
     """Convert parsed project.json into a populated Runtime."""
     rt = Runtime()
-    for target_data in data.get('targets', []):
+    for target_data in data.get("targets", []):
         target = parse_target(target_data)
         rt.add_target(target)
     return rt
@@ -162,8 +162,8 @@ def save_project(runtime: Runtime, path: str | Path | io.IOBase) -> None:
     path_obj: str | Path | io.IOBase = Path(path) if isinstance(path, (str, Path)) else path
     project_json = build_project_json(runtime)
 
-    with zipfile.ZipFile(path_obj, 'w', zipfile.ZIP_DEFLATED) as zf:
-        zf.writestr('project.json', json.dumps(project_json, separators=(',', ':')))
+    with zipfile.ZipFile(path_obj, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("project.json", json.dumps(project_json, separators=(",", ":")))
 
         written: set[str] = set()
         for target in runtime.targets:

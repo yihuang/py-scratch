@@ -3,7 +3,7 @@
 from .io import load_assets, load_project, save_project
 
 __all__ = [
-    'load_assets',
-    'load_project',
-    'save_project',
+    "load_assets",
+    "load_project",
+    "save_project",
 ]

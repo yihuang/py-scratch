@@ -52,7 +52,7 @@ class ProjectTarget:
 
     def __init__(
         self,
-        name: str = 'Sprite',
+        name: str = "Sprite",
         is_stage: bool = False,
         assets_dir: str | Path | None = None,
     ) -> None:
@@ -68,7 +68,7 @@ class ProjectTarget:
         self.y: float = 0.0
         self.direction: float = 90.0
         self.size: float = 100.0
-        self.rotation_style: str = 'all around'
+        self.rotation_style: str = "all around"
         self.visible: bool = True
         self.layer_order: int = 1 if not is_stage else 0
 
@@ -103,9 +103,9 @@ class ProjectTarget:
         filename: str | Path | None = None,
         *,
         path: str | Path | None = None,
-        data_format: str = 'png',
-        asset_id: str = '',
-        md5ext: str = '',
+        data_format: str = "png",
+        asset_id: str = "",
+        md5ext: str = "",
         rotation_center_x: float | None = None,
         rotation_center_y: float | None = None,
     ) -> None:
@@ -142,17 +142,17 @@ class ProjectTarget:
 
         src_path = self._resolve_asset(src)
         data = src_path.read_bytes()
-        fmt = src_path.suffix.lstrip('.')
+        fmt = src_path.suffix.lstrip(".")
         md5 = hashlib.md5(data).hexdigest()
 
         rc_x: float = rotation_center_x or 0
         rc_y: float = rotation_center_y or 0
 
         # For SVG, default rotation centre = centre of viewBox
-        if fmt == 'svg' and rotation_center_x is None:
+        if fmt == "svg" and rotation_center_x is None:
             # find rotation center in viewBox attribute, e.g. viewBox="0 0 480 360"
             m = re.search(
-                r'viewBox="-?[\d.]+\s+-?[\d.]+\s+([\d.]+)\s+([\d.]+)"', data.decode('utf-8')
+                r'viewBox="-?[\d.]+\s+-?[\d.]+\s+([\d.]+)\s+([\d.]+)"', data.decode("utf-8")
             )
             if m:
                 vb_w = float(m.group(1))
@@ -168,7 +168,7 @@ class ProjectTarget:
                 rotation_center_x=rc_x,
                 rotation_center_y=rc_y,
                 asset_id=md5,
-                md5ext=f'{md5}.{fmt}',
+                md5ext=f"{md5}.{fmt}",
             )
         )
 
@@ -198,10 +198,10 @@ class ProjectTarget:
         self._sounds.append(
             Sound(
                 name=name,
-                data_format=src_path.suffix.lstrip('.'),
+                data_format=src_path.suffix.lstrip("."),
                 data=data,
                 asset_id=md5,
-                md5ext=f'{md5}.{src_path.suffix.lstrip(".")}',
+                md5ext=f"{md5}.{src_path.suffix.lstrip('.')}",
             )
         )
 
@@ -227,7 +227,7 @@ class ProjectTarget:
 
         return _reg
 
-    def when_broadcast_received(self, message: str = '') -> Callable[..., None]:
+    def when_broadcast_received(self, message: str = "") -> Callable[..., None]:
         """Return a callable for when-broadcast-received scripts.
 
         Usage::
@@ -245,7 +245,7 @@ class ProjectTarget:
         """Register a when-this-sprite-clicked script."""
         self._scripts.append(Script(hat=_events.when_this_sprite_clicked(), body=list(body)))
 
-    def when_backdrop_switches_to(self, backdrop: str = 'next backdrop') -> Callable[..., None]:
+    def when_backdrop_switches_to(self, backdrop: str = "next backdrop") -> Callable[..., None]:
         """Return a callable for when-backdrop-switches-to scripts.
 
         Usage::
@@ -260,7 +260,7 @@ class ProjectTarget:
         return _reg
 
     def when_greater_than(
-        self, metric: str = 'loudness', value: int | float | Reporter = 10
+        self, metric: str = "loudness", value: int | float | Reporter = 10
     ) -> Callable[..., None]:
         """Return a callable for when-greater-than scripts."""
         hat = _events.when_greater_than(metric=metric, value=value)
@@ -273,7 +273,7 @@ class ProjectTarget:
     def when_start_as_clone(self, *body: StackExpr) -> None:
         """Register a when-start-as-clone script."""
         self._scripts.append(
-            Script(hat=StackExpr(opcode='control_start_as_clone'), body=list(body))
+            Script(hat=StackExpr(opcode="control_start_as_clone"), body=list(body))
         )
 
     def define(self, proc_name: str, *param_names: str) -> Callable[..., None]:
@@ -306,10 +306,10 @@ class Project:
     Manages the stage, sprites, and produces an .sb3 file.
     """
 
-    def __init__(self, name: str = 'Project', assets_dir: str | Path | None = None) -> None:
+    def __init__(self, name: str = "Project", assets_dir: str | Path | None = None) -> None:
         self.name = name
         self.assets_dir = Path(assets_dir) if assets_dir else None
-        self._stage = ProjectTarget(name='Stage', is_stage=True, assets_dir=self.assets_dir)
+        self._stage = ProjectTarget(name="Stage", is_stage=True, assets_dir=self.assets_dir)
         self._sprites: list[ProjectTarget] = []
 
     def sprite(self, name: str) -> ProjectTarget:
@@ -385,17 +385,17 @@ def _add_white_backdrop(target: Target) -> None:
         '<svg xmlns="http://www.w3.org/2000/svg"'
         ' viewBox="0 0 480 360" width="480" height="360">'
         '<rect width="480" height="360" fill="white"/></svg>'
-    ).encode('utf-8')
+    ).encode("utf-8")
     md5 = hashlib.md5(svg).hexdigest()
     target.costumes.append(
         Costume(
-            name='Stage',
-            data_format='svg',
+            name="Stage",
+            data_format="svg",
             data=svg,
-            surface=pygame.image.load(io.BytesIO(svg), 'svg'),
+            surface=pygame.image.load(io.BytesIO(svg), "svg"),
             rotation_center_x=240,
             rotation_center_y=180,
             asset_id=md5,
-            md5ext=f'{md5}.svg',
+            md5ext=f"{md5}.svg",
         )
     )

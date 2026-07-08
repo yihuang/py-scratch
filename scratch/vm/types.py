@@ -46,13 +46,13 @@ class Input:
 class Mutation:
     """Metadata for procedure definitions/calls."""
 
-    tag_name: str = 'mutation'
+    tag_name: str = "mutation"
     children: list[Any] = field(default_factory=list)
-    proccode: str = ''
-    argumentids: str = '[]'
-    argumentnames: str = '[]'
-    argumentdefaults: str = '[]'
-    warp: str = 'false'  # 'true' = run without screen refresh
+    proccode: str = ""
+    argumentids: str = "[]"
+    argumentnames: str = "[]"
+    argumentdefaults: str = "[]"
+    warp: str = "false"  # 'true' = run without screen refresh
     prototype: str | None = None  # block id of the prototype
 
 
@@ -88,13 +88,13 @@ class Costume:
     """A costume (image) or backdrop belonging to a target."""
 
     name: str
-    data_format: str = ''  # 'svg', 'png', 'jpg', 'bmp', 'gif'
+    data_format: str = ""  # 'svg', 'png', 'jpg', 'bmp', 'gif'
     bitmap_resolution: int = 1
     rotation_center_x: float = 0.0
     rotation_center_y: float = 0.0
-    asset_id: str = ''  # Scratch assetId (SHA1 hex)
-    md5ext: str = ''  # filename inside .sb3, e.g. 'abc.svg'
-    data: bytes = b''  # raw image bytes from the .sb3 archive
+    asset_id: str = ""  # Scratch assetId (SHA1 hex)
+    md5ext: str = ""  # filename inside .sb3, e.g. 'abc.svg'
+    data: bytes = b""  # raw image bytes from the .sb3 archive
     surface: Any = None  # pygame.Surface | None
 
     def __deepcopy__(self, _memo: dict[Any, Any]) -> Costume:
@@ -121,11 +121,11 @@ class Costume:
     @classmethod
     def from_json(cls, data: dict[str, Any]) -> Costume:
         return cls(
-            name=data.get('name', ''),
-            data_format=data.get('dataFormat', ''),
-            bitmap_resolution=data.get('bitmapResolution', 1),
-            rotation_center_x=data.get('rotationCenterX', 0.0),
-            rotation_center_y=data.get('rotationCenterY', 0.0),
+            name=data.get("name", ""),
+            data_format=data.get("dataFormat", ""),
+            bitmap_resolution=data.get("bitmapResolution", 1),
+            rotation_center_x=data.get("rotationCenterX", 0.0),
+            rotation_center_y=data.get("rotationCenterY", 0.0),
         )
 
 
@@ -134,12 +134,12 @@ class Sound:
     """A sound asset."""
 
     name: str
-    data_format: str = ''  # 'wav', 'mp3', etc.
+    data_format: str = ""  # 'wav', 'mp3', etc.
     rate: int = 0
     sample_count: int = 0
-    asset_id: str = ''  # Scratch assetId
-    md5ext: str = ''  # filename inside .sb3
-    data: bytes = b''
+    asset_id: str = ""  # Scratch assetId
+    md5ext: str = ""  # filename inside .sb3
+    data: bytes = b""
     sound: Any = None  # pygame.mixer.Sound | None
 
     def __deepcopy__(self, _memo: dict[Any, Any]) -> Sound:

@@ -46,8 +46,8 @@ class Cloud:
 
     def update_cloud_variable(self, var_update: dict[str, Any]) -> None:
         """Apply an incoming cloud variable update from the server."""
-        name = var_update.get('name', '')
-        value = var_update.get('value', 0)
+        name = var_update.get("name", "")
+        value = var_update.get("value", 0)
         if self.stage is not None:
             var = self.stage.lookup_variable(name)
             if var is not None:

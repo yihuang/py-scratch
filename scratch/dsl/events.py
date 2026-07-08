@@ -11,72 +11,72 @@ from .expr import Reporter, StackExpr, _resolve_inputs
 
 def when_flag_clicked() -> StackExpr:
     """``event_whenflagclicked`` — hat block."""
-    return StackExpr(opcode='event_whenflagclicked')
+    return StackExpr(opcode="event_whenflagclicked")
 
 
-def when_key_pressed(key: str = 'space') -> StackExpr:
+def when_key_pressed(key: str = "space") -> StackExpr:
     """``event_whenkeypressed`` — hat block."""
 
     return StackExpr(
-        opcode='event_whenkeypressed',
-        fields={'KEY_OPTION': Field(value=key)},
+        opcode="event_whenkeypressed",
+        fields={"KEY_OPTION": Field(value=key)},
     )
 
 
 def when_this_sprite_clicked() -> StackExpr:
     """``event_whenthisspriteclicked`` — hat block."""
-    return StackExpr(opcode='event_whenthisspriteclicked')
+    return StackExpr(opcode="event_whenthisspriteclicked")
 
 
-def when_backdrop_switches_to(backdrop: str | Reporter = 'next backdrop') -> StackExpr:
+def when_backdrop_switches_to(backdrop: str | Reporter = "next backdrop") -> StackExpr:
     """``event_whenbackdropswitchesto`` — hat block."""
-    ins, shadows = _resolve_inputs({'BACKDROP': backdrop})
+    ins, shadows = _resolve_inputs({"BACKDROP": backdrop})
     return StackExpr(
-        opcode='event_whenbackdropswitchesto',
+        opcode="event_whenbackdropswitchesto",
         inputs=ins,
         shadow_reporters=shadows,
     )
 
 
-def when_greater_than(metric: str = 'loudness', value: int | float | Reporter = 10) -> StackExpr:
+def when_greater_than(metric: str = "loudness", value: int | float | Reporter = 10) -> StackExpr:
     """``event_whengreaterthan`` — hat block.
 
     *metric* is "loudness" or "timer".
     """
 
-    ins, shadows = _resolve_inputs({'VALUE': value})
+    ins, shadows = _resolve_inputs({"VALUE": value})
     return StackExpr(
-        opcode='event_whengreaterthan',
+        opcode="event_whengreaterthan",
         inputs=ins,
-        fields={'WHENGREATERTHAN_MENU': Field(value=metric)},
+        fields={"WHENGREATERTHAN_MENU": Field(value=metric)},
         shadow_reporters=shadows,
     )
 
 
-def when_broadcast_received(message: str = '') -> StackExpr:
+def when_broadcast_received(message: str = "") -> StackExpr:
     """``event_whenbroadcastreceived`` — hat block."""
 
     return StackExpr(
-        opcode='event_whenbroadcastreceived',
-        fields={'BROADCAST_OPTION': Field(value=message)},
+        opcode="event_whenbroadcastreceived",
+        fields={"BROADCAST_OPTION": Field(value=message)},
     )
 
 
-def broadcast(message: str | Reporter = '') -> StackExpr:
+def broadcast(message: str | Reporter = "") -> StackExpr:
     """``event_broadcast``."""
-    ins, shadows = _resolve_inputs({'BROADCAST_INPUT': message})
+    ins, shadows = _resolve_inputs({"BROADCAST_INPUT": message})
     return StackExpr(
-        opcode='event_broadcast',
+        opcode="event_broadcast",
         inputs=ins,
         shadow_reporters=shadows,
     )
 
 
-def broadcast_and_wait(message: str | Reporter = '') -> StackExpr:
+def broadcast_and_wait(message: str | Reporter = "") -> StackExpr:
     """``event_broadcastandwait``."""
-    ins, shadows = _resolve_inputs({'BROADCAST_INPUT': message})
+    ins, shadows = _resolve_inputs({"BROADCAST_INPUT": message})
     return StackExpr(
-        opcode='event_broadcastandwait',
+        opcode="event_broadcastandwait",
         inputs=ins,
         shadow_reporters=shadows,
     )

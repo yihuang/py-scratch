@@ -23,7 +23,7 @@ def pen_pen_up(rt: Runtime, tgt: Target, block: Block) -> None:
 
 
 def pen_set_pen_color_to_color(rt: Runtime, tgt: Target, block: Block) -> None:
-    color = rt.val(tgt, block, 'COLOR')
+    color = rt.val(tgt, block, "COLOR")
     if isinstance(color, (int, float)):
         color = int(color) & 0xFFFFFF
         red = (color >> 16) & 0xFF
@@ -31,8 +31,8 @@ def pen_set_pen_color_to_color(rt: Runtime, tgt: Target, block: Block) -> None:
         blue = color & 0xFF
         tgt.pen_color = (red, green, blue)
     elif isinstance(color, str):
-        color = color.strip().lstrip('#')
-        if color.startswith('0x') or color.startswith('0X'):
+        color = color.strip().lstrip("#")
+        if color.startswith("0x") or color.startswith("0X"):
             color = int(color, 16) & 0xFFFFFF
             red = (color >> 16) & 0xFF
             green = (color >> 8) & 0xFF
@@ -47,11 +47,11 @@ def pen_set_pen_color_to_color(rt: Runtime, tgt: Target, block: Block) -> None:
 
 
 def pen_change_pen_size_by(rt: Runtime, tgt: Target, block: Block) -> None:
-    tgt.pen_size = max(PEN_SIZE_MIN, tgt.pen_size + rt.num(tgt, block, 'SIZE'))
+    tgt.pen_size = max(PEN_SIZE_MIN, tgt.pen_size + rt.num(tgt, block, "SIZE"))
 
 
 def pen_set_pen_size_to(rt: Runtime, tgt: Target, block: Block) -> None:
-    tgt.pen_size = max(PEN_SIZE_MIN, rt.num(tgt, block, 'SIZE'))
+    tgt.pen_size = max(PEN_SIZE_MIN, rt.num(tgt, block, "SIZE"))
 
 
 def pen_clear(rt: Runtime, tgt: Target, block: Block) -> None:
@@ -63,6 +63,6 @@ def pen_clear(rt: Runtime, tgt: Target, block: Block) -> None:
 def pen_stamp(rt: Runtime, tgt: Target, block: Block) -> None:
     """Stamp the current costume onto the pen layer."""
     if rt.stage:
-        if not hasattr(rt.stage, '_stamp_queue'):
+        if not hasattr(rt.stage, "_stamp_queue"):
             rt.stage._stamp_queue = []
         rt.stage._stamp_queue.append((tgt.x, tgt.y, tgt.size, tgt.direction, tgt.costume_index))

@@ -34,13 +34,13 @@ def _clear_counter(rt: Runtime) -> None:
 
 
 def control_wait(rt: Runtime, tgt: Target, block: Block) -> Any:
-    dur = rt.num(tgt, block, 'DURATION')
+    dur = rt.num(tgt, block, "DURATION")
     yield Wait(dur)
 
 
 def control_repeat(rt: Runtime, tgt: Target, block: Block) -> Any:
-    count = rt.num_int(tgt, block, 'TIMES')
-    sub_id = _substack_val(block.inputs.get('SUBSTACK'))
+    count = rt.num_int(tgt, block, "TIMES")
+    sub_id = _substack_val(block.inputs.get("SUBSTACK"))
     for _ in range(count):
         if sub_id:
             yield from rt.execute_substack(tgt, sub_id)
@@ -48,7 +48,7 @@ def control_repeat(rt: Runtime, tgt: Target, block: Block) -> Any:
 
 
 def control_forever(rt: Runtime, tgt: Target, block: Block) -> Any:
-    sub_id = _substack_val(block.inputs.get('SUBSTACK'))
+    sub_id = _substack_val(block.inputs.get("SUBSTACK"))
     while True:
         if sub_id:
             yield from rt.execute_substack(tgt, sub_id)
@@ -56,32 +56,32 @@ def control_forever(rt: Runtime, tgt: Target, block: Block) -> Any:
 
 
 def control_if(rt: Runtime, tgt: Target, block: Block) -> Any:
-    cond = rt.truthy(tgt, block, 'CONDITION')
-    sub_id = _substack_val(block.inputs.get('SUBSTACK'))
+    cond = rt.truthy(tgt, block, "CONDITION")
+    sub_id = _substack_val(block.inputs.get("SUBSTACK"))
     if cond and sub_id:
         yield from rt.execute_substack(tgt, sub_id)
 
 
 def control_if_else(rt: Runtime, tgt: Target, block: Block) -> Any:
-    cond = rt.truthy(tgt, block, 'CONDITION')
+    cond = rt.truthy(tgt, block, "CONDITION")
     if cond:
-        sub_id = _substack_val(block.inputs.get('SUBSTACK'))
+        sub_id = _substack_val(block.inputs.get("SUBSTACK"))
         if sub_id:
             yield from rt.execute_substack(tgt, sub_id)
     else:
-        sub_id = _substack_val(block.inputs.get('SUBSTACK2'))
+        sub_id = _substack_val(block.inputs.get("SUBSTACK2"))
         if sub_id:
             yield from rt.execute_substack(tgt, sub_id)
 
 
 def control_wait_until(rt: Runtime, tgt: Target, block: Block) -> Any:
-    while not rt.truthy(tgt, block, 'CONDITION'):
+    while not rt.truthy(tgt, block, "CONDITION"):
         yield YIELD
 
 
 def control_repeat_until(rt: Runtime, tgt: Target, block: Block) -> Any:
-    substack = block.inputs.get('SUBSTACK')
-    while not rt.truthy(tgt, block, 'CONDITION'):
+    substack = block.inputs.get("SUBSTACK")
+    while not rt.truthy(tgt, block, "CONDITION"):
         if substack and substack.value:
             yield from rt.execute_substack(tgt, substack.value)
         yield YIELD
@@ -89,7 +89,7 @@ def control_repeat_until(rt: Runtime, tgt: Target, block: Block) -> Any:
 
 def control_stop(rt: Runtime, tgt: Target, block: Block) -> None:
     """Stop behaviour: stop all | this script | other scripts in sprite | other scripts in stage."""
-    option = block.fields.get('STOP_OPTION')
+    option = block.fields.get("STOP_OPTION")
     choice = option.value if option else STOP_ALL
     _cur = rt.current_thread
     if choice == STOP_ALL:
@@ -108,25 +108,25 @@ def control_stop(rt: Runtime, tgt: Target, block: Block) -> None:
 
 
 def control_while(rt: Runtime, tgt: Target, block: Block) -> Any:
-    substack = block.inputs.get('SUBSTACK')
-    while rt.truthy(tgt, block, 'CONDITION'):
+    substack = block.inputs.get("SUBSTACK")
+    while rt.truthy(tgt, block, "CONDITION"):
         if substack and substack.value:
             yield from rt.execute_substack(tgt, substack.value)
         yield YIELD
 
 
 def control_for_each(rt: Runtime, tgt: Target, block: Block) -> Any:
-    var_field = block.fields.get('VARIABLE')
-    var_name = _field_val(var_field) if var_field else ''
+    var_field = block.fields.get("VARIABLE")
+    var_name = _field_val(var_field) if var_field else ""
     var = tgt.lookup_variable(var_name) if var_name else None
     if var is None:
         return
-    from_val = rt.num_int(tgt, block, 'FROM')
-    to_val = rt.num_int(tgt, block, 'TO')
+    from_val = rt.num_int(tgt, block, "FROM")
+    to_val = rt.num_int(tgt, block, "TO")
     step = 1 if from_val <= to_val else -1
     for i in range(from_val, to_val + step, step):
         var.value = i
-        sub_id = _substack_val(block.inputs.get('SUBSTACK'))
+        sub_id = _substack_val(block.inputs.get("SUBSTACK"))
         if sub_id:
             yield from rt.execute_substack(tgt, sub_id)
         yield YIELD
@@ -146,11 +146,11 @@ def control_clear_counter(rt: Runtime, tgt: Target, block: Block) -> None:
 
 def control_create_clone_of(rt: Runtime, tgt: Target, block: Block) -> None:
     """Create a clone of the named sprite."""
-    clone_opt = block.fields.get('CLONE_OPTION')
-    name = _field_val(clone_opt) if clone_opt else ''
+    clone_opt = block.fields.get("CLONE_OPTION")
+    name = _field_val(clone_opt) if clone_opt else ""
     if not name:
-        name = _str(rt.val(tgt, block, 'CLONE_OPTION'))
-    if name == '_myself_':
+        name = _str(rt.val(tgt, block, "CLONE_OPTION"))
+    if name == "_myself_":
         name = tgt.name
     rt.clone_target(name)
 
@@ -166,6 +166,6 @@ def control_start_as_clone(rt: Runtime, tgt: Target, block: Block) -> None:
 
 def control_all_at_once(rt: Runtime, tgt: Target, block: Block) -> Any:
     """Run the substack without yielding between blocks (all at once)."""
-    sub_id = _substack_val(block.inputs.get('SUBSTACK'))
+    sub_id = _substack_val(block.inputs.get("SUBSTACK"))
     if sub_id:
         yield from rt.execute_substack(tgt, sub_id)

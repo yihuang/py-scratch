@@ -21,7 +21,7 @@ from .cloud import Cloud
 
 # Type alias: an opcode handler is a generator that yields control signals
 # and (for reporters) ends by returning a value.
-Handler = Callable[['Runtime', Target, Block], Generator[Any] | None]
+Handler = Callable[["Runtime", Target, Block], Generator[Any] | None]
 
 
 # ── Fallback helpers (used by tests) ─────────────────────────────────────
@@ -145,7 +145,7 @@ class Runtime(Scheduler):
 
     def io_query(self, device: str, method: str, *args: Any) -> Any:
         """Query an IO device (cloud, keyboard, etc.)."""
-        if device == 'cloud':
+        if device == "cloud":
             self._init_cloud()
             fn = getattr(self._cloud, method, None)
             if fn is not None:
@@ -191,7 +191,7 @@ class Runtime(Scheduler):
             return None
         clone = copy.deepcopy(src)
         clone._is_clone = True
-        clone.name = f'{src.name}_clone'
+        clone.name = f"{src.name}_clone"
         self._clones.append(clone)
         self.targets.append(clone)
         clone._rebuild_hat_cache()
@@ -241,7 +241,7 @@ class Runtime(Scheduler):
     def resolve_bool(self, target: Target, value: Any) -> bool:
         v = self.resolve_input(target, value)
         if isinstance(v, str):
-            return v.lower() not in ('', 'false', '0')
+            return v.lower() not in ("", "false", "0")
         return bool(v)
 
     def resolve_num(self, target: Target, value: Any) -> float:
@@ -264,7 +264,7 @@ class Runtime(Scheduler):
         value, is_shadow = _input_value(block, name)
         v = self.resolve_input(target, value, is_shadow=is_shadow)
         if isinstance(v, str):
-            return v.lower() not in ('', 'false', '0')
+            return v.lower() not in ("", "false", "0")
         return bool(v)
 
     def val(self, target: Target, block: Block, name: str) -> Any:
@@ -289,7 +289,7 @@ class Runtime(Scheduler):
         """Whether *key_name* is currently held down."""
         if not self._keyboard:
             return False
-        if key_name == 'any':
+        if key_name == "any":
             return any(self._keyboard.values())
         return self._keyboard.get(key_name.lower(), False)
 
@@ -327,7 +327,7 @@ class Runtime(Scheduler):
         Returns True only when *current_value* is True and the previous
         stored value for this hat instance was False.
         """
-        key = f'{opcode}:{id(target)}:{block.id}'
+        key = f"{opcode}:{id(target)}:{block.id}"
         prev = self._edge_hat_values.get(key, False)
         self._edge_hat_values[key] = current_value
         return current_value and not prev
@@ -357,12 +357,12 @@ class Runtime(Scheduler):
 
     def start_key_hat(self, key_name: str) -> None:
         for target in self.targets:
-            for block in target.get_hat_blocks('event_whenkeypressed'):
+            for block in target.get_hat_blocks("event_whenkeypressed"):
                 if block.next is None:
                     continue
-                fld = block.fields.get('KEY_OPTION')
-                hat_key = str(getattr(fld, 'value', fld or ''))
-                if hat_key != 'any' and hat_key != key_name:
+                fld = block.fields.get("KEY_OPTION")
+                hat_key = str(getattr(fld, "value", fld or ""))
+                if hat_key != "any" and hat_key != key_name:
                     continue
                 thread = Thread(target=target, top_block=block.next)
                 thread.start()
@@ -381,10 +381,10 @@ class Runtime(Scheduler):
             dx = scratch_x - tgt.x
             dy = scratch_y - tgt.y
             if dx * dx + dy * dy <= radius * radius:
-                self.start_hat_for('event_whenthisspriteclicked', tgt)
+                self.start_hat_for("event_whenthisspriteclicked", tgt)
                 return
         if self.stage is not None:
-            self.start_hat_for('event_whenstageclicked', self.stage)
+            self.start_hat_for("event_whenstageclicked", self.stage)
 
     # ── Scheduler template method override ────────────────────────────
 
@@ -438,7 +438,7 @@ class Runtime(Scheduler):
                 return
             case _:
                 raise RuntimeError(
-                    f'Unknown yield {yielded!r} from {block.opcode!r} (block {block.id!r})'
+                    f"Unknown yield {yielded!r} from {block.opcode!r} (block {block.id!r})"
                 )
 
     def step_thread(self, thread: SchedulerThread) -> None:
@@ -451,17 +451,17 @@ class Runtime(Scheduler):
     def green_flag(self) -> None:
         """Clear all threads and start ``when flag clicked`` hats."""
         self.clear()
-        self.start_hat('event_whenflagclicked')
+        self.start_hat("event_whenflagclicked")
 
     def broadcast(self, message: str) -> list[Thread]:
         """Broadcast a message — start all matching ``when I receive`` hats."""
         started: list[Thread] = []
         for target in self.targets:
-            for block in target.get_hat_blocks('event_whenbroadcastreceived'):
+            for block in target.get_hat_blocks("event_whenbroadcastreceived"):
                 if not block.next:
                     continue
-                fld = block.fields.get('BROADCAST_OPTION')
-                hat_val = str(getattr(fld, 'value', fld or ''))
+                fld = block.fields.get("BROADCAST_OPTION")
+                hat_val = str(getattr(fld, "value", fld or ""))
                 matched = False
                 if hat_val == message:
                     matched = True

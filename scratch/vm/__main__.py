@@ -24,8 +24,8 @@ def main() -> None:
 
     if args:
         path = Path(args[0])
-        if not path.suffix == '.sb3':
-            msg = f'Expected .sb3 file, got {path.suffix}'
+        if not path.suffix == ".sb3":
+            msg = f"Expected .sb3 file, got {path.suffix}"
             sys.exit(msg)
 
         pygame.display.init()
@@ -37,11 +37,11 @@ def main() -> None:
         for target in rt.targets:
             target._rebuild_hat_cache()
 
-        renderer = Renderer(rt, title=f'Scratch VM — {path.name}')
+        renderer = Renderer(rt, title=f"Scratch VM — {path.name}")
         renderer.run()
     else:
         demo_main()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

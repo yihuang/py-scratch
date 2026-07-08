@@ -42,34 +42,34 @@ def event_whenbackdropswitchesto(rt: Runtime, tgt: Target, block: Block) -> None
 
 def event_whentouchingobject(rt: Runtime, tgt: Target, block: Block) -> Any:
     """Edge-activated hat — returns True when touching the specified object."""
-    obj = block.fields.get('TOUCHINGOBJECTMENU')
-    obj_name = _field_val(obj) if obj else ''
-    if obj_name == '':
+    obj = block.fields.get("TOUCHINGOBJECTMENU")
+    obj_name = _field_val(obj) if obj else ""
+    if obj_name == "":
         return False
 
     touching = _touching_object_check(rt, tgt, obj_name)
-    return rt.check_edge_hat('event_whentouchingobject', tgt, block, touching)
+    return rt.check_edge_hat("event_whentouchingobject", tgt, block, touching)
 
 
 def event_whengreaterthan(rt: Runtime, tgt: Target, block: Block) -> Any:
     """Edge-activated hat — returns True when timer/loudness > VALUE."""
-    option = block.fields.get('WHENGREATERTHANMENU')
-    opt = _field_val(option) if option else ''
-    value = rt.num(tgt, block, 'VALUE')
-    if opt == 'timer':
+    option = block.fields.get("WHENGREATERTHANMENU")
+    opt = _field_val(option) if option else ""
+    value = rt.num(tgt, block, "VALUE")
+    if opt == "timer":
         result = rt.clock.now() > value
-    elif opt == 'loudness':
+    elif opt == "loudness":
         result = False
     else:
         result = False
-    return rt.check_edge_hat('event_whengreaterthan', tgt, block, result)
+    return rt.check_edge_hat("event_whengreaterthan", tgt, block, result)
 
 
 def event_broadcast(rt: Runtime, tgt: Target, block: Block) -> None:
-    rt.broadcast(rt.val(tgt, block, 'BROADCAST_INPUT'))
+    rt.broadcast(rt.val(tgt, block, "BROADCAST_INPUT"))
 
 
 def event_broadcastandwait(rt: Runtime, tgt: Target, block: Block) -> Any:
-    started = rt.broadcast(rt.val(tgt, block, 'BROADCAST_INPUT'))
+    started = rt.broadcast(rt.val(tgt, block, "BROADCAST_INPUT"))
     while any(th for th in started if not th.is_done()):
         yield YIELD

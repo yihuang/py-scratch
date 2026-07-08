@@ -39,403 +39,403 @@ from scratch.vm.types import Block, Input
 
 _DSL_MODULES = {
     # Motion
-    'motion_movesteps': ('motion', 'move'),
-    'motion_turnright': ('motion', 'turn_right'),
-    'motion_turnleft': ('motion', 'turn_left'),
-    'motion_gotoxy': ('motion', 'goto'),
-    'motion_glidesecstoxy': ('motion', 'glide'),
-    'motion_setx': ('motion', 'set_x'),
-    'motion_sety': ('motion', 'set_y'),
-    'motion_changexby': ('motion', 'change_x'),
-    'motion_changeyby': ('motion', 'change_y'),
-    'motion_ifonedgebounce': ('motion', 'if_on_edge_bounce'),
-    'motion_setrotationstyle': ('motion', 'set_rotation_style'),
-    'motion_setdirection': ('motion', 'set_direction'),
-    'motion_pointindirection': ('motion', 'set_direction'),
-    'motion_pointtowards': ('motion', 'point_towards'),
-    'motion_goto': ('motion', 'goto'),  # goto dropdown
-    'motion_glideto': ('motion', 'glide_to'),
-    'motion_xposition': ('motion', 'x_position'),
-    'motion_yposition': ('motion', 'y_position'),
-    'motion_direction': ('motion', 'direction'),
+    "motion_movesteps": ("motion", "move"),
+    "motion_turnright": ("motion", "turn_right"),
+    "motion_turnleft": ("motion", "turn_left"),
+    "motion_gotoxy": ("motion", "goto"),
+    "motion_glidesecstoxy": ("motion", "glide"),
+    "motion_setx": ("motion", "set_x"),
+    "motion_sety": ("motion", "set_y"),
+    "motion_changexby": ("motion", "change_x"),
+    "motion_changeyby": ("motion", "change_y"),
+    "motion_ifonedgebounce": ("motion", "if_on_edge_bounce"),
+    "motion_setrotationstyle": ("motion", "set_rotation_style"),
+    "motion_setdirection": ("motion", "set_direction"),
+    "motion_pointindirection": ("motion", "set_direction"),
+    "motion_pointtowards": ("motion", "point_towards"),
+    "motion_goto": ("motion", "goto"),  # goto dropdown
+    "motion_glideto": ("motion", "glide_to"),
+    "motion_xposition": ("motion", "x_position"),
+    "motion_yposition": ("motion", "y_position"),
+    "motion_direction": ("motion", "direction"),
     # Looks
-    'looks_say': ('looks', 'say'),
-    'looks_sayforsecs': ('looks', 'say_for_seconds'),
-    'looks_think': ('looks', 'think'),
-    'looks_thinkforsecs': ('looks', 'think_for_seconds'),
-    'looks_show': ('looks', 'show'),
-    'looks_hide': ('looks', 'hide'),
-    'looks_switchcostumeto': ('looks', 'switch_costume_to'),
-    'looks_nextcostume': ('looks', 'next_costume'),
-    'looks_switchbackdropto': ('looks', 'switch_backdrop_to'),
-    'looks_switchbackdroptoandwait': ('looks', 'switch_backdrop_to'),
-    'looks_nextbackdrop': ('looks', 'next_backdrop'),
-    'looks_changeeffectby': ('looks', 'change_effect'),
-    'looks_seteffectto': ('looks', 'set_effect'),
-    'looks_cleargraphiceffects': ('looks', 'clear_effects'),
-    'looks_changesizeby': ('looks', 'change_size_by'),
-    'looks_setsizeto': ('looks', 'set_size_to'),
-    'looks_changevolumeby': ('looks', 'change_volume_by'),
-    'looks_setvolumeto': ('looks', 'set_volume_to'),
-    'looks_costumenumbername': ('looks', 'costume_number_name'),
-    'looks_size': ('looks', 'size'),
-    'looks_volume': ('looks', 'volume'),
-    'looks_gotofrontback': ('looks', 'go_to_front_back'),
-    'looks_goforwardbackwardlayers': ('looks', 'go_forward_backward_layers'),
-    'looks_backdropnumbername': ('looks', 'backdrop_number_name'),
+    "looks_say": ("looks", "say"),
+    "looks_sayforsecs": ("looks", "say_for_seconds"),
+    "looks_think": ("looks", "think"),
+    "looks_thinkforsecs": ("looks", "think_for_seconds"),
+    "looks_show": ("looks", "show"),
+    "looks_hide": ("looks", "hide"),
+    "looks_switchcostumeto": ("looks", "switch_costume_to"),
+    "looks_nextcostume": ("looks", "next_costume"),
+    "looks_switchbackdropto": ("looks", "switch_backdrop_to"),
+    "looks_switchbackdroptoandwait": ("looks", "switch_backdrop_to"),
+    "looks_nextbackdrop": ("looks", "next_backdrop"),
+    "looks_changeeffectby": ("looks", "change_effect"),
+    "looks_seteffectto": ("looks", "set_effect"),
+    "looks_cleargraphiceffects": ("looks", "clear_effects"),
+    "looks_changesizeby": ("looks", "change_size_by"),
+    "looks_setsizeto": ("looks", "set_size_to"),
+    "looks_changevolumeby": ("looks", "change_volume_by"),
+    "looks_setvolumeto": ("looks", "set_volume_to"),
+    "looks_costumenumbername": ("looks", "costume_number_name"),
+    "looks_size": ("looks", "size"),
+    "looks_volume": ("looks", "volume"),
+    "looks_gotofrontback": ("looks", "go_to_front_back"),
+    "looks_goforwardbackwardlayers": ("looks", "go_forward_backward_layers"),
+    "looks_backdropnumbername": ("looks", "backdrop_number_name"),
     # Sound — no dedicated DSL module yet; emit opcode-based placeholder
-    'sound_play': ('sound', 'play'),
-    'sound_playuntildone': ('sound', 'play_until_done'),
-    'sound_stopallsounds': ('sound', 'stop_all_sounds'),
-    'sound_setvolumeto': ('sound', 'set_volume_to'),
-    'sound_changevolumeby': ('sound', 'change_volume_by'),
-    'sound_volume': ('sound', 'volume'),
-    'sound_seteffectto': ('sound', 'set_effect'),
-    'sound_changeeffectby': ('sound', 'change_effect'),
-    'sound_cleareffects': ('sound', 'clear_effects'),
-    'sound_settempo': ('sound', 'set_tempo'),
-    'sound_changetempo': ('sound', 'change_tempo'),
-    'sound_tempo': ('sound', 'tempo'),
+    "sound_play": ("sound", "play"),
+    "sound_playuntildone": ("sound", "play_until_done"),
+    "sound_stopallsounds": ("sound", "stop_all_sounds"),
+    "sound_setvolumeto": ("sound", "set_volume_to"),
+    "sound_changevolumeby": ("sound", "change_volume_by"),
+    "sound_volume": ("sound", "volume"),
+    "sound_seteffectto": ("sound", "set_effect"),
+    "sound_changeeffectby": ("sound", "change_effect"),
+    "sound_cleareffects": ("sound", "clear_effects"),
+    "sound_settempo": ("sound", "set_tempo"),
+    "sound_changetempo": ("sound", "change_tempo"),
+    "sound_tempo": ("sound", "tempo"),
     # Events
-    'event_whenflagclicked': ('events', 'when_flag_clicked'),
-    'event_whenkeypressed': ('events', 'when_key_pressed'),
-    'event_whenthisspriteclicked': ('events', 'when_this_sprite_clicked'),
-    'event_whenbackdropswitchesto': ('events', 'when_backdrop_switches_to'),
-    'event_whengreaterthan': ('events', 'when_greater_than'),
-    'event_whenbroadcastreceived': ('events', 'when_broadcast_received'),
-    'event_broadcast': ('events', 'broadcast'),
-    'event_broadcastandwait': ('events', 'broadcast_and_wait'),
+    "event_whenflagclicked": ("events", "when_flag_clicked"),
+    "event_whenkeypressed": ("events", "when_key_pressed"),
+    "event_whenthisspriteclicked": ("events", "when_this_sprite_clicked"),
+    "event_whenbackdropswitchesto": ("events", "when_backdrop_switches_to"),
+    "event_whengreaterthan": ("events", "when_greater_than"),
+    "event_whenbroadcastreceived": ("events", "when_broadcast_received"),
+    "event_broadcast": ("events", "broadcast"),
+    "event_broadcastandwait": ("events", "broadcast_and_wait"),
     # Control
-    'control_repeat': ('control', 'repeat'),
-    'control_forever': ('control', 'forever'),
-    'control_if': ('control', 'if_'),
-    'control_if_else': ('control', 'if_else'),
-    'control_wait': ('control', 'wait'),
-    'control_stop': ('control', 'stop'),
-    'control_repeat_until': ('control', 'repeat_until'),
-    'control_wait_until': ('control', 'wait_until'),
-    'control_create_clone_of': ('control', 'create_clone_of'),
-    'control_delete_this_clone': ('control', 'delete_this_clone'),
-    'control_all_at_once': ('control', 'all_at_once'),
-    'control_start_as_clone': ('control', 'when_start_as_clone'),
+    "control_repeat": ("control", "repeat"),
+    "control_forever": ("control", "forever"),
+    "control_if": ("control", "if_"),
+    "control_if_else": ("control", "if_else"),
+    "control_wait": ("control", "wait"),
+    "control_stop": ("control", "stop"),
+    "control_repeat_until": ("control", "repeat_until"),
+    "control_wait_until": ("control", "wait_until"),
+    "control_create_clone_of": ("control", "create_clone_of"),
+    "control_delete_this_clone": ("control", "delete_this_clone"),
+    "control_all_at_once": ("control", "all_at_once"),
+    "control_start_as_clone": ("control", "when_start_as_clone"),
     # Data (variables)
-    'data_setvariableto': ('data', 'set_variable'),
-    'data_changevariableby': ('data', 'change_variable'),
-    'data_showvariable': ('data', 'show_variable'),
-    'data_hidevariable': ('data', 'hide_variable'),
-    'data_variable': ('data', 'variable'),
+    "data_setvariableto": ("data", "set_variable"),
+    "data_changevariableby": ("data", "change_variable"),
+    "data_showvariable": ("data", "show_variable"),
+    "data_hidevariable": ("data", "hide_variable"),
+    "data_variable": ("data", "variable"),
     # Data (lists)
-    'data_addtolist': ('data', 'add_to_list'),
-    'data_deleteoflist': ('data', 'delete_of_list'),
-    'data_deletealloflist': ('data', 'delete_all_of_list'),
-    'data_hidelist': ('data', 'hide_list'),
-    'data_showlist': ('data', 'show_list'),
-    'data_insertatlist': ('data', 'insert_at_list'),
-    'data_replaceitemoflist': ('data', 'replace_item_of_list'),
-    'data_itemoflist': ('data', 'item_of_list'),
-    'data_itemnumoflist': ('data', 'item_number_of_list'),
-    'data_lengthoflist': ('data', 'length_of_list'),
-    'data_listcontainsitem': ('data', 'list_contains_item'),
-    'data_listcontents': ('data', 'list_contents'),
+    "data_addtolist": ("data", "add_to_list"),
+    "data_deleteoflist": ("data", "delete_of_list"),
+    "data_deletealloflist": ("data", "delete_all_of_list"),
+    "data_hidelist": ("data", "hide_list"),
+    "data_showlist": ("data", "show_list"),
+    "data_insertatlist": ("data", "insert_at_list"),
+    "data_replaceitemoflist": ("data", "replace_item_of_list"),
+    "data_itemoflist": ("data", "item_of_list"),
+    "data_itemnumoflist": ("data", "item_number_of_list"),
+    "data_lengthoflist": ("data", "length_of_list"),
+    "data_listcontainsitem": ("data", "list_contains_item"),
+    "data_listcontents": ("data", "list_contents"),
     # Procedures (argument reporters — handled specially as reporters)
-    'argument_reporter_string_number': ('procedures', 'arg'),
-    'argument_reporter_boolean': ('procedures', 'arg'),
-    'procedures_call': ('procedures', 'call'),
-    'procedures_definition': ('procedures', 'define'),
+    "argument_reporter_string_number": ("procedures", "arg"),
+    "argument_reporter_boolean": ("procedures", "arg"),
+    "procedures_call": ("procedures", "call"),
+    "procedures_definition": ("procedures", "define"),
     # Operators
-    'operator_add': ('operators', 'add'),
-    'operator_subtract': ('operators', 'sub'),
-    'operator_multiply': ('operators', 'mult'),
-    'operator_divide': ('operators', 'div'),
-    'operator_random': ('operators', 'random'),
-    'operator_gt': ('operators', 'gt'),
-    'operator_lt': ('operators', 'lt'),
-    'operator_equals': ('operators', 'eq'),
-    'operator_and': ('operators', 'and_'),
-    'operator_or': ('operators', 'or_'),
-    'operator_not': ('operators', 'not_'),
-    'operator_join': ('operators', 'join'),
-    'operator_letter_of': ('operators', 'letter_of'),
-    'operator_length': ('operators', 'length'),
-    'operator_contains': ('operators', 'contains'),
-    'operator_mod': ('operators', 'mod'),
-    'operator_round': ('operators', 'round_'),
-    'operator_mathop': ('operators', '_mathop'),
+    "operator_add": ("operators", "add"),
+    "operator_subtract": ("operators", "sub"),
+    "operator_multiply": ("operators", "mult"),
+    "operator_divide": ("operators", "div"),
+    "operator_random": ("operators", "random"),
+    "operator_gt": ("operators", "gt"),
+    "operator_lt": ("operators", "lt"),
+    "operator_equals": ("operators", "eq"),
+    "operator_and": ("operators", "and_"),
+    "operator_or": ("operators", "or_"),
+    "operator_not": ("operators", "not_"),
+    "operator_join": ("operators", "join"),
+    "operator_letter_of": ("operators", "letter_of"),
+    "operator_length": ("operators", "length"),
+    "operator_contains": ("operators", "contains"),
+    "operator_mod": ("operators", "mod"),
+    "operator_round": ("operators", "round_"),
+    "operator_mathop": ("operators", "_mathop"),
     # Sensing
-    'sensing_askandwait': ('sensing', 'ask_and_wait'),
-    'sensing_resettimer': ('sensing', 'reset_timer'),
-    'sensing_answer': ('sensing', 'answer'),
-    'sensing_mousex': ('sensing', 'mouse_x'),
-    'sensing_mousey': ('sensing', 'mouse_y'),
-    'sensing_mousedown': ('sensing', 'mouse_down'),
-    'sensing_keypressed': ('sensing', 'key_pressed'),
-    'sensing_touchingobject': ('sensing', 'touching'),
-    'sensing_touchingcolor': ('sensing', 'touching_color'),
-    'sensing_coloristouchingcolor': ('sensing', 'color_is_touching_color'),
-    'sensing_distanceto': ('sensing', 'distance_to'),
-    'sensing_timer': ('sensing', 'timer'),
-    'sensing_current': ('sensing', 'current'),
-    'sensing_dayssince2000': ('sensing', 'days_since_2000'),
-    'sensing_loudness': ('sensing', 'loudness'),
-    'sensing_username': ('sensing', 'username'),
+    "sensing_askandwait": ("sensing", "ask_and_wait"),
+    "sensing_resettimer": ("sensing", "reset_timer"),
+    "sensing_answer": ("sensing", "answer"),
+    "sensing_mousex": ("sensing", "mouse_x"),
+    "sensing_mousey": ("sensing", "mouse_y"),
+    "sensing_mousedown": ("sensing", "mouse_down"),
+    "sensing_keypressed": ("sensing", "key_pressed"),
+    "sensing_touchingobject": ("sensing", "touching"),
+    "sensing_touchingcolor": ("sensing", "touching_color"),
+    "sensing_coloristouchingcolor": ("sensing", "color_is_touching_color"),
+    "sensing_distanceto": ("sensing", "distance_to"),
+    "sensing_timer": ("sensing", "timer"),
+    "sensing_current": ("sensing", "current"),
+    "sensing_dayssince2000": ("sensing", "days_since_2000"),
+    "sensing_loudness": ("sensing", "loudness"),
+    "sensing_username": ("sensing", "username"),
     # Pen
-    'pen_penDown': ('pen', 'pen_down'),
-    'pen_penUp': ('pen', 'pen_up'),
-    'pen_clear': ('pen', 'pen_clear'),
-    'pen_stamp': ('pen', 'stamp'),
-    'pen_changePenColorParamBy': ('pen', 'change_pen_color_by'),
-    'pen_setPenColorParamTo': ('pen', 'set_pen_color_to'),
-    'pen_changePenSizeBy': ('pen', 'change_pen_size_by'),
-    'pen_setPenSizeTo': ('pen', 'set_pen_size_to'),
-    'pen_setPenColorToColor': ('pen', 'pen_color'),
+    "pen_penDown": ("pen", "pen_down"),
+    "pen_penUp": ("pen", "pen_up"),
+    "pen_clear": ("pen", "pen_clear"),
+    "pen_stamp": ("pen", "stamp"),
+    "pen_changePenColorParamBy": ("pen", "change_pen_color_by"),
+    "pen_setPenColorParamTo": ("pen", "set_pen_color_to"),
+    "pen_changePenSizeBy": ("pen", "change_pen_size_by"),
+    "pen_setPenSizeTo": ("pen", "set_pen_size_to"),
+    "pen_setPenColorToColor": ("pen", "pen_color"),
 }
 
 # Opcodes that take a SUBSTACK input (C-shaped)
 _C_SHAPED_OPCODES = {
-    'control_repeat',
-    'control_forever',
-    'control_if',
-    'control_if_else',
-    'control_repeat_until',
-    'control_all_at_once',
+    "control_repeat",
+    "control_forever",
+    "control_if",
+    "control_if_else",
+    "control_repeat_until",
+    "control_all_at_once",
 }
 
 # Opcodes that take SUBSTACK2 (else branch)
-_HAS_ELSE_OPCODES = {'control_if_else'}
+_HAS_ELSE_OPCODES = {"control_if_else"}
 
 # Menu/field opcodes that should not be decompiled as top-level commands
 _MENU_OPCODES = {
-    'motion_pointtowards_menu',
-    'motion_goto_menu',
-    'motion_glideto_menu',
-    'looks_costume',
-    'looks_backdrops',
-    'sound_sounds_menu',
-    'sensing_of_object_menu',
-    'data_variable_menu',
-    'data_list_menu',
-    'procedures_prototype',
+    "motion_pointtowards_menu",
+    "motion_goto_menu",
+    "motion_glideto_menu",
+    "looks_costume",
+    "looks_backdrops",
+    "sound_sounds_menu",
+    "sensing_of_object_menu",
+    "data_variable_menu",
+    "data_list_menu",
+    "procedures_prototype",
 }
 
 # ── Input name mapping: scratch input name → DSL parameter name ────────────
 
 _INPUT_PARAM_MAP: dict[str, dict[str, str]] = {
-    'motion_movesteps': {'STEPS': 'steps'},
-    'motion_turnright': {'DEGREES': 'degrees'},
-    'motion_turnleft': {'DEGREES': 'degrees'},
-    'motion_gotoxy': {'X': 'x', 'Y': 'y'},
-    'motion_glidesecstoxy': {'SECS': 'secs', 'X': 'x', 'Y': 'y'},
-    'motion_setx': {'X': 'x'},
-    'motion_sety': {'Y': 'y'},
-    'motion_changexby': {'DX': 'dx'},
-    'motion_changeyby': {'DY': 'dy'},
-    'motion_setdirection': {'DIRECTION': 'direction'},
-    'motion_pointindirection': {'DIRECTION': 'direction'},
-    'looks_say': {'MESSAGE': 'message'},
-    'looks_sayforsecs': {'MESSAGE': 'message', 'SECS': 'secs'},
-    'looks_think': {'MESSAGE': 'message'},
-    'looks_thinkforsecs': {'MESSAGE': 'message', 'SECS': 'secs'},
-    'looks_changeeffectby': {'CHANGE': 'change'},
-    'looks_seteffectto': {'VALUE': 'value'},
-    'looks_changesizeby': {'CHANGE': 'change'},
-    'looks_setsizeto': {'SIZE': 'size'},
-    'looks_changevolumeby': {'VOLUME': 'change'},
-    'looks_setvolumeto': {'VOLUME': 'volume'},
-    'sound_setvolumeto': {'VOLUME': 'volume'},
-    'sound_changevolumeby': {'VOLUME': 'change'},
-    'sound_seteffectto': {'VALUE': 'value'},
-    'sound_changeeffectby': {'VALUE': 'change'},
-    'control_repeat': {'TIMES': 'times'},
-    'control_wait': {'DURATION': 'duration'},
-    'control_wait_until': {'CONDITION': 'condition'},
-    'control_repeat_until': {'CONDITION': 'condition'},
-    'control_if': {'CONDITION': 'condition'},
-    'control_if_else': {'CONDITION': 'condition'},
-    'data_setvariableto': {'VALUE': 'value'},
-    'data_changevariableby': {'VALUE': 'change'},
-    'data_addtolist': {'ITEM': 'item'},
-    'data_deleteoflist': {'INDEX': 'index'},
-    'data_insertatlist': {'INDEX': 'index', 'ITEM': 'item'},
-    'data_replaceitemoflist': {'INDEX': 'index', 'ITEM': 'item'},
-    'data_itemoflist': {'INDEX': 'index'},
-    'data_listcontainsitem': {'ITEM': 'item'},
-    'operator_add': {'NUM1': 'a', 'NUM2': 'b'},
-    'operator_subtract': {'NUM1': 'a', 'NUM2': 'b'},
-    'operator_multiply': {'NUM1': 'a', 'NUM2': 'b'},
-    'operator_divide': {'NUM1': 'a', 'NUM2': 'b'},
-    'operator_random': {'FROM': 'from_', 'TO': 'to'},
-    'operator_gt': {'OPERAND1': 'a', 'OPERAND2': 'b'},
-    'operator_lt': {'OPERAND1': 'a', 'OPERAND2': 'b'},
-    'operator_equals': {'OPERAND1': 'a', 'OPERAND2': 'b'},
-    'operator_and': {'OPERAND1': 'a', 'OPERAND2': 'b'},
-    'operator_or': {'OPERAND1': 'a', 'OPERAND2': 'b'},
-    'operator_not': {'OPERAND': 'a'},
-    'operator_join': {'STRING1': 'a', 'STRING2': 'b'},
-    'operator_letter_of': {'LETTER': 'letter', 'STRING': 'string'},
-    'operator_length': {'STRING': 'string'},
-    'operator_contains': {'STRING1': 'string', 'STRING2': 'substring'},
-    'operator_mod': {'NUM1': 'a', 'NUM2': 'b'},
-    'operator_round': {'NUM': 'n'},
-    'operator_mathop': {'NUM': 'n'},
-    'sensing_askandwait': {'QUESTION': 'question'},
-    'sensing_touchingcolor': {'COLOR': 'color'},
-    'sensing_coloristouchingcolor': {'COLOR': 'color', 'COLOR2': 'other_color'},
-    'control_create_clone_of': {'CLONE_OPTION': 'sprite'},
-    'control_stop': {},  # field only
-    'motion_glide': {'SECS': 'secs', 'X': 'x', 'Y': 'y'},
-    'motion_goto': {'TO': 'to'},
-    'motion_glideto': {'TO': 'to'},
-    'motion_pointtowards': {'TOWARDS': 'towards'},
-    'looks_switchcostumeto': {'COSTUME': 'costume'},
-    'looks_switchbackdropto': {'BACKDROP': 'backdrop'},
-    'looks_switchbackdroptoandwait': {'BACKDROP': 'backdrop'},
-    'looks_gotofrontback': {},  # field only
-    'looks_goforwardbackwardlayers': {'NUM': 'num'},
-    'event_whenkeypressed': {},  # field only
-    'event_whenbackdropswitchesto': {'BACKDROP': 'backdrop'},
-    'event_whengreaterthan': {},  # field + input
-    'event_broadcast': {'BROADCAST_INPUT': 'message'},
-    'event_broadcastandwait': {'BROADCAST_INPUT': 'message'},
-    'event_whenbroadcastreceived': {},  # field only
-    'sensing_touchingobject': {'TOUCHINGOBJECTMENU': 'object'},
-    'sensing_distanceto': {'DISTANCETOMENU': 'object'},
-    'pen_changePenColorParamBy': {'COLOR_PARAM': 'change'},
-    'pen_setPenColorParamTo': {'COLOR_PARAM': 'color'},
-    'pen_changePenSizeBy': {'SIZE': 'change'},
-    'pen_setPenSizeTo': {'SIZE': 'size'},
-    'pen_setPenColorToColor': {'COLOR': 'color'},
-    'sensing_current': {},  # field
+    "motion_movesteps": {"STEPS": "steps"},
+    "motion_turnright": {"DEGREES": "degrees"},
+    "motion_turnleft": {"DEGREES": "degrees"},
+    "motion_gotoxy": {"X": "x", "Y": "y"},
+    "motion_glidesecstoxy": {"SECS": "secs", "X": "x", "Y": "y"},
+    "motion_setx": {"X": "x"},
+    "motion_sety": {"Y": "y"},
+    "motion_changexby": {"DX": "dx"},
+    "motion_changeyby": {"DY": "dy"},
+    "motion_setdirection": {"DIRECTION": "direction"},
+    "motion_pointindirection": {"DIRECTION": "direction"},
+    "looks_say": {"MESSAGE": "message"},
+    "looks_sayforsecs": {"MESSAGE": "message", "SECS": "secs"},
+    "looks_think": {"MESSAGE": "message"},
+    "looks_thinkforsecs": {"MESSAGE": "message", "SECS": "secs"},
+    "looks_changeeffectby": {"CHANGE": "change"},
+    "looks_seteffectto": {"VALUE": "value"},
+    "looks_changesizeby": {"CHANGE": "change"},
+    "looks_setsizeto": {"SIZE": "size"},
+    "looks_changevolumeby": {"VOLUME": "change"},
+    "looks_setvolumeto": {"VOLUME": "volume"},
+    "sound_setvolumeto": {"VOLUME": "volume"},
+    "sound_changevolumeby": {"VOLUME": "change"},
+    "sound_seteffectto": {"VALUE": "value"},
+    "sound_changeeffectby": {"VALUE": "change"},
+    "control_repeat": {"TIMES": "times"},
+    "control_wait": {"DURATION": "duration"},
+    "control_wait_until": {"CONDITION": "condition"},
+    "control_repeat_until": {"CONDITION": "condition"},
+    "control_if": {"CONDITION": "condition"},
+    "control_if_else": {"CONDITION": "condition"},
+    "data_setvariableto": {"VALUE": "value"},
+    "data_changevariableby": {"VALUE": "change"},
+    "data_addtolist": {"ITEM": "item"},
+    "data_deleteoflist": {"INDEX": "index"},
+    "data_insertatlist": {"INDEX": "index", "ITEM": "item"},
+    "data_replaceitemoflist": {"INDEX": "index", "ITEM": "item"},
+    "data_itemoflist": {"INDEX": "index"},
+    "data_listcontainsitem": {"ITEM": "item"},
+    "operator_add": {"NUM1": "a", "NUM2": "b"},
+    "operator_subtract": {"NUM1": "a", "NUM2": "b"},
+    "operator_multiply": {"NUM1": "a", "NUM2": "b"},
+    "operator_divide": {"NUM1": "a", "NUM2": "b"},
+    "operator_random": {"FROM": "from_", "TO": "to"},
+    "operator_gt": {"OPERAND1": "a", "OPERAND2": "b"},
+    "operator_lt": {"OPERAND1": "a", "OPERAND2": "b"},
+    "operator_equals": {"OPERAND1": "a", "OPERAND2": "b"},
+    "operator_and": {"OPERAND1": "a", "OPERAND2": "b"},
+    "operator_or": {"OPERAND1": "a", "OPERAND2": "b"},
+    "operator_not": {"OPERAND": "a"},
+    "operator_join": {"STRING1": "a", "STRING2": "b"},
+    "operator_letter_of": {"LETTER": "letter", "STRING": "string"},
+    "operator_length": {"STRING": "string"},
+    "operator_contains": {"STRING1": "string", "STRING2": "substring"},
+    "operator_mod": {"NUM1": "a", "NUM2": "b"},
+    "operator_round": {"NUM": "n"},
+    "operator_mathop": {"NUM": "n"},
+    "sensing_askandwait": {"QUESTION": "question"},
+    "sensing_touchingcolor": {"COLOR": "color"},
+    "sensing_coloristouchingcolor": {"COLOR": "color", "COLOR2": "other_color"},
+    "control_create_clone_of": {"CLONE_OPTION": "sprite"},
+    "control_stop": {},  # field only
+    "motion_glide": {"SECS": "secs", "X": "x", "Y": "y"},
+    "motion_goto": {"TO": "to"},
+    "motion_glideto": {"TO": "to"},
+    "motion_pointtowards": {"TOWARDS": "towards"},
+    "looks_switchcostumeto": {"COSTUME": "costume"},
+    "looks_switchbackdropto": {"BACKDROP": "backdrop"},
+    "looks_switchbackdroptoandwait": {"BACKDROP": "backdrop"},
+    "looks_gotofrontback": {},  # field only
+    "looks_goforwardbackwardlayers": {"NUM": "num"},
+    "event_whenkeypressed": {},  # field only
+    "event_whenbackdropswitchesto": {"BACKDROP": "backdrop"},
+    "event_whengreaterthan": {},  # field + input
+    "event_broadcast": {"BROADCAST_INPUT": "message"},
+    "event_broadcastandwait": {"BROADCAST_INPUT": "message"},
+    "event_whenbroadcastreceived": {},  # field only
+    "sensing_touchingobject": {"TOUCHINGOBJECTMENU": "object"},
+    "sensing_distanceto": {"DISTANCETOMENU": "object"},
+    "pen_changePenColorParamBy": {"COLOR_PARAM": "change"},
+    "pen_setPenColorParamTo": {"COLOR_PARAM": "color"},
+    "pen_changePenSizeBy": {"SIZE": "change"},
+    "pen_setPenSizeTo": {"SIZE": "size"},
+    "pen_setPenColorToColor": {"COLOR": "color"},
+    "sensing_current": {},  # field
 }
 
 # ── Field-only opcodes (inputs come from field values, not input slots) ─────
 
 _FIELD_ONLY_OPCODES = {
-    'control_stop',  # STOP_OPTION field
-    'motion_setrotationstyle',  # STYLE field
-    'event_whenkeypressed',  # KEY_OPTION field
-    'event_whenbroadcastreceived',  # BROADCAST_OPTION field
-    'event_whengreaterthan',  # WHENGREATERTHAN_MENU field (VALUE is input)
-    'sensing_current',  # CURRENTMENU field
-    'looks_costumenumbername',  # NUMBER_NAME field
-    'looks_backdropnumbername',  # NUMBER_NAME field
-    'looks_gotofrontback',  # FRONT_BACK field
-    'looks_goforwardbackwardlayers',  # FORWARD_BACKWARD field
+    "control_stop",  # STOP_OPTION field
+    "motion_setrotationstyle",  # STYLE field
+    "event_whenkeypressed",  # KEY_OPTION field
+    "event_whenbroadcastreceived",  # BROADCAST_OPTION field
+    "event_whengreaterthan",  # WHENGREATERTHAN_MENU field (VALUE is input)
+    "sensing_current",  # CURRENTMENU field
+    "looks_costumenumbername",  # NUMBER_NAME field
+    "looks_backdropnumbername",  # NUMBER_NAME field
+    "looks_gotofrontback",  # FRONT_BACK field
+    "looks_goforwardbackwardlayers",  # FORWARD_BACKWARD field
 }
 
 # ── Field name → DSL keyword argument mapping ──────────────────────────────
 
 _FIELD_PARAM_MAP: dict[str, dict[str, str]] = {
-    'control_stop': {'STOP_OPTION': 'option'},
-    'motion_setrotationstyle': {'STYLE': 'style'},
-    'looks_gotofrontback': {'FRONT_BACK': 'front_back'},
-    'event_whenkeypressed': {'KEY_OPTION': 'key'},
-    'event_whenbroadcastreceived': {'BROADCAST_OPTION': 'message'},
-    'event_whengreaterthan': {'WHENGREATERTHAN_MENU': 'metric'},
-    'sensing_current': {'CURRENTMENU': 'unit'},
-    'sensing_keypressed': {'KEY_OPTION': 'key'},
-    'looks_costumenumbername': {'NUMBER_NAME': 'number_name'},
-    'looks_backdropnumbername': {'NUMBER_NAME': 'number_name'},
-    'looks_changeeffectby': {'EFFECT': 'effect'},
-    'looks_seteffectto': {'EFFECT': 'effect'},
-    'sound_seteffectto': {'EFFECT': 'effect'},
-    'sound_changeeffectby': {'EFFECT': 'effect'},
-    'looks_goforwardbackwardlayers': {'FORWARD_BACKWARD': 'forward_backward'},
-    'sound_play': {'SOUND_MENU': 'sound'},
-    'sound_playuntildone': {'SOUND_MENU': 'sound'},
+    "control_stop": {"STOP_OPTION": "option"},
+    "motion_setrotationstyle": {"STYLE": "style"},
+    "looks_gotofrontback": {"FRONT_BACK": "front_back"},
+    "event_whenkeypressed": {"KEY_OPTION": "key"},
+    "event_whenbroadcastreceived": {"BROADCAST_OPTION": "message"},
+    "event_whengreaterthan": {"WHENGREATERTHAN_MENU": "metric"},
+    "sensing_current": {"CURRENTMENU": "unit"},
+    "sensing_keypressed": {"KEY_OPTION": "key"},
+    "looks_costumenumbername": {"NUMBER_NAME": "number_name"},
+    "looks_backdropnumbername": {"NUMBER_NAME": "number_name"},
+    "looks_changeeffectby": {"EFFECT": "effect"},
+    "looks_seteffectto": {"EFFECT": "effect"},
+    "sound_seteffectto": {"EFFECT": "effect"},
+    "sound_changeeffectby": {"EFFECT": "effect"},
+    "looks_goforwardbackwardlayers": {"FORWARD_BACKWARD": "forward_backward"},
+    "sound_play": {"SOUND_MENU": "sound"},
+    "sound_playuntildone": {"SOUND_MENU": "sound"},
 }
 
 
 # ── Field values that must be positional args (not kwargs) ──────────────
 
 _FIELD_POSITIONAL_ARGS: dict[str, list[tuple[str, str]]] = {
-    'data_setvariableto': [('VARIABLE', 'variable')],
-    'data_changevariableby': [('VARIABLE', 'variable')],
-    'data_showvariable': [('VARIABLE', 'variable')],
-    'data_hidevariable': [('VARIABLE', 'variable')],
-    'data_variable': [('VARIABLE', 'variable')],
-    'data_addtolist': [('LIST', 'list_')],
-    'data_deleteoflist': [('LIST', 'list_')],
-    'data_insertatlist': [('LIST', 'list_')],
-    'data_replaceitemoflist': [('LIST', 'list_')],
-    'data_itemoflist': [('LIST', 'list_')],
-    'data_lengthoflist': [('LIST', 'list_')],
-    'data_listcontainsitem': [('LIST', 'list_')],
-    'data_hidelist': [('LIST', 'list_')],
-    'data_showlist': [('LIST', 'list_')],
-    'data_deletealloflist': [('LIST', 'list_')],
-    'data_itemnumoflist': [('LIST', 'list_')],
-    'data_listcontents': [('LIST', 'list_')],
-    'looks_changeeffectby': [('EFFECT', 'effect')],
-    'looks_seteffectto': [('EFFECT', 'effect')],
-    'sound_seteffectto': [('EFFECT', 'effect')],
-    'sound_changeeffectby': [('EFFECT', 'effect')],
-    'looks_goforwardbackwardlayers': [('FORWARD_BACKWARD', 'forward_backward')],
-    'operator_mathop': [('OPERATOR', 'name')],
+    "data_setvariableto": [("VARIABLE", "variable")],
+    "data_changevariableby": [("VARIABLE", "variable")],
+    "data_showvariable": [("VARIABLE", "variable")],
+    "data_hidevariable": [("VARIABLE", "variable")],
+    "data_variable": [("VARIABLE", "variable")],
+    "data_addtolist": [("LIST", "list_")],
+    "data_deleteoflist": [("LIST", "list_")],
+    "data_insertatlist": [("LIST", "list_")],
+    "data_replaceitemoflist": [("LIST", "list_")],
+    "data_itemoflist": [("LIST", "list_")],
+    "data_lengthoflist": [("LIST", "list_")],
+    "data_listcontainsitem": [("LIST", "list_")],
+    "data_hidelist": [("LIST", "list_")],
+    "data_showlist": [("LIST", "list_")],
+    "data_deletealloflist": [("LIST", "list_")],
+    "data_itemnumoflist": [("LIST", "list_")],
+    "data_listcontents": [("LIST", "list_")],
+    "looks_changeeffectby": [("EFFECT", "effect")],
+    "looks_seteffectto": [("EFFECT", "effect")],
+    "sound_seteffectto": [("EFFECT", "effect")],
+    "sound_changeeffectby": [("EFFECT", "effect")],
+    "looks_goforwardbackwardlayers": [("FORWARD_BACKWARD", "forward_backward")],
+    "operator_mathop": [("OPERATOR", "name")],
 }
 
 
 # ── Hat opcode → DSL hat function mapping ──────────────────────────────────
 
 _HAT_OPCODES: dict[str, tuple[str, str]] = {
-    'event_whenflagclicked': ('events', 'when_flag_clicked'),
-    'event_whenkeypressed': ('events', 'when_key_pressed'),
-    'event_whenthisspriteclicked': ('events', 'when_this_sprite_clicked'),
-    'event_whenbackdropswitchesto': ('events', 'when_backdrop_switches_to'),
-    'event_whengreaterthan': ('events', 'when_greater_than'),
-    'event_whenbroadcastreceived': ('events', 'when_broadcast_received'),
-    'control_start_as_clone': ('control', 'when_start_as_clone'),
+    "event_whenflagclicked": ("events", "when_flag_clicked"),
+    "event_whenkeypressed": ("events", "when_key_pressed"),
+    "event_whenthisspriteclicked": ("events", "when_this_sprite_clicked"),
+    "event_whenbackdropswitchesto": ("events", "when_backdrop_switches_to"),
+    "event_whengreaterthan": ("events", "when_greater_than"),
+    "event_whenbroadcastreceived": ("events", "when_broadcast_received"),
+    "control_start_as_clone": ("control", "when_start_as_clone"),
 }
 
 # ── Python-safe name sanitizer ─────────────────────────────────────────────
 
 _RESERVED = frozenset(
     {
-        'False',
-        'None',
-        'True',
-        'and',
-        'as',
-        'assert',
-        'async',
-        'await',
-        'break',
-        'class',
-        'continue',
-        'def',
-        'del',
-        'elif',
-        'else',
-        'except',
-        'finally',
-        'for',
-        'from',
-        'global',
-        'if',
-        'import',
-        'in',
-        'is',
-        'lambda',
-        'nonlocal',
-        'not',
-        'or',
-        'pass',
-        'raise',
-        'return',
-        'try',
-        'while',
-        'with',
-        'yield',
+        "False",
+        "None",
+        "True",
+        "and",
+        "as",
+        "assert",
+        "async",
+        "await",
+        "break",
+        "class",
+        "continue",
+        "def",
+        "del",
+        "elif",
+        "else",
+        "except",
+        "finally",
+        "for",
+        "from",
+        "global",
+        "if",
+        "import",
+        "in",
+        "is",
+        "lambda",
+        "nonlocal",
+        "not",
+        "or",
+        "pass",
+        "raise",
+        "return",
+        "try",
+        "while",
+        "with",
+        "yield",
     }
 )
 
 
 def _safe_name(name: str) -> str:
     """Convert a Scratch name to a valid Python identifier."""
-    safe = re.sub(r'[^a-zA-Z0-9_]', '_', name)
+    safe = re.sub(r"[^a-zA-Z0-9_]", "_", name)
     if not safe or safe[0].isdigit():
-        safe = f'_{safe}'
+        safe = f"_{safe}"
     if safe in _RESERVED:
-        safe = f'{safe}_'
+        safe = f"{safe}_"
     return safe
 
 
@@ -446,8 +446,8 @@ def transcribe_to_dir(
     sb3_path: str | Path,
     output_dir: str | Path | None = None,
     *,
-    py_filename: str = 'main.py',
-    asset_dir_name: str = 'assets',
+    py_filename: str = "main.py",
+    asset_dir_name: str = "assets",
 ) -> None:
     """Decompile an .sb3 file into a py-scratch DSL Python file.
 
@@ -470,7 +470,7 @@ def transcribe_to_dir(
     sb3_path = Path(sb3_path)
 
     if output_dir is None:
-        output_dir = sb3_path.with_suffix('').with_name(sb3_path.stem + '_src')
+        output_dir = sb3_path.with_suffix("").with_name(sb3_path.stem + "_src")
     output_dir = Path(output_dir)
 
     asset_dir = output_dir / asset_dir_name
@@ -486,9 +486,9 @@ def transcribe_to_dir(
     _extract_assets(sb3_path, asset_dir)
 
     lines = _generate_source(rt, asset_dir)
-    output_py.write_text('\n'.join(lines))
-    print(f'  {output_py.resolve()}')
-    print(f'  assets: {asset_dir.resolve()}')
+    output_py.write_text("\n".join(lines))
+    print(f"  {output_py.resolve()}")
+    print(f"  assets: {asset_dir.resolve()}")
 
 
 # Backward-compat alias
@@ -502,7 +502,7 @@ def _extract_assets(sb3_path: str | Path, asset_dir: Path) -> None:
     """Extract asset files from the sb3 zip to asset_dir."""
     with zipfile.ZipFile(sb3_path) as zf:
         for name in zf.namelist():
-            if name == 'project.json':
+            if name == "project.json":
                 continue
             data = zf.read(name)
             (asset_dir / name).write_bytes(data)
@@ -515,7 +515,7 @@ def _generate_source(rt: Runtime, asset_dir: Path) -> list[str]:
     extracted costume images and sounds.
     """
     lines: list[str] = []
-    indent = ''
+    indent = ""
 
     # Collect all opcodes across all targets
     all_opcodes: set[str] = set()
@@ -529,36 +529,36 @@ def _generate_source(rt: Runtime, asset_dir: Path) -> list[str]:
                 all_opcodes.add(mod_name)
 
     # Find project name from first non-stage target, or use "Project"
-    project_name = 'Project'
+    project_name = "Project"
     for tgt in rt.targets:
         if not tgt.is_stage:
             project_name = tgt.name
             break
 
-    lines.append('#!/usr/bin/env python3')
+    lines.append("#!/usr/bin/env python3")
     lines.append('"""Auto-transcribed Scratch project."""')
-    lines.append('')
-    lines.append('from __future__ import annotations')
-    lines.append('')
-    lines.append('from pathlib import Path')
-    lines.append('')
+    lines.append("")
+    lines.append("from __future__ import annotations")
+    lines.append("")
+    lines.append("from pathlib import Path")
+    lines.append("")
     _add_dsl_imports(lines, all_opcodes)
-    lines.append('')
-    lines.append('')
+    lines.append("")
+    lines.append("")
     lines.append(
-        f'project = Project({_format_literal(project_name)}, assets_dir=Path(__file__).parent / {_format_literal(asset_dir.name)})'
+        f"project = Project({_format_literal(project_name)}, assets_dir=Path(__file__).parent / {_format_literal(asset_dir.name)})"
     )
-    lines.append('')
+    lines.append("")
 
     for tgt in rt.targets:
-        target_var = 'stage' if tgt.is_stage else _safe_name(tgt.name)
+        target_var = "stage" if tgt.is_stage else _safe_name(tgt.name)
 
         if tgt.is_stage:
-            lines.append('# --- Stage --------------------------------------------------')
-            lines.append('stage = project.stage')
+            lines.append("# --- Stage --------------------------------------------------")
+            lines.append("stage = project.stage")
         else:
-            lines.append(f'# --- Sprite: {tgt.name} ----------------------------------------')
-            lines.append(f'{target_var} = project.sprite({_format_literal(tgt.name)})')
+            lines.append(f"# --- Sprite: {tgt.name} ----------------------------------------")
+            lines.append(f"{target_var} = project.sprite({_format_literal(tgt.name)})")
 
         # Variables
         _emit_variables(lines, indent, tgt, target_var)
@@ -579,26 +579,26 @@ def _generate_source(rt: Runtime, asset_dir: Path) -> list[str]:
         # Scripts
         _emit_scripts(lines, indent, tgt, target_var)
 
-    lines.append('')
-    lines.append('')
+    lines.append("")
+    lines.append("")
     lines.append('if __name__ == "__main__":')
-    lines.append('    import argparse')
-    lines.append('')
-    lines.append('    parser = argparse.ArgumentParser(description=__doc__)')
+    lines.append("    import argparse")
+    lines.append("")
+    lines.append("    parser = argparse.ArgumentParser(description=__doc__)")
     lines.append(
         '    parser.add_argument("--save", "-o", type=str, help="Save project to .sb3 file")'
     )
-    lines.append('    args = parser.parse_args()')
-    lines.append('')
-    lines.append('    if args.save:')
-    lines.append('        project.save(args.save)')
+    lines.append("    args = parser.parse_args()")
+    lines.append("")
+    lines.append("    if args.save:")
+    lines.append("        project.save(args.save)")
     lines.append('        print(f"Saved to {args.save}")')
-    lines.append('    else:')
-    lines.append('        rt = project.build_runtime()')
-    lines.append('        from scratch.vm.renderer import Renderer')
-    lines.append('        renderer = Renderer(rt, title=project.name)')
-    lines.append('        renderer.run()')
-    lines.append('')
+    lines.append("    else:")
+    lines.append("        rt = project.build_runtime()")
+    lines.append("        from scratch.vm.renderer import Renderer")
+    lines.append("        renderer = Renderer(rt, title=project.name)")
+    lines.append("        renderer.run()")
+    lines.append("")
     return lines
 
 
@@ -608,14 +608,14 @@ def _generate_source(rt: Runtime, asset_dir: Path) -> list[str]:
 def _add_dsl_imports(lines: list[str], used: set[str]) -> None:
     """Add DSL import lines for the used modules."""
     if not used:
-        lines.append('from scratch.dsl import Project')
+        lines.append("from scratch.dsl import Project")
         return
 
     cats = []
     for c in sorted(used):
         cats.append(c)
 
-    lines.append(f'from scratch.dsl import Project, {", ".join(cats)}')
+    lines.append(f"from scratch.dsl import Project, {', '.join(cats)}")
 
 
 # ── Variables & lists ──────────────────────────────────────────────────────
@@ -625,8 +625,8 @@ def _emit_variables(lines: list[str], indent: str, tgt: Target, target_var: str)
     """Emit variable declarations with their initial values."""
     if not tgt.variables:
         return
-    lines.append('')
-    lines.append(f'{indent}# ── Variables ─────────────────────────────────────')
+    lines.append("")
+    lines.append(f"{indent}# ── Variables ─────────────────────────────────────")
     seen: set[str] = set()
     for var_id, var in tgt.variables.items():
         if var.name in seen:
@@ -640,8 +640,8 @@ def _emit_lists(lines: list[str], indent: str, tgt: Target, target_var: str) -> 
     """Emit list declarations."""
     if not tgt.lists:
         return
-    lines.append('')
-    lines.append(f'{indent}# --- Lists ---')
+    lines.append("")
+    lines.append(f"{indent}# --- Lists ---")
     seen: set[str] = set()
     for lst_id, lst in tgt.lists.items():
         if lst.name in seen:
@@ -649,7 +649,7 @@ def _emit_lists(lines: list[str], indent: str, tgt: Target, target_var: str) -> 
         seen.add(lst.name)
         items = lst.contents
         if items:
-            formatted = ', '.join(repr(v) for v in items)
+            formatted = ", ".join(repr(v) for v in items)
             lines.append(f'{indent}{target_var}.list_("{lst.name}", [{formatted}])')
         else:
             lines.append(f'{indent}{target_var}.list_("{lst.name}")')
@@ -668,16 +668,16 @@ def _emit_costumes(
     """
     if not tgt.costumes:
         return
-    lines.append('')
-    lines.append(f'{indent}# --- Costumes / backdrops ----------------------------------')
+    lines.append("")
+    lines.append(f"{indent}# --- Costumes / backdrops ----------------------------------")
     for i, c in enumerate(tgt.costumes):
         if not c.md5ext:
             continue
-        rc_args = ''
+        rc_args = ""
         if c.rotation_center_x != 0.0 or c.rotation_center_y != 0.0:
-            rc_args = f', rotation_center_x={c.rotation_center_x}, rotation_center_y={c.rotation_center_y}'
+            rc_args = f", rotation_center_x={c.rotation_center_x}, rotation_center_y={c.rotation_center_y}"
         lines.append(f'{indent}{target_var}.costume("{c.name}", "{c.md5ext}"{rc_args})')
-        lines.append(f'{indent}#   asset: {c.md5ext}')
+        lines.append(f"{indent}#   asset: {c.md5ext}")
 
 
 def _emit_sounds(
@@ -690,13 +690,13 @@ def _emit_sounds(
     """
     if not tgt.sounds:
         return
-    lines.append('')
-    lines.append(f'{indent}# ── Sounds ────────────────────────────────────────────')
+    lines.append("")
+    lines.append(f"{indent}# ── Sounds ────────────────────────────────────────────")
     for i, snd in enumerate(tgt.sounds):
         if not snd.md5ext:
             continue
         lines.append(f'{indent}{target_var}.sound("{snd.name}", "{snd.md5ext}")')
-        lines.append(f'{indent}#   asset: {snd.md5ext}')
+        lines.append(f"{indent}#   asset: {snd.md5ext}")
 
 
 # ── Sprite properties ──────────────────────────────────────────────────────
@@ -706,23 +706,23 @@ def _emit_sprite_props(lines: list[str], indent: str, tgt: Target, target_var: s
     """Emit sprite position/direction/size/visibility assignment."""
     has_props = False
     if tgt.x != 0 or tgt.y != 0:
-        lines.append(f'{indent}{target_var}.x = {tgt.x}')
-        lines.append(f'{indent}{target_var}.y = {tgt.y}')
+        lines.append(f"{indent}{target_var}.x = {tgt.x}")
+        lines.append(f"{indent}{target_var}.y = {tgt.y}")
         has_props = True
     if tgt.direction != 90:
-        lines.append(f'{indent}{target_var}.direction = {tgt.direction}')
+        lines.append(f"{indent}{target_var}.direction = {tgt.direction}")
         has_props = True
     if tgt.size != 100:
-        lines.append(f'{indent}{target_var}.size = {tgt.size}')
+        lines.append(f"{indent}{target_var}.size = {tgt.size}")
         has_props = True
     if not tgt.visible:
-        lines.append(f'{indent}{target_var}.visible = False')
+        lines.append(f"{indent}{target_var}.visible = False")
         has_props = True
-    if tgt.rotation_style != 'all around':
+    if tgt.rotation_style != "all around":
         lines.append(f'{indent}{target_var}.rotation_style = "{tgt.rotation_style}"')
         has_props = True
     if tgt.layer_order != 1:
-        lines.append(f'{indent}{target_var}.layer_order = {tgt.layer_order}')
+        lines.append(f"{indent}{target_var}.layer_order = {tgt.layer_order}")
         has_props = True
     if has_props:
         pass  # newline already handled
@@ -731,7 +731,7 @@ def _emit_sprite_props(lines: list[str], indent: str, tgt: Target, target_var: s
 def _emit_stage_props(lines: list[str], indent: str, tgt: Target, target_var: str) -> None:
     """Emit stage-specific properties."""
     if tgt.tempo != 60:
-        lines.append(f'{indent}{target_var}.tempo = {tgt.tempo}')
+        lines.append(f"{indent}{target_var}.tempo = {tgt.tempo}")
 
 
 # ── Script decompilation ───────────────────────────────────────────────────
@@ -755,8 +755,8 @@ def _emit_scripts(lines: list[str], indent: str, tgt: Target, target_var: str) -
         hat_chains.append((block, body_exprs))
 
     if hat_chains:
-        lines.append('')
-        lines.append(f'{indent}# ── Scripts ─────────────────────────────────────────')
+        lines.append("")
+        lines.append(f"{indent}# ── Scripts ─────────────────────────────────────────")
 
         for hat_block, body_exprs in hat_chains:
             hat_mod, hat_func = _HAT_OPCODES[hat_block.opcode]
@@ -765,37 +765,37 @@ def _emit_scripts(lines: list[str], indent: str, tgt: Target, target_var: str) -
             hat_args = _build_hat_args(hat_block, tgt)
 
             if body_exprs:
-                body_indent = f'{indent}    '
+                body_indent = f"{indent}    "
                 body_lines = []
                 for expr in body_exprs:
                     body_lines.extend(_format_body_lines(expr, body_indent))
-                body_text = '\n'.join(body_lines)
+                body_text = "\n".join(body_lines)
 
                 # Hat blocks that return a callable — hat_args go in the outer call
                 if hat_block.opcode in (
-                    'event_whenkeypressed',
-                    'event_whenbroadcastreceived',
-                    'event_whenbackdropswitchesto',
-                    'event_whengreaterthan',
+                    "event_whenkeypressed",
+                    "event_whenbroadcastreceived",
+                    "event_whenbackdropswitchesto",
+                    "event_whengreaterthan",
                 ):
                     # Hat that returns a callable — hat_args in the outer call
-                    lines.append(f'{indent}{target_var}.{hat_func}({hat_args})(')
-                    lines.append(f'{body_text}')
-                    lines.append(f'{indent})')
+                    lines.append(f"{indent}{target_var}.{hat_func}({hat_args})(")
+                    lines.append(f"{body_text}")
+                    lines.append(f"{indent})")
                 else:
-                    lines.append(f'{indent}{target_var}.{hat_func}(')
-                    lines.append(f'{body_text}')
-                    lines.append(f'{indent})')
+                    lines.append(f"{indent}{target_var}.{hat_func}(")
+                    lines.append(f"{body_text}")
+                    lines.append(f"{indent})")
             else:
                 if hat_block.opcode in (
-                    'event_whenkeypressed',
-                    'event_whenbroadcastreceived',
-                    'event_whenbackdropswitchesto',
-                    'event_whengreaterthan',
+                    "event_whenkeypressed",
+                    "event_whenbroadcastreceived",
+                    "event_whenbackdropswitchesto",
+                    "event_whengreaterthan",
                 ):
-                    lines.append(f'{indent}# {target_var}.{hat_func}({hat_args})(...)')
+                    lines.append(f"{indent}# {target_var}.{hat_func}({hat_args})(...)")
                 else:
-                    lines.append(f'{indent}# {target_var}.{hat_func}(...)  # (empty script)')
+                    lines.append(f"{indent}# {target_var}.{hat_func}(...)  # (empty script)")
 
     # ── Procedure definitions ────────────────────────────────────────────
     _emit_procedure_definitions(lines, indent, tgt, target_var)
@@ -816,7 +816,7 @@ def _emit_procedure_definitions(
     for bid, block in tgt.blocks.items():
         if not block.top_level:
             continue
-        if block.opcode != 'procedures_definition':
+        if block.opcode != "procedures_definition":
             continue
 
         # Mutation may be directly on the definition block (DSL builder) or
@@ -824,7 +824,7 @@ def _emit_procedure_definitions(
         mutation = block.mutation
         if mutation is None:
             # Fallback: try reading mutation from the prototype block
-            custom_block_inp = block.inputs.get('custom_block')
+            custom_block_inp = block.inputs.get("custom_block")
             if custom_block_inp is not None:
                 raw_val = custom_block_inp.value
                 if (
@@ -856,56 +856,56 @@ def _emit_procedure_definitions(
     if not definitions:
         return
 
-    if lines and lines[-1] != '':
-        lines.append('')
-    lines.append(f'{indent}# ── Procedure definitions ──────────────────────────────')
+    if lines and lines[-1] != "":
+        lines.append("")
+    lines.append(f"{indent}# ── Procedure definitions ──────────────────────────────")
 
     for proccode, arg_names, body_exprs in definitions:
         # Build the proccode argument string
         quoted_proccode = _format_literal(proccode)
 
         # Build param name args (only non-empty ones)
-        param_args = ', '.join(_format_literal(n) for n in arg_names if n)
+        param_args = ", ".join(_format_literal(n) for n in arg_names if n)
         if param_args:
-            define_args = f'{quoted_proccode}, {param_args}'
+            define_args = f"{quoted_proccode}, {param_args}"
         else:
             define_args = quoted_proccode
 
         if body_exprs:
-            body_indent = f'{indent}    '
+            body_indent = f"{indent}    "
             body_lines = []
             for expr in body_exprs:
                 body_lines.extend(_format_body_lines(expr, body_indent))
-            body_text = '\n'.join(body_lines)
-            lines.append(f'{indent}{target_var}.define({define_args})(')
-            lines.append(f'{body_text}')
-            lines.append(f'{indent})')
+            body_text = "\n".join(body_lines)
+            lines.append(f"{indent}{target_var}.define({define_args})(")
+            lines.append(f"{body_text}")
+            lines.append(f"{indent})")
         else:
-            lines.append(f'{indent}# {target_var}.define({define_args})(...)  # (empty definition)')
+            lines.append(f"{indent}# {target_var}.define({define_args})(...)  # (empty definition)")
 
 
 def _build_hat_args(hat_block: Block, tgt: Target | None = None) -> str:
     """Build the argument string for a hat block based on its fields/inputs."""
     opcode = hat_block.opcode
-    if opcode == 'event_whenkeypressed':
-        key = _get_field_value(hat_block, 'KEY_OPTION', 'space')
+    if opcode == "event_whenkeypressed":
+        key = _get_field_value(hat_block, "KEY_OPTION", "space")
         return _format_literal(key)
-    elif opcode == 'event_whenbackdropswitchesto':
-        bd = _get_field_value(hat_block, 'BACKDROP', 'next backdrop')
+    elif opcode == "event_whenbackdropswitchesto":
+        bd = _get_field_value(hat_block, "BACKDROP", "next backdrop")
         return _format_literal(bd)
-    elif opcode == 'event_whengreaterthan':
-        metric = _get_field_value(hat_block, 'WHENGREATERTHAN_MENU', 'loudness')
+    elif opcode == "event_whengreaterthan":
+        metric = _get_field_value(hat_block, "WHENGREATERTHAN_MENU", "loudness")
         # Extract VALUE from block inputs
-        val_str = '0'
+        val_str = "0"
         if tgt is not None:
-            value_inp = hat_block.inputs.get('VALUE')
-            if value_inp is not None and hasattr(value_inp, 'shadow'):
+            value_inp = hat_block.inputs.get("VALUE")
+            if value_inp is not None and hasattr(value_inp, "shadow"):
                 val_str = _format_input_value(tgt, value_inp, hat_block)
-        return f'metric={_format_literal(metric)}, value={val_str}'
-    elif opcode == 'event_whenbroadcastreceived':
-        msg = _get_field_value(hat_block, 'BROADCAST_OPTION', '')
+        return f"metric={_format_literal(metric)}, value={val_str}"
+    elif opcode == "event_whenbroadcastreceived":
+        msg = _get_field_value(hat_block, "BROADCAST_OPTION", "")
         return _format_literal(msg)
-    return ''
+    return ""
 
 
 def _decompile_chain(tgt: Target, start_bid: str | None) -> list[dict[str, Any]]:
@@ -940,60 +940,60 @@ def _decompile_block(tgt: Target, block: Block) -> dict[str, Any]:
     opcode = block.opcode
 
     # Handle special blocks
-    if opcode == 'data_variable':
+    if opcode == "data_variable":
         var_name = _resolve_variable_name(tgt, block)
         return {
-            'kind': 'reporter',
-            'opcode': opcode,
-            'code': f'data.variable({_format_literal(var_name)})',
+            "kind": "reporter",
+            "opcode": opcode,
+            "code": f"data.variable({_format_literal(var_name)})",
         }
 
-    if opcode == 'data_listcontents':
+    if opcode == "data_listcontents":
         lst_name = _resolve_list_name(tgt, block)
         return {
-            'kind': 'reporter',
-            'opcode': opcode,
-            'code': f'data.list_contents({_format_literal(lst_name)})',
+            "kind": "reporter",
+            "opcode": opcode,
+            "code": f"data.list_contents({_format_literal(lst_name)})",
         }
 
     # Argument reporters (procedure parameter references)
-    if opcode in ('argument_reporter_string_number', 'argument_reporter_boolean'):
-        arg_name = _get_field_value(block, 'VALUE', '')
+    if opcode in ("argument_reporter_string_number", "argument_reporter_boolean"):
+        arg_name = _get_field_value(block, "VALUE", "")
         return {
-            'kind': 'reporter',
-            'opcode': opcode,
-            'code': f'procedures.arg({_format_literal(arg_name)})',
+            "kind": "reporter",
+            "opcode": opcode,
+            "code": f"procedures.arg({_format_literal(arg_name)})",
         }
 
-    if opcode == 'operator_mathop':
-        op_name = _get_field_value(block, 'OPERATOR', 'sqrt')
-        if op_name in ('sqrt', 'abs', 'floor', 'ceil', 'sin', 'cos', 'tan', 'asin', 'acos', 'atan'):
+    if opcode == "operator_mathop":
+        op_name = _get_field_value(block, "OPERATOR", "sqrt")
+        if op_name in ("sqrt", "abs", "floor", "ceil", "sin", "cos", "tan", "asin", "acos", "atan"):
             func_name_map = {
-                'sqrt': 'sqrt',
-                'abs': 'abs_',
-                'floor': 'floor_',
-                'ceil': 'ceil_',
-                'sin': 'sin',
-                'cos': 'cos',
-                'tan': 'tan',
-                'asin': 'asin',
-                'acos': 'acos',
-                'atan': 'atan',
+                "sqrt": "sqrt",
+                "abs": "abs_",
+                "floor": "floor_",
+                "ceil": "ceil_",
+                "sin": "sin",
+                "cos": "cos",
+                "tan": "tan",
+                "asin": "asin",
+                "acos": "acos",
+                "atan": "atan",
             }
-            dsl_func = func_name_map.get(op_name, 'sqrt')
+            dsl_func = func_name_map.get(op_name, "sqrt")
             return {
-                'kind': 'reporter',
-                'opcode': opcode,
-                'mod': 'operators',
-                'func': dsl_func,
-                'args': _build_input_args(tgt, block),
+                "kind": "reporter",
+                "opcode": opcode,
+                "mod": "operators",
+                "func": dsl_func,
+                "args": _build_input_args(tgt, block),
             }
 
     # Handle procedures_call specially: extract proccode + args from mutation
-    if opcode == 'procedures_call':
+    if opcode == "procedures_call":
         mutation = block.mutation
         if mutation is None:
-            return {'kind': 'comment', 'text': '# TODO: procedures_call (no mutation)'}
+            return {"kind": "comment", "text": "# TODO: procedures_call (no mutation)"}
         proccode = mutation.proccode
         arg_ids: list[str] = json.loads(mutation.argumentids)
         pos_args: list[str] = [_format_literal(proccode)]
@@ -1002,24 +1002,24 @@ def _decompile_block(tgt: Target, block: Block) -> dict[str, Any]:
             if inp is not None:
                 pos_args.append(_format_input_value(tgt, inp, block))
         return {
-            'kind': 'call',
-            'opcode': opcode,
-            'mod': 'procedures',
-            'func': 'call',
-            'args': pos_args,
-            'kwargs': {},
-            'body': None,
-            'body2': None,
+            "kind": "call",
+            "opcode": opcode,
+            "mod": "procedures",
+            "func": "call",
+            "args": pos_args,
+            "kwargs": {},
+            "body": None,
+            "body2": None,
         }
 
     # Look up the DSL mapping
     mapping = _DSL_MODULES.get(opcode)
     if mapping is None:
-        return {'kind': 'comment', 'text': f'# TODO: {opcode}'}
+        return {"kind": "comment", "text": f"# TODO: {opcode}"}
 
     mod_name, func_name = mapping
     if func_name is None:
-        return {'kind': 'comment', 'text': f'# TODO: {opcode} (no DSL function)'}
+        return {"kind": "comment", "text": f"# TODO: {opcode} (no DSL function)"}
 
     # Check if this is a C-shaped block
     is_c_shaped = opcode in _C_SHAPED_OPCODES
@@ -1030,25 +1030,25 @@ def _decompile_block(tgt: Target, block: Block) -> dict[str, Any]:
     kwargs = _build_field_args(block, opcode)
 
     expr: dict[str, Any] = {
-        'kind': 'call',
-        'opcode': opcode,
-        'mod': mod_name,
-        'func': func_name,
-        'args': args,
-        'kwargs': kwargs,
-        'body': None,
-        'body2': None,
+        "kind": "call",
+        "opcode": opcode,
+        "mod": mod_name,
+        "func": func_name,
+        "args": args,
+        "kwargs": kwargs,
+        "body": None,
+        "body2": None,
     }
 
     # Handle substack for C-shaped blocks
     if is_c_shaped:
-        substack_id = _get_input_block_id(block, 'SUBSTACK')
+        substack_id = _get_input_block_id(block, "SUBSTACK")
         if substack_id:
-            expr['body'] = _decompile_chain(tgt, substack_id)
+            expr["body"] = _decompile_chain(tgt, substack_id)
         if has_else:
-            else_id = _get_input_block_id(block, 'SUBSTACK2')
+            else_id = _get_input_block_id(block, "SUBSTACK2")
             if else_id:
-                expr['body2'] = _decompile_chain(tgt, else_id)
+                expr["body2"] = _decompile_chain(tgt, else_id)
 
     return expr
 
@@ -1062,33 +1062,33 @@ def _build_input_args(tgt: Target, block: Block) -> list[dict[str, str] | str]:
     # The DSL handles these internally (e.g. pen VALUE is baked into
     # the DSL function's own block inputs).
     _SKIP_INPUTS: dict[str, set[str]] = {
-        'pen_setPenColorParamTo': {'VALUE'},
-        'pen_changePenColorParamBy': {'VALUE'},
+        "pen_setPenColorParamTo": {"VALUE"},
+        "pen_changePenColorParamBy": {"VALUE"},
     }
 
     # Collect named input values
     result: list[dict[str, str] | str] = []
     skip_for_opcode = _SKIP_INPUTS.get(opcode, set())
     for iname, inp in block.inputs.items():
-        if iname in ('SUBSTACK', 'SUBSTACK2'):
+        if iname in ("SUBSTACK", "SUBSTACK2"):
             continue
         if iname in skip_for_opcode:
             continue
         param_name = param_map.get(iname, iname.lower())
         val_str = _format_input_value(tgt, inp, block)
-        result.append({'name': param_name, 'value': val_str})
+        result.append({"name": param_name, "value": val_str})
 
     # Supply defaults for missing inputs that the DSL requires
     if not result and param_map:
         for iname, param_name in param_map.items():
-            if iname in ('SUBSTACK', 'SUBSTACK2'):
+            if iname in ("SUBSTACK", "SUBSTACK2"):
                 continue
             if iname in block.inputs:
                 continue
             if iname in block.fields:
                 continue
             # This input is missing — supply `0` as default
-            result.append({'name': param_name, 'value': '0'})
+            result.append({"name": param_name, "value": "0"})
 
     return result
 
@@ -1141,7 +1141,7 @@ def _get_field_positional_args(block: Block) -> list[dict[str, str]]:
             continue
         val = fld.value
         formatted = _format_literal(val) if isinstance(val, (str, int, float)) else repr(val)
-        result.append({'name': dsl_param, 'value': formatted})
+        result.append({"name": dsl_param, "value": formatted})
     return result
 
 
@@ -1157,7 +1157,7 @@ def _get_input_block_id(block: Block, input_name: str) -> str | None:
     return str(inp.value) if inp.value is not None else None
 
 
-def _get_field_value(block: Block, field_name: str, default: Any = '') -> Any:
+def _get_field_value(block: Block, field_name: str, default: Any = "") -> Any:
     """Get the string value from a field."""
     if block.fields and field_name in block.fields:
         return block.fields[field_name].value
@@ -1172,7 +1172,7 @@ def _format_input_value(tgt: Target, inp: Input, parent_block: Block) -> str:
     if isinstance(value, (list, tuple)) and len(value) >= 2 and isinstance(value[0], int):
         type_code = value[0]
         if type_code == 11:  # BROADCAST — [11, name, id]
-            name = value[1] if len(value) > 1 else ''
+            name = value[1] if len(value) > 1 else ""
             return _format_literal(name)
         # Other compact primitives (4-10, 12-13): extract the value
         ref = value[1]
@@ -1191,7 +1191,7 @@ def _format_input_value(tgt: Target, inp: Input, parent_block: Block) -> str:
             # Menu blocks: return the field value directly
             if ref_block.opcode in _MENU_OPCODES and ref_block.fields:
                 for fld in ref_block.fields.values():
-                    if hasattr(fld, 'value'):
+                    if hasattr(fld, "value"):
                         val = fld.value
                         if isinstance(val, (list, tuple)):
                             val = val[0]
@@ -1200,43 +1200,43 @@ def _format_input_value(tgt: Target, inp: Input, parent_block: Block) -> str:
                         return repr(val)
             # Other shadow blocks (argument_reporter, etc.): decompile
             expr_dict = _decompile_block(tgt, ref_block)
-            kind = expr_dict.get('kind', '')
-            if kind == 'reporter' and 'code' in expr_dict:
-                return str(expr_dict['code'])
-            elif kind == 'call':
+            kind = expr_dict.get("kind", "")
+            if kind == "reporter" and "code" in expr_dict:
+                return str(expr_dict["code"])
+            elif kind == "call":
                 return str(_format_call_expr(expr_dict, True))
         # Genuine literal shadow — format as literal
-        return _format_literal(value) if value is not None else '0'
+        return _format_literal(value) if value is not None else "0"
 
     # Non-shadow input: value is a block ID string
     bid = str(value)
     if bid in tgt.blocks:
         ref_block = tgt.blocks[bid]
         expr_dict = _decompile_block(tgt, ref_block)
-        if expr_dict.get('kind') == 'reporter' and 'code' in expr_dict:
-            return str(expr_dict['code'])
-        elif expr_dict.get('kind') == 'call':
+        if expr_dict.get("kind") == "reporter" and "code" in expr_dict:
+            return str(expr_dict["code"])
+        elif expr_dict.get("kind") == "call":
             return str(_format_call_expr(expr_dict, True))
-        elif expr_dict.get('kind') == 'raw':
-            return str(expr_dict['code'])
-        elif expr_dict.get('kind') == 'comment':
-            return str(expr_dict['text'])
+        elif expr_dict.get("kind") == "raw":
+            return str(expr_dict["code"])
+        elif expr_dict.get("kind") == "comment":
+            return str(expr_dict["text"])
     return repr(value)
 
 
 def _format_literal(value: Any) -> str:
     """Format a literal value as Python source."""
     if value is None:
-        return '0'
+        return "0"
     if isinstance(value, bool):
-        return 'True' if value else 'False'
+        return "True" if value else "False"
     if isinstance(value, int):
         return str(value)
     if isinstance(value, float):
         # Format without unnecessary decimals
         if value == int(value) and abs(value) < 1e15:
             return str(int(value))
-        return f'{value!r}'
+        return f"{value!r}"
     if isinstance(value, str):
         # Use single quotes for cleanliness
         escaped = value.replace("'", "\\'")
@@ -1251,26 +1251,26 @@ def _format_call_expr(expr: dict[str, Any], inline: bool = False) -> str:
     """
     # Build positional args string
     arg_parts: list[str] = []
-    for arg in expr.get('args', []):
+    for arg in expr.get("args", []):
         if isinstance(arg, dict):
-            arg_parts.append(arg['value'])
+            arg_parts.append(arg["value"])
         else:
             arg_parts.append(arg)
 
     # Build keyword args
-    kwargs = expr.get('kwargs', {})
+    kwargs = expr.get("kwargs", {})
     for k, v in kwargs.items():
-        arg_parts.append(f'{k}={v}')
+        arg_parts.append(f"{k}={v}")
 
-    args_str = ', '.join(arg_parts)
-    func_name = expr.get('func', '???')
-    mod_name = expr.get('mod', '???')
+    args_str = ", ".join(arg_parts)
+    func_name = expr.get("func", "???")
+    mod_name = expr.get("mod", "???")
 
-    base = f'{mod_name}.{func_name}({args_str})'
+    base = f"{mod_name}.{func_name}({args_str})"
 
     # Handle C-shaped blocks with body
-    body = expr.get('body')
-    body2 = expr.get('body2')
+    body = expr.get("body")
+    body2 = expr.get("body2")
 
     if inline or (body is None and body2 is None):
         return base
@@ -1286,33 +1286,33 @@ def _format_body_lines(expr: dict[str, Any], indent: str) -> list[str]:
     Each expression's last line is terminated with `,` so callers can join
     multiple body items without explicit separators.
     """
-    kind = expr.get('kind', '')
+    kind = expr.get("kind", "")
 
-    if kind == 'comment':
-        line = f'{indent}{expr["text"]}'
-        return [line] if line.rstrip().endswith(',') else [f'{line},']
+    if kind == "comment":
+        line = f"{indent}{expr['text']}"
+        return [line] if line.rstrip().endswith(",") else [f"{line},"]
 
-    if kind == 'call':
-        func_name = expr.get('func', '???')
-        mod_name = expr.get('mod', '???')
+    if kind == "call":
+        func_name = expr.get("func", "???")
+        mod_name = expr.get("mod", "???")
 
         arg_parts: list[str] = []
-        for arg in expr.get('args', []):
+        for arg in expr.get("args", []):
             if isinstance(arg, dict):
-                arg_parts.append(arg['value'])
+                arg_parts.append(arg["value"])
             else:
                 arg_parts.append(arg)
-        for k, v in expr.get('kwargs', {}).items():
-            arg_parts.append(f'{k}={v}')
-        args_str = ', '.join(arg_parts)
+        for k, v in expr.get("kwargs", {}).items():
+            arg_parts.append(f"{k}={v}")
+        args_str = ", ".join(arg_parts)
 
-        func_call = f'{mod_name}.{func_name}({args_str})'
+        func_call = f"{mod_name}.{func_name}({args_str})"
 
-        body = expr.get('body')
-        body2 = expr.get('body2')
+        body = expr.get("body")
+        body2 = expr.get("body2")
 
         if body is not None:
-            inner_indent = indent + '    '
+            inner_indent = indent + "    "
             body_lines = []
             for be in body:
                 body_lines.extend(_format_body_lines(be, inner_indent))
@@ -1321,32 +1321,32 @@ def _format_body_lines(expr: dict[str, Any], indent: str) -> list[str]:
                 else_lines = []
                 for be in body2:
                     else_lines.extend(_format_body_lines(be, inner_indent))
-                else_text = '\n'.join(else_lines)
-                body_text = '\n'.join(body_lines)
+                else_text = "\n".join(else_lines)
+                body_text = "\n".join(body_lines)
                 return [
-                    f'{indent}{func_call}(',
-                    f'{body_text}',
-                    f'{indent}).else_(',
-                    f'{else_text}',
-                    f'{indent}),',
+                    f"{indent}{func_call}(",
+                    f"{body_text}",
+                    f"{indent}).else_(",
+                    f"{else_text}",
+                    f"{indent}),",
                 ]
             else:
-                body_text = '\n'.join(body_lines)
+                body_text = "\n".join(body_lines)
                 return [
-                    f'{indent}{func_call}(',
-                    f'{body_text}',
-                    f'{indent}),',
+                    f"{indent}{func_call}(",
+                    f"{body_text}",
+                    f"{indent}),",
                 ]
 
-        return [f'{indent}{func_call},']
+        return [f"{indent}{func_call},"]
 
-    if kind == 'raw':
-        return [f'{indent}{expr["code"]},']
+    if kind == "raw":
+        return [f"{indent}{expr['code']},"]
 
-    if kind == 'reporter':
-        return [f'{indent}{expr["code"]},  # reporter']
+    if kind == "reporter":
+        return [f"{indent}{expr['code']},  # reporter"]
 
-    return [f'{indent}# unknown expression: {expr},']
+    return [f"{indent}# unknown expression: {expr},"]
 
 
 # ── Variable/list name resolution ──────────────────────────────────────────
@@ -1354,20 +1354,20 @@ def _format_body_lines(expr: dict[str, Any], indent: str) -> list[str]:
 
 def _resolve_variable_name(tgt: Target, block: Block) -> str:
     """Resolve a VARIABLE field to the variable name."""
-    if block.fields and 'VARIABLE' in block.fields:
-        fld = block.fields['VARIABLE']
+    if block.fields and "VARIABLE" in block.fields:
+        fld = block.fields["VARIABLE"]
         # Try id first, then value
         if fld.id and fld.id in tgt.variables:
             return tgt.variables[fld.id].name
         return str(fld.value)
-    return 'var'
+    return "var"
 
 
 def _resolve_list_name(tgt: Target, block: Block) -> str:
     """Resolve a LIST field to the list name."""
-    if block.fields and 'LIST' in block.fields:
-        fld = block.fields['LIST']
+    if block.fields and "LIST" in block.fields:
+        fld = block.fields["LIST"]
         if fld.id and fld.id in tgt.lists:
             return tgt.lists[fld.id].name
         return str(fld.value)
-    return 'list'
+    return "list"

@@ -35,8 +35,8 @@ BOUNCE_REFLECT_ANGLE: float = 180.0
 #  Rotation styles
 # ═════════════════════════════════════════════════════════════════════════
 
-ROTATION_ALL_AROUND: str = 'all around'
-ROTATION_LEFT_RIGHT: str = 'left-right'
+ROTATION_ALL_AROUND: str = "all around"
+ROTATION_LEFT_RIGHT: str = "left-right"
 ROTATION_DONT_ROTATE: str = "don't rotate"
 
 # ═════════════════════════════════════════════════════════════════════════
@@ -57,8 +57,8 @@ DEFAULT_PEN_COLOR: tuple[int, int, int] = (0, 0, 255)
 #  Sound effect names & bounds
 # ═════════════════════════════════════════════════════════════════════════
 
-SOUND_EFFECT_PITCH: str = 'PITCH'
-SOUND_EFFECT_PAN: str = 'PAN'
+SOUND_EFFECT_PITCH: str = "PITCH"
+SOUND_EFFECT_PAN: str = "PAN"
 
 PITCH_MIN: float = -360.0
 PITCH_MAX: float = 360.0
@@ -70,13 +70,13 @@ PAN_MAX: float = 100.0
 # ═════════════════════════════════════════════════════════════════════════
 
 GRAPHIC_EFFECTS: tuple[str, ...] = (
-    'color',
-    'fisheye',
-    'whirl',
-    'pixelate',
-    'mosaic',
-    'brightness',
-    'ghost',
+    "color",
+    "fisheye",
+    "whirl",
+    "pixelate",
+    "mosaic",
+    "brightness",
+    "ghost",
 )
 
 # ═════════════════════════════════════════════════════════════════════════
@@ -112,20 +112,20 @@ BUBBLE_DECIMAL_THRESHOLD: float = 0.01
 #  List special index values
 # ═════════════════════════════════════════════════════════════════════════
 
-LIST_INDEX_ALL: str = 'all'
-LIST_INDEX_LAST: str = 'last'
-LIST_INDEX_RANDOM: str = 'random'
-LIST_INDEX_ANY: str = 'any'
-LIST_INDEX_ALL_SENTINEL: str = 'ALL'  # internal sentinel
+LIST_INDEX_ALL: str = "all"
+LIST_INDEX_LAST: str = "last"
+LIST_INDEX_RANDOM: str = "random"
+LIST_INDEX_ANY: str = "any"
+LIST_INDEX_ALL_SENTINEL: str = "ALL"  # internal sentinel
 
 # ═════════════════════════════════════════════════════════════════════════
 #  Control stop options
 # ═════════════════════════════════════════════════════════════════════════
 
-STOP_ALL: str = 'all'
-STOP_THIS_SCRIPT: str = 'this script'
-STOP_OTHER_IN_SPRITE: str = 'other scripts in sprite'
-STOP_OTHER_IN_STAGE: str = 'other scripts in stage'
+STOP_ALL: str = "all"
+STOP_THIS_SCRIPT: str = "this script"
+STOP_OTHER_IN_SPRITE: str = "other scripts in sprite"
+STOP_OTHER_IN_STAGE: str = "other scripts in stage"
 
 # ═════════════════════════════════════════════════════════════════════════
 #  Math / operators
@@ -192,18 +192,18 @@ OBSOLETE_FLAG: int = 3  # [3, value, block_id] — obsolete shadow + block
 
 SERIALIZE_TEMPO: float = 60.0
 SERIALIZE_VIDEO_TRANSPARENCY: int = 50
-SERIALIZE_VIDEO_STATE: str = 'on'
+SERIALIZE_VIDEO_STATE: str = "on"
 
 # ═════════════════════════════════════════════════════════════════════════
 #  Version metadata
 # ═════════════════════════════════════════════════════════════════════════
 
-PROJECT_SEMVER: str = '3.0.0'
-VM_VERSION: str = '0.2.0'
-VM_AGENT: str = 'py-scratch'
+PROJECT_SEMVER: str = "3.0.0"
+VM_VERSION: str = "0.2.0"
+VM_AGENT: str = "py-scratch"
 
 # ═════════════════════════════════════════════════════════════════════════
 #  Hat opcodes used internally by the runtime
 # ═════════════════════════════════════════════════════════════════════════
 
-CLONE_START_HATS: tuple[str, ...] = ('control_start_as_clone',)
+CLONE_START_HATS: tuple[str, ...] = ("control_start_as_clone",)

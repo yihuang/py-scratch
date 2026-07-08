@@ -66,48 +66,48 @@ class BubbleStyle:
 
 # Keyboard mapping — Scratch key names → pygame key codes
 KEY_MAP: dict[str, int] = {
-    'space': pygame.K_SPACE,
-    'left arrow': pygame.K_LEFT,
-    'right arrow': pygame.K_RIGHT,
-    'up arrow': pygame.K_UP,
-    'down arrow': pygame.K_DOWN,
-    'enter': pygame.K_RETURN,
-    'a': pygame.K_a,
-    'b': pygame.K_b,
-    'c': pygame.K_c,
-    'd': pygame.K_d,
-    'e': pygame.K_e,
-    'f': pygame.K_f,
-    'g': pygame.K_g,
-    'h': pygame.K_h,
-    'i': pygame.K_i,
-    'j': pygame.K_j,
-    'k': pygame.K_k,
-    'l': pygame.K_l,
-    'm': pygame.K_m,
-    'n': pygame.K_n,
-    'o': pygame.K_o,
-    'p': pygame.K_p,
-    'q': pygame.K_q,
-    'r': pygame.K_r,
-    's': pygame.K_s,
-    't': pygame.K_t,
-    'u': pygame.K_u,
-    'v': pygame.K_v,
-    'w': pygame.K_w,
-    'x': pygame.K_x,
-    'y': pygame.K_y,
-    'z': pygame.K_z,
-    '0': pygame.K_0,
-    '1': pygame.K_1,
-    '2': pygame.K_2,
-    '3': pygame.K_3,
-    '4': pygame.K_4,
-    '5': pygame.K_5,
-    '6': pygame.K_6,
-    '7': pygame.K_7,
-    '8': pygame.K_8,
-    '9': pygame.K_9,
+    "space": pygame.K_SPACE,
+    "left arrow": pygame.K_LEFT,
+    "right arrow": pygame.K_RIGHT,
+    "up arrow": pygame.K_UP,
+    "down arrow": pygame.K_DOWN,
+    "enter": pygame.K_RETURN,
+    "a": pygame.K_a,
+    "b": pygame.K_b,
+    "c": pygame.K_c,
+    "d": pygame.K_d,
+    "e": pygame.K_e,
+    "f": pygame.K_f,
+    "g": pygame.K_g,
+    "h": pygame.K_h,
+    "i": pygame.K_i,
+    "j": pygame.K_j,
+    "k": pygame.K_k,
+    "l": pygame.K_l,
+    "m": pygame.K_m,
+    "n": pygame.K_n,
+    "o": pygame.K_o,
+    "p": pygame.K_p,
+    "q": pygame.K_q,
+    "r": pygame.K_r,
+    "s": pygame.K_s,
+    "t": pygame.K_t,
+    "u": pygame.K_u,
+    "v": pygame.K_v,
+    "w": pygame.K_w,
+    "x": pygame.K_x,
+    "y": pygame.K_y,
+    "z": pygame.K_z,
+    "0": pygame.K_0,
+    "1": pygame.K_1,
+    "2": pygame.K_2,
+    "3": pygame.K_3,
+    "4": pygame.K_4,
+    "5": pygame.K_5,
+    "6": pygame.K_6,
+    "7": pygame.K_7,
+    "8": pygame.K_8,
+    "9": pygame.K_9,
 }
 
 # Reverse: pygame key code → Scratch key name
@@ -126,10 +126,10 @@ def scratch_to_screen(x: float, y: float) -> tuple[float, float]:
     sx = (x + STAGE_W / 2) * STAGE_SCALE
     sy = (STAGE_H / 2 - y) * STAGE_SCALE
     if not math.isfinite(sx):
-        sx = 0.0 if math.isnan(sx) else (float('inf') if sx > 0 else float('-inf'))
+        sx = 0.0 if math.isnan(sx) else (float("inf") if sx > 0 else float("-inf"))
         sx = _clamp_screen(sx, STAGE_W * STAGE_SCALE)
     if not math.isfinite(sy):
-        sy = 0.0 if math.isnan(sy) else (float('inf') if sy > 0 else float('-inf'))
+        sy = 0.0 if math.isnan(sy) else (float("inf") if sy > 0 else float("-inf"))
         sy = _clamp_screen(sy, STAGE_H * STAGE_SCALE)
     return sx, sy
 
@@ -166,7 +166,7 @@ def _adjust_rotation_centre(costume: Costume, data: bytes, surf: pygame.Surface)
     fractional (e.g. 87.424\u00d714).  Scale the stored rotation centre
     to match the actual rendered surface size.
     """
-    text = data.decode('utf-8', errors='replace')
+    text = data.decode("utf-8", errors="replace")
     w = re.search(r'width="([\d.]+)"', text)
     h = re.search(r'height="([\d.]+)"', text)
     nom_w = float(w.group(1)) if w else 0.0
@@ -198,7 +198,7 @@ def _load_costume_surface(costume: Costume) -> pygame.Surface | None:
     if not costume.data:
         return None
 
-    if costume.data_format == 'svg':
+    if costume.data_format == "svg":
         surf = _render_svg_data(costume.data)
         _adjust_rotation_centre(costume, costume.data, surf)
     else:
@@ -265,7 +265,7 @@ class Renderer:
     Owns the display window and game loop.
     """
 
-    def __init__(self, runtime: Runtime, title: str = 'Scratch VM') -> None:
+    def __init__(self, runtime: Runtime, title: str = "Scratch VM") -> None:
         self.runtime = runtime
         self.title = title
 
@@ -353,13 +353,13 @@ class Renderer:
     def _update(self) -> None:
         """Step the runtime and update pen state."""
         # Check for pen clear requests
-        if self.runtime.stage and getattr(self.runtime.stage, '_pen_clear_requested', False):
+        if self.runtime.stage and getattr(self.runtime.stage, "_pen_clear_requested", False):
             self.pen_layer.clear()
             self.runtime.stage._pen_clear_requested = False
 
         # Handle stamp requests
         stamps = []
-        if self.runtime.stage and hasattr(self.runtime.stage, '_stamp_queue'):
+        if self.runtime.stage and hasattr(self.runtime.stage, "_stamp_queue"):
             stamps = self.runtime.stage._stamp_queue
             self.runtime.stage._stamp_queue = []
 
@@ -579,11 +579,11 @@ class Renderer:
     def _wrap_text(font: pygame.font.Font, text: str) -> list[str]:
         """Wrap text to fit within MAX_LINE_WIDTH Scratch pixels."""
         lines: list[str] = []
-        for paragraph in text.split('\n'):
-            words = paragraph.split(' ')
-            current = ''
+        for paragraph in text.split("\n"):
+            words = paragraph.split(" ")
+            current = ""
             for word in words:
-                test = current + (' ' if current else '') + word
+                test = current + (" " if current else "") + word
                 w, _ = font.size(test)
                 if w > BubbleStyle.MAX_LINE_WIDTH * STAGE_SCALE and current:
                     lines.append(current)
@@ -592,7 +592,7 @@ class Renderer:
                     current = test
             if current:
                 lines.append(current)
-        return lines if lines else ['']
+        return lines if lines else [""]
 
     @staticmethod
     def _render_bubble_surface(
@@ -736,11 +736,11 @@ class Renderer:
         """Overlay: FPS, thread count, help."""
         font = pygame.font.Font(None, OVERLAY_FONT_SIZE)
         threads = len([t for t in self.runtime.threads if not t.is_done()])
-        fps = f'{self.clock.get_fps():.0f}'
+        fps = f"{self.clock.get_fps():.0f}"
         lines = [
-            f'Threads: {threads}',
-            f'FPS: {fps}',
-            'ESC = Quit',
+            f"Threads: {threads}",
+            f"FPS: {fps}",
+            "ESC = Quit",
         ]
         y = OVERLAY_Y
         for line in lines:
@@ -766,7 +766,7 @@ class Renderer:
         cx, cy = w / 2, h / 2
         return Costume(
             name=name,
-            data_format='pygame',
+            data_format="pygame",
             bitmap_resolution=1,
             rotation_center_x=cx,
             rotation_center_y=cy,

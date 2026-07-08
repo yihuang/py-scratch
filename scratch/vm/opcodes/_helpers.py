@@ -49,46 +49,46 @@ def _num(inp: Any) -> float:
     case-*in*sensitive, so we gate on the exact string.
     """
     if isinstance(inp, str):
-        if inp == 'Infinity':
-            return float('inf')
-        if inp == '-Infinity':
-            return float('-inf')
-        if inp == 'NaN':
-            return float('nan')
-        if inp.strip() == '':
+        if inp == "Infinity":
+            return float("inf")
+        if inp == "-Infinity":
+            return float("-inf")
+        if inp == "NaN":
+            return float("nan")
+        if inp.strip() == "":
             return 0.0
         # Try numeric parse; if it fails, Scratch returns NaN
         try:
             return float(inp)
         except (ValueError, TypeError):
-            return float('nan')
+            return float("nan")
     if inp is None:
         return 0.0
     try:
         return float(inp)
     except (ValueError, TypeError):
-        return float('nan')
+        return float("nan")
 
 
 def _str(inp: Any) -> str:
     if isinstance(inp, float):
         if inp == -0.0:
             inp = 0.0
-        s = f'{inp:g}'
+        s = f"{inp:g}"
         return s
-    return str(inp) if inp is not None else ''
+    return str(inp) if inp is not None else ""
 
 
 def _bool(inp: Any) -> bool:
     if isinstance(inp, str):
-        return inp.lower() not in ('', 'false', '0')
+        return inp.lower() not in ("", "false", "0")
     return bool(inp)
 
 
 def _field_val(field: Any) -> str:
     if field is None:
-        return ''
-    if hasattr(field, 'value'):
+        return ""
+    if hasattr(field, "value"):
         return str(field.value)
     return str(field)
 
@@ -111,12 +111,12 @@ def _scratch_compare(v1: Any, v2: Any) -> int:
     - If either converts to NaN (or is None / whitespace), compare
       case-insensitively as strings.
     """
-    if v1 is None or (isinstance(v1, str) and v1.strip() == ''):
-        n1 = float('nan')
+    if v1 is None or (isinstance(v1, str) and v1.strip() == ""):
+        n1 = float("nan")
     else:
         n1 = _num(v1)
-    if v2 is None or (isinstance(v2, str) and v2.strip() == ''):
-        n2 = float('nan')
+    if v2 is None or (isinstance(v2, str) and v2.strip() == ""):
+        n2 = float("nan")
     else:
         n2 = _num(v2)
     if math.isnan(n1) or math.isnan(n2):
@@ -127,9 +127,9 @@ def _scratch_compare(v1: Any, v2: Any) -> int:
         if s1 > s2:
             return 1
         return 0
-    if n1 == float('inf') and n2 == float('inf'):
+    if n1 == float("inf") and n2 == float("inf"):
         return 0
-    if n1 == float('-inf') and n2 == float('-inf'):
+    if n1 == float("-inf") and n2 == float("-inf"):
         return 0
     if n1 < n2:
         return -1
@@ -143,9 +143,9 @@ def _scratch_compare(v1: Any, v2: Any) -> int:
 
 def _target_xy(rt: Runtime, target_name: str) -> tuple[float, float] | None:
     """Resolve a target name to (x, y) for go-to / point-towards."""
-    if target_name == '_mouse_':
+    if target_name == "_mouse_":
         return (rt.mouse_x(), rt.mouse_y())
-    if target_name == '_random_':
+    if target_name == "_random_":
         return (
             round(random.uniform(STAGE_LEFT, STAGE_RIGHT)),
             round(random.uniform(STAGE_BOTTOM, STAGE_TOP)),
@@ -161,9 +161,9 @@ def _target_xy(rt: Runtime, target_name: str) -> tuple[float, float] | None:
 
 def _touching_object_check(rt: Runtime, tgt: Target, obj_name: str) -> bool:
     """Check if ``tgt`` is touching ``obj_name`` (_mouse_, _edge_, or sprite name)."""
-    if obj_name == '_mouse_':
+    if obj_name == "_mouse_":
         return False
-    if obj_name == '_edge_':
+    if obj_name == "_edge_":
         left_, top_, right_, bottom_ = tgt.scratch_bounds()
         return (
             tgt.x + left_ < STAGE_LEFT
@@ -217,15 +217,15 @@ def _set_costume(tgt: Target, requested: Any) -> None:
         tgt.costume_index = idx
         return
     s = _str(requested)
-    if s.strip() == '':
+    if s.strip() == "":
         return
     for i, c in enumerate(tgt.costumes):
         if c.name == s:
             tgt.costume_index = i
             return
-    if s == 'next costume':
+    if s == "next costume":
         return
-    if s == 'previous costume':
+    if s == "previous costume":
         return
     try:
         parsed = float(s)
@@ -257,11 +257,11 @@ def _set_backdrop(rt: Runtime, val: Any) -> list[Any]:
             stage.costume_index = i
             break
     else:
-        if s == 'next backdrop':
+        if s == "next backdrop":
             stage.costume_index = (stage.costume_index + 1) % n
-        elif s == 'previous backdrop':
+        elif s == "previous backdrop":
             stage.costume_index = (stage.costume_index - 1) % n
-        elif s == 'random backdrop' and n > 1:
+        elif s == "random backdrop" and n > 1:
             idx = stage.costume_index
             while idx == stage.costume_index:
                 idx = random.randint(0, n - 1)
@@ -269,7 +269,7 @@ def _set_backdrop(rt: Runtime, val: Any) -> list[Any]:
         else:
             _set_costume(stage, val)
     if stage.costume_index != old_idx:
-        return rt.start_hat('event_whenbackdropswitchesto')
+        return rt.start_hat("event_whenbackdropswitchesto")
     return []
 
 
@@ -283,11 +283,11 @@ def _format_bubble_text(text: Any) -> str:
         if text % 1 == 0:
             s = str(int(text))
         elif abs(text) >= BUBBLE_DECIMAL_THRESHOLD:
-            s = f'{text:.2f}'
+            s = f"{text:.2f}"
         else:
             s = str(text)
     else:
-        s = str(text) if text is not None else ''
+        s = str(text) if text is not None else ""
     return s[:BUBBLE_MAX_CHARS]
 
 

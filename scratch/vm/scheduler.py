@@ -37,9 +37,9 @@ from typing import Any
 class ThreadStatus:
     """Possible states for a thread managed by the scheduler."""
 
-    RUNNING = 'running'
-    WAITING = 'waiting'
-    DONE = 'done'
+    RUNNING = "running"
+    WAITING = "waiting"
+    DONE = "done"
 
 
 # ── SchedulerThread (base class) ─────────────────────────────────────────
@@ -166,10 +166,10 @@ class Scheduler:
     def remove_threads_for(self, target: Any) -> None:
         """Remove all threads belonging to *target*."""
         self._runnable_queue[:] = [
-            t for t in self._runnable_queue if getattr(t, 'target', None) is not target
+            t for t in self._runnable_queue if getattr(t, "target", None) is not target
         ]
         self._wait_queue[:] = [
-            e for e in self._wait_queue if getattr(e[2], 'target', None) is not target
+            e for e in self._wait_queue if getattr(e[2], "target", None) is not target
         ]
 
     def clear(self) -> None:

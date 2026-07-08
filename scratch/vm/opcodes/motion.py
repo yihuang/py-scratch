@@ -18,7 +18,7 @@ from ._helpers import _field_val, _str, _target_xy
 
 
 def motion_movesteps(rt: Runtime, tgt: Target, block: Block) -> None:
-    steps = rt.num(tgt, block, 'STEPS')
+    steps = rt.num(tgt, block, "STEPS")
     rad = math.radians(SCRATCH_RIGHT - tgt.direction)
     tgt.set_xy(
         _finite(tgt.x + steps * math.cos(rad)),
@@ -27,9 +27,9 @@ def motion_movesteps(rt: Runtime, tgt: Target, block: Block) -> None:
 
 
 def motion_goto(rt: Runtime, tgt: Target, block: Block) -> None:
-    target_name = _field_val(block.fields.get('TO'))
+    target_name = _field_val(block.fields.get("TO"))
     if not target_name:
-        target_name = _str(rt.val(tgt, block, 'TO'))
+        target_name = _str(rt.val(tgt, block, "TO"))
     xy = _target_xy(rt, target_name)
     if xy is not None:
         tgt.set_xy(xy[0], xy[1])
@@ -37,8 +37,8 @@ def motion_goto(rt: Runtime, tgt: Target, block: Block) -> None:
 
 def motion_gotoxy(rt: Runtime, tgt: Target, block: Block) -> None:
     tgt.set_xy(
-        _finite(rt.num(tgt, block, 'X')),
-        _finite(rt.num(tgt, block, 'Y')),
+        _finite(rt.num(tgt, block, "X")),
+        _finite(rt.num(tgt, block, "Y")),
     )
 
 
@@ -48,41 +48,41 @@ def _finite(val: float) -> float:
 
 
 def motion_gox(rt: Runtime, tgt: Target, block: Block) -> None:
-    tgt.x = _finite(rt.num(tgt, block, 'X'))
+    tgt.x = _finite(rt.num(tgt, block, "X"))
 
 
 def motion_goy(rt: Runtime, tgt: Target, block: Block) -> None:
-    tgt.y = _finite(rt.num(tgt, block, 'Y'))
+    tgt.y = _finite(rt.num(tgt, block, "Y"))
 
 
 def motion_setx(rt: Runtime, tgt: Target, block: Block) -> None:
-    tgt.x = _finite(rt.num(tgt, block, 'X'))
+    tgt.x = _finite(rt.num(tgt, block, "X"))
 
 
 def motion_sety(rt: Runtime, tgt: Target, block: Block) -> None:
-    tgt.y = _finite(rt.num(tgt, block, 'Y'))
+    tgt.y = _finite(rt.num(tgt, block, "Y"))
 
 
 def motion_changexby(rt: Runtime, tgt: Target, block: Block) -> None:
-    tgt.x = _finite(tgt.x + rt.num(tgt, block, 'DX'))
+    tgt.x = _finite(tgt.x + rt.num(tgt, block, "DX"))
 
 
 def motion_changeyby(rt: Runtime, tgt: Target, block: Block) -> None:
-    tgt.y = _finite(tgt.y + rt.num(tgt, block, 'DY'))
+    tgt.y = _finite(tgt.y + rt.num(tgt, block, "DY"))
 
 
 def motion_setdirection(rt: Runtime, tgt: Target, block: Block) -> None:
-    tgt.direction = rt.num(tgt, block, 'DIRECTION')
+    tgt.direction = rt.num(tgt, block, "DIRECTION")
 
 
 def motion_pointindirection(rt: Runtime, tgt: Target, block: Block) -> None:
-    tgt.direction = rt.num(tgt, block, 'DIRECTION')
+    tgt.direction = rt.num(tgt, block, "DIRECTION")
 
 
 def motion_pointtowards(rt: Runtime, tgt: Target, block: Block) -> None:
-    target_name = _field_val(block.fields.get('TOWARDS'))
+    target_name = _field_val(block.fields.get("TOWARDS"))
     if not target_name:
-        target_name = _str(rt.val(tgt, block, 'TOWARDS'))
+        target_name = _str(rt.val(tgt, block, "TOWARDS"))
     xy = _target_xy(rt, target_name)
     if xy is None:
         return
@@ -93,11 +93,11 @@ def motion_pointtowards(rt: Runtime, tgt: Target, block: Block) -> None:
 
 
 def motion_turnright(rt: Runtime, tgt: Target, block: Block) -> None:
-    tgt.direction += rt.num(tgt, block, 'DEGREES')
+    tgt.direction += rt.num(tgt, block, "DEGREES")
 
 
 def motion_turnleft(rt: Runtime, tgt: Target, block: Block) -> None:
-    tgt.direction -= rt.num(tgt, block, 'DEGREES')
+    tgt.direction -= rt.num(tgt, block, "DEGREES")
 
 
 def motion_ifonedgebounce(rt: Runtime, tgt: Target, block: Block) -> None:
@@ -117,13 +117,13 @@ def motion_ifonedgebounce(rt: Runtime, tgt: Target, block: Block) -> None:
     dist_right = max(0.0, STAGE_RIGHT - world_right)
     dist_bottom = max(0.0, world_bottom + STAGE_TOP)
 
-    nearest_edge = ''
-    min_dist = float('inf')
+    nearest_edge = ""
+    min_dist = float("inf")
     for edge, d in [
-        ('left', dist_left),
-        ('top', dist_top),
-        ('right', dist_right),
-        ('bottom', dist_bottom),
+        ("left", dist_left),
+        ("top", dist_top),
+        ("right", dist_right),
+        ("bottom", dist_bottom),
     ]:
         if d < min_dist:
             min_dist = d
@@ -136,13 +136,13 @@ def motion_ifonedgebounce(rt: Runtime, tgt: Target, block: Block) -> None:
     dx = math.cos(radians)
     dy = -math.sin(radians)
 
-    if nearest_edge == 'left':
+    if nearest_edge == "left":
         dx = max(0.2, abs(dx))
-    elif nearest_edge == 'top':
+    elif nearest_edge == "top":
         dy = max(0.2, abs(dy))
-    elif nearest_edge == 'right':
+    elif nearest_edge == "right":
         dx = 0 - max(0.2, abs(dx))
-    elif nearest_edge == 'bottom':
+    elif nearest_edge == "bottom":
         dy = 0 - max(0.2, abs(dy))
 
     new_direction = math.degrees(math.atan2(dy, dx)) + 90
@@ -150,7 +150,7 @@ def motion_ifonedgebounce(rt: Runtime, tgt: Target, block: Block) -> None:
 
 
 def motion_setrotationstyle(rt: Runtime, tgt: Target, block: Block) -> None:
-    style = block.fields.get('STYLE')
+    style = block.fields.get("STYLE")
     if style:
         tgt.rotation_style = style.value
 
@@ -174,9 +174,9 @@ def motion_direction(rt: Runtime, tgt: Target, block: Block) -> Any:
 
 
 def motion_glidesecstoxy(rt: Runtime, tgt: Target, block: Block) -> Any:
-    secs = rt.num(tgt, block, 'SECS')
-    x = rt.num(tgt, block, 'X')
-    y = rt.num(tgt, block, 'Y')
+    secs = rt.num(tgt, block, "SECS")
+    x = rt.num(tgt, block, "X")
+    y = rt.num(tgt, block, "Y")
     if secs <= 0:
         tgt.set_xy(x, y)
         return
@@ -192,10 +192,10 @@ def motion_glidesecstoxy(rt: Runtime, tgt: Target, block: Block) -> Any:
 
 
 def motion_glideto(rt: Runtime, tgt: Target, block: Block) -> Any:
-    secs = rt.num(tgt, block, 'SECS')
-    target_name = _field_val(block.fields.get('TO'))
+    secs = rt.num(tgt, block, "SECS")
+    target_name = _field_val(block.fields.get("TO"))
     if not target_name:
-        target_name = _str(rt.val(tgt, block, 'TO'))
+        target_name = _str(rt.val(tgt, block, "TO"))
     xy = _target_xy(rt, target_name)
     if xy is None:
         return

@@ -15,29 +15,29 @@ from pathlib import Path
 
 from scratch.dsl import Project, control, motion
 
-project = Project('Cat Chase Mouse', assets_dir=Path(__file__).parent)
+project = Project("Cat Chase Mouse", assets_dir=Path(__file__).parent)
 
 # ── Stage — declare global variables ──────────────────────────────────
-project.stage.var('score', 0)
+project.stage.var("score", 0)
 
 # ── Cat ───────────────────────────────────────────────────────────────
-cat = project.sprite('Cat')
-cat.costume('cat', 'cat.svg')
+cat = project.sprite("Cat")
+cat.costume("cat", "cat.svg")
 cat.x = -100
 cat.y = 0
 cat.direction = 90
 
 cat.when_flag_clicked(
     control.forever()(
-        motion.point_towards('Mouse'),
+        motion.point_towards("Mouse"),
         motion.move(3),
         control.wait(0.03),
     ),
 )
 
 # ── Mouse ─────────────────────────────────────────────────────────────
-mouse = project.sprite('Mouse')
-mouse.costume('mouse', 'mouse.svg')
+mouse = project.sprite("Mouse")
+mouse.costume("mouse", "mouse.svg")
 mouse.x = 100
 mouse.y = 0
 mouse.direction = -90
@@ -51,16 +51,16 @@ mouse.when_flag_clicked(
 )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--save', '-o', type=str, help='Save project to .sb3 file')
+    parser.add_argument("--save", "-o", type=str, help="Save project to .sb3 file")
     args = parser.parse_args()
 
     if args.save:
         project.save(args.save)
-        print(f'Saved to {args.save}')
+        print(f"Saved to {args.save}")
     else:
         rt = project.build_runtime()
         from scratch.vm.renderer import Renderer

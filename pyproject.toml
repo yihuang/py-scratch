@@ -36,7 +36,7 @@ extend-select = ["PLC0415"]
 "tests/*" = ["F841"]
 
 [tool.ruff.format]
-quote-style = "single"
+quote-style = "double"
 
 [tool.mypy]
 python_version = "3.13"

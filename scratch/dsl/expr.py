@@ -16,8 +16,8 @@ class Expr:
     """Base class for any block expression."""
 
     def __init__(self) -> None:
-        self.block_id: str = ''
-        self.opcode: str = ''
+        self.block_id: str = ""
+        self.opcode: str = ""
         self.inputs: dict[str, Input] = {}
         self.fields: dict[str, Field] = {}
         # Track Reporter objects used as inputs so we can walk the tree.
@@ -39,7 +39,7 @@ class StackExpr(Expr):
 
     def __init__(
         self,
-        opcode: str = '',
+        opcode: str = "",
         inputs: dict[str, Input] | None = None,
         fields: dict[str, Field] | None = None,
         shadow_reporters: dict[str, Reporter] | None = None,
@@ -90,7 +90,7 @@ class Reporter(Expr):
 
     def __init__(
         self,
-        opcode: str = '',
+        opcode: str = "",
         inputs: dict[str, Input] | None = None,
         fields: dict[str, Field] | None = None,
         shadow_reporters: dict[str, Reporter] | None = None,
@@ -153,8 +153,8 @@ def _resolve_inputs(
         if isinstance(val, Reporter):
             # Inline variable references as OBSOLETE_FLAG with VARIABLE primitive
             # instead of creating a separate data_variable block.
-            if val.opcode == 'data_variable':
-                var_name = str(val.fields.get('VARIABLE', Field(value='')).value)
+            if val.opcode == "data_variable":
+                var_name = str(val.fields.get("VARIABLE", Field(value="")).value)
                 inputs[name] = Input(value=None, variable_name=var_name)
             else:
                 inputs[name] = Input(value=val.as_input())

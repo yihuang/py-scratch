@@ -41,7 +41,7 @@ class Variable:
     is_cloud: bool = False  # stored on server (unused here)
 
     def __repr__(self) -> str:
-        return f'Var({self.name}={self.value!r})'
+        return f"Var({self.name}={self.value!r})"
 
 
 @dataclass
@@ -53,7 +53,7 @@ class ListVar:
     is_cloud: bool = False
 
     def __repr__(self) -> str:
-        return f'List({self.name}, len={len(self.contents)})'
+        return f"List({self.name}, len={len(self.contents)})"
 
 
 # ── Broadcast message ────────────────────────────────────────────────────
@@ -80,7 +80,7 @@ class Target:
     switch backdrops and has its own block tree for backdrop scripts.
     """
 
-    name: str = 'Stage'
+    name: str = "Stage"
     is_stage: bool = False
     _is_clone: bool = False
 
@@ -167,7 +167,7 @@ class Target:
     @property
     def current_costume_name(self) -> str:
         c = self.costume
-        return c.name if c else ''
+        return c.name if c else ""
 
     # ── Variable & list access ────────────────────────────────────────
 
@@ -206,7 +206,7 @@ class Target:
         cache: dict[str, list[str]] = {}
         for bid, block in self.blocks.items():
             if block.top_level and (
-                block.opcode.startswith('event_') or block.opcode == 'control_start_as_clone'
+                block.opcode.startswith("event_") or block.opcode == "control_start_as_clone"
             ):
                 cache.setdefault(block.opcode, []).append(bid)
         self._hat_cache = cache

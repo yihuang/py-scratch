@@ -9,45 +9,45 @@ from scratch.vm.types import Field
 from .expr import Reporter, StackExpr, _resolve_inputs
 
 
-def say(message: str | Reporter = '') -> StackExpr:
+def say(message: str | Reporter = "") -> StackExpr:
     """``looks_say``."""
-    ins, shadows = _resolve_inputs({'MESSAGE': message})
-    return StackExpr(opcode='looks_say', inputs=ins, shadow_reporters=shadows)
+    ins, shadows = _resolve_inputs({"MESSAGE": message})
+    return StackExpr(opcode="looks_say", inputs=ins, shadow_reporters=shadows)
 
 
-def say_for_seconds(message: str | Reporter = '', secs: int | float | Reporter = 2) -> StackExpr:
+def say_for_seconds(message: str | Reporter = "", secs: int | float | Reporter = 2) -> StackExpr:
     """``looks_sayforsecs``."""
-    ins, shadows = _resolve_inputs({'MESSAGE': message, 'SECS': secs})
-    return StackExpr(opcode='looks_sayforsecs', inputs=ins, shadow_reporters=shadows)
+    ins, shadows = _resolve_inputs({"MESSAGE": message, "SECS": secs})
+    return StackExpr(opcode="looks_sayforsecs", inputs=ins, shadow_reporters=shadows)
 
 
-def think(message: str | Reporter = '') -> StackExpr:
+def think(message: str | Reporter = "") -> StackExpr:
     """``looks_think``."""
-    ins, shadows = _resolve_inputs({'MESSAGE': message})
-    return StackExpr(opcode='looks_think', inputs=ins, shadow_reporters=shadows)
+    ins, shadows = _resolve_inputs({"MESSAGE": message})
+    return StackExpr(opcode="looks_think", inputs=ins, shadow_reporters=shadows)
 
 
-def think_for_seconds(message: str | Reporter = '', secs: int | float | Reporter = 2) -> StackExpr:
+def think_for_seconds(message: str | Reporter = "", secs: int | float | Reporter = 2) -> StackExpr:
     """``looks_thinkforsecs``."""
-    ins, shadows = _resolve_inputs({'MESSAGE': message, 'SECS': secs})
-    return StackExpr(opcode='looks_thinkforsecs', inputs=ins, shadow_reporters=shadows)
+    ins, shadows = _resolve_inputs({"MESSAGE": message, "SECS": secs})
+    return StackExpr(opcode="looks_thinkforsecs", inputs=ins, shadow_reporters=shadows)
 
 
 def show() -> StackExpr:
     """``looks_show``."""
-    return StackExpr(opcode='looks_show')
+    return StackExpr(opcode="looks_show")
 
 
 def hide() -> StackExpr:
     """``looks_hide``."""
-    return StackExpr(opcode='looks_hide')
+    return StackExpr(opcode="looks_hide")
 
 
-def switch_costume_to(costume: str | Reporter = '') -> StackExpr:
+def switch_costume_to(costume: str | Reporter = "") -> StackExpr:
     """``looks_switchcostumeto``."""
-    ins, shadows = _resolve_inputs({'COSTUME': costume})
+    ins, shadows = _resolve_inputs({"COSTUME": costume})
     return StackExpr(
-        opcode='looks_switchcostumeto',
+        opcode="looks_switchcostumeto",
         inputs=ins,
         shadow_reporters=shadows,
     )
@@ -55,14 +55,14 @@ def switch_costume_to(costume: str | Reporter = '') -> StackExpr:
 
 def next_costume() -> StackExpr:
     """``looks_nextcostume``."""
-    return StackExpr(opcode='looks_nextcostume')
+    return StackExpr(opcode="looks_nextcostume")
 
 
-def switch_backdrop_to(backdrop: str | Reporter = '') -> StackExpr:
+def switch_backdrop_to(backdrop: str | Reporter = "") -> StackExpr:
     """``looks_switchbackdropto``."""
-    ins, shadows = _resolve_inputs({'BACKDROP': backdrop})
+    ins, shadows = _resolve_inputs({"BACKDROP": backdrop})
     return StackExpr(
-        opcode='looks_switchbackdropto',
+        opcode="looks_switchbackdropto",
         inputs=ins,
         shadow_reporters=shadows,
     )
@@ -70,66 +70,66 @@ def switch_backdrop_to(backdrop: str | Reporter = '') -> StackExpr:
 
 def next_backdrop() -> StackExpr:
     """``looks_nextbackdrop``."""
-    return StackExpr(opcode='looks_nextbackdrop')
+    return StackExpr(opcode="looks_nextbackdrop")
 
 
-def change_effect(effect: str = 'color', change: int | float | Reporter = 25) -> StackExpr:
+def change_effect(effect: str = "color", change: int | float | Reporter = 25) -> StackExpr:
     """``looks_changeeffectby`` — *effect* is e.g. "color", "fisheye", "whirl", etc."""
 
-    ins, shadows = _resolve_inputs({'CHANGE': change})
+    ins, shadows = _resolve_inputs({"CHANGE": change})
     return StackExpr(
-        opcode='looks_changeeffectby',
+        opcode="looks_changeeffectby",
         inputs=ins,
-        fields={'EFFECT': Field(value=effect)},
+        fields={"EFFECT": Field(value=effect)},
         shadow_reporters=shadows,
     )
 
 
-def set_effect(effect: str = 'color', value: int | float | Reporter = 0) -> StackExpr:
+def set_effect(effect: str = "color", value: int | float | Reporter = 0) -> StackExpr:
     """``looks_seteffectto``."""
 
-    ins, shadows = _resolve_inputs({'VALUE': value})
+    ins, shadows = _resolve_inputs({"VALUE": value})
     return StackExpr(
-        opcode='looks_seteffectto',
+        opcode="looks_seteffectto",
         inputs=ins,
-        fields={'EFFECT': Field(value=effect)},
+        fields={"EFFECT": Field(value=effect)},
         shadow_reporters=shadows,
     )
 
 
 def clear_effects() -> StackExpr:
     """``looks_cleargraphiceffects``."""
-    return StackExpr(opcode='looks_cleargraphiceffects')
+    return StackExpr(opcode="looks_cleargraphiceffects")
 
 
 def change_size_by(change: int | float | Reporter = 10) -> StackExpr:
     """``looks_changesizeby``."""
-    ins, shadows = _resolve_inputs({'CHANGE': change})
-    return StackExpr(opcode='looks_changesizeby', inputs=ins, shadow_reporters=shadows)
+    ins, shadows = _resolve_inputs({"CHANGE": change})
+    return StackExpr(opcode="looks_changesizeby", inputs=ins, shadow_reporters=shadows)
 
 
 def set_size_to(size: int | float | Reporter = 100) -> StackExpr:
     """``looks_setsizeto``."""
-    ins, shadows = _resolve_inputs({'SIZE': size})
-    return StackExpr(opcode='looks_setsizeto', inputs=ins, shadow_reporters=shadows)
+    ins, shadows = _resolve_inputs({"SIZE": size})
+    return StackExpr(opcode="looks_setsizeto", inputs=ins, shadow_reporters=shadows)
 
 
 def change_volume_by(change: int | float | Reporter = 10) -> StackExpr:
     """``looks_changevolumeby``."""
-    ins, shadows = _resolve_inputs({'VOLUME': change})
-    return StackExpr(opcode='looks_changevolumeby', inputs=ins, shadow_reporters=shadows)
+    ins, shadows = _resolve_inputs({"VOLUME": change})
+    return StackExpr(opcode="looks_changevolumeby", inputs=ins, shadow_reporters=shadows)
 
 
 def set_volume_to(volume: int | float | Reporter = 100) -> StackExpr:
     """``looks_setvolumeto``."""
-    ins, shadows = _resolve_inputs({'VOLUME': volume})
-    return StackExpr(opcode='looks_setvolumeto', inputs=ins, shadow_reporters=shadows)
+    ins, shadows = _resolve_inputs({"VOLUME": volume})
+    return StackExpr(opcode="looks_setvolumeto", inputs=ins, shadow_reporters=shadows)
 
 
 # ── Reporters ─────────────────────────────────────────────────────────────
 
 
-def costume_number_name(number_name: str = 'number') -> Reporter:
+def costume_number_name(number_name: str = "number") -> Reporter:
     """``looks_costumenumbername`` — returns the current costume index or name.
 
     Usage::
@@ -141,45 +141,45 @@ def costume_number_name(number_name: str = 'number') -> Reporter:
         number_name: ``'number'`` (index) or ``'name'``.
     """
     return Reporter(
-        opcode='looks_costumenumbername',
-        fields={'NUMBER_NAME': Field(value=number_name)},
+        opcode="looks_costumenumbername",
+        fields={"NUMBER_NAME": Field(value=number_name)},
     )
 
 
 def size() -> Reporter:
     """``looks_size`` — reporter."""
-    return Reporter(opcode='looks_size')
+    return Reporter(opcode="looks_size")
 
 
 def volume() -> Reporter:
     """``looks_volume`` — reporter."""
-    return Reporter(opcode='looks_volume')
+    return Reporter(opcode="looks_volume")
 
 
-def go_to_front_back(front_back: str = 'front') -> StackExpr:
+def go_to_front_back(front_back: str = "front") -> StackExpr:
     """``looks_gotofrontback``."""
     return StackExpr(
-        opcode='looks_gotofrontback',
-        fields={'FRONT_BACK': Field(value=front_back)},
+        opcode="looks_gotofrontback",
+        fields={"FRONT_BACK": Field(value=front_back)},
     )
 
 
 def go_forward_backward_layers(
-    forward_backward: str = 'forward', num: int | float | Reporter = 1
+    forward_backward: str = "forward", num: int | float | Reporter = 1
 ) -> StackExpr:
     """``looks_goforwardbackwardlayers``."""
-    ins, shadows = _resolve_inputs({'NUM': num})
+    ins, shadows = _resolve_inputs({"NUM": num})
     return StackExpr(
-        opcode='looks_goforwardbackwardlayers',
+        opcode="looks_goforwardbackwardlayers",
         inputs=ins,
-        fields={'FORWARD_BACKWARD': Field(value=forward_backward)},
+        fields={"FORWARD_BACKWARD": Field(value=forward_backward)},
         shadow_reporters=shadows,
     )
 
 
-def backdrop_number_name(number_name: str = 'number') -> Reporter:
+def backdrop_number_name(number_name: str = "number") -> Reporter:
     """``looks_backdropnumbername`` — reporter."""
     return Reporter(
-        opcode='looks_backdropnumbername',
-        fields={'NUMBER_NAME': Field(value=number_name)},
+        opcode="looks_backdropnumbername",
+        fields={"NUMBER_NAME": Field(value=number_name)},
     )

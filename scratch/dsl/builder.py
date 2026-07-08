@@ -55,7 +55,7 @@ def _chain_impl(
         # Resolve variable fields if var_map is provided
         if var_map:
             for field_name, field in list(block.fields.items()):
-                if isinstance(field, Field) and field_name == 'VARIABLE':
+                if isinstance(field, Field) and field_name == "VARIABLE":
                     mapped = var_map.get(str(field.value))
                     if mapped:
                         field.id = mapped
@@ -72,7 +72,7 @@ def _chain_impl(
             )
             blocks.update(sub_blocks)
             if sub_entry:
-                block.inputs['SUBSTACK'] = Input(value=sub_entry)
+                block.inputs["SUBSTACK"] = Input(value=sub_entry)
 
         # Handle SUBSTACK2 (else branch)
         if expr._body2:
@@ -84,7 +84,7 @@ def _chain_impl(
             )
             blocks.update(sub2_blocks)
             if sub2_entry:
-                block.inputs['SUBSTACK2'] = Input(value=sub2_entry)
+                block.inputs["SUBSTACK2"] = Input(value=sub2_entry)
 
     # Link sequential chain (next pointers)
     for i in range(len(chain_ids) - 1):
@@ -129,7 +129,7 @@ def _resolve_variable_fields(blocks: dict[str, Block], var_map: dict[str, str]) 
     """Resolve VARIABLE field id for all blocks, including reporters."""
     for block in blocks.values():
         for fname, field in block.fields.items():
-            if isinstance(field, Field) and fname == 'VARIABLE':
+            if isinstance(field, Field) and fname == "VARIABLE":
                 mapped = var_map.get(str(field.value))
                 if mapped and field.id is None:
                     field.id = mapped
@@ -192,11 +192,11 @@ class Script:
         # to live on a separate ``procedures_prototype`` block (NOT shadow)
         # referenced by a ``custom_block`` input using BLOCK_REF_FLAG (2).
         # The prototype also owns the argument_reporter blocks as its inputs.
-        if hat_block.opcode == 'procedures_definition' and hat_block.mutation is not None:
+        if hat_block.opcode == "procedures_definition" and hat_block.mutation is not None:
             mutation = hat_block.mutation
             hat_block.mutation = None
 
-            proto_bid = f'_{hat_id}_proto'
+            proto_bid = f"_{hat_id}_proto"
             arg_ids: list[str] = json.loads(mutation.argumentids) if mutation.argumentids else []
             arg_names: list[str] = (
                 json.loads(mutation.argumentnames) if mutation.argumentnames else []
@@ -207,17 +207,17 @@ class Script:
             proto_inputs: dict[str, Input] = {}
             proto_body_blocks: dict[str, Block] = {}
             for i, arg_id in enumerate(arg_ids):
-                reporter_id = f'_{hat_id}_arg_{arg_id}'
-                arg_name = arg_names[i] if i < len(arg_names) else ''
+                reporter_id = f"_{hat_id}_arg_{arg_id}"
+                arg_name = arg_names[i] if i < len(arg_names) else ""
                 # Create an argument_reporter block for this parameter
                 arg_reporter = Block(
                     id=reporter_id,
-                    opcode='argument_reporter_string_number',
+                    opcode="argument_reporter_string_number",
                     next=None,
                     parent=proto_bid,
                     shadow=False,
                     top_level=False,
-                    fields={'VALUE': Field(value=arg_name)},
+                    fields={"VALUE": Field(value=arg_name)},
                 )
                 proto_body_blocks[reporter_id] = arg_reporter
                 # Prototype input references the argument_reporter
@@ -225,7 +225,7 @@ class Script:
 
             proto_block = Block(
                 id=proto_bid,
-                opcode='procedures_prototype',
+                opcode="procedures_prototype",
                 next=None,
                 parent=hat_id,
                 shadow=False,  # NOT a shadow in the official format
@@ -237,7 +237,7 @@ class Script:
             target.blocks.update(proto_body_blocks)
 
             # custom_block uses BLOCK_REF_FLAG (2), not SHADOW_FLAG
-            hat_block.inputs['custom_block'] = Input(
+            hat_block.inputs["custom_block"] = Input(
                 value=proto_bid, shadow=False, is_literal=False
             )
 
