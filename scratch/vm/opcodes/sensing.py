@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from ..runtime import Runtime
     from ..target import Target
-    from ..types import Block, Input
+    from ..types import Block
 
 from ..constants import (
     DISTANCE_UNREACHABLE,
@@ -20,22 +20,13 @@ from ..constants import (
     YEAR_2000_EPOCH,
 )
 from ..thread import YIELD
-from ._helpers import _field_val, _str, _touching_object_check
+from ._helpers import _str, _touching_object_check
 
 
 def sensing_touchingobject(rt: Runtime, tgt: Target, block: Block) -> Any:
-    obj = block.fields.get("TOUCHINGOBJECTMENU")
-    if obj is None:
-        obj_input = block.inputs.get("TOUCHINGOBJECTMENU")
-        if obj_input is not None:
-            if isinstance(obj_input, Input):
-                obj_name = _str(rt.resolve_input(tgt, obj_input.value))
-            else:
-                obj_name = _str(rt.resolve_input(tgt, obj_input))
-        else:
-            obj_name = "_mouse_"
-    else:
-        obj_name = _field_val(obj)
+    obj_name = rt.field(tgt, block, "TOUCHINGOBJECTMENU")
+    if not obj_name:
+        obj_name = _str(rt.val(tgt, block, "TOUCHINGOBJECTMENU"))
     return _touching_object_check(rt, tgt, obj_name)
 
 
@@ -44,7 +35,7 @@ def sensing_touchingcolor(rt: Runtime, tgt: Target, block: Block) -> Any:
 
 
 def sensing_keypressed(rt: Runtime, tgt: Target, block: Block) -> Any:
-    key_name = _field_val(block.fields.get("KEY_OPTION"))
+    key_name = rt.field(tgt, block, "KEY_OPTION")
     return rt.is_key_pressed(key_name)
 
 
@@ -77,8 +68,7 @@ def sensing_coloristouchingcolor(rt: Runtime, tgt: Target, block: Block) -> Any:
 
 def sensing_distanceto(rt: Runtime, tgt: Target, block: Block) -> Any:
     """Distance to _mouse_ or another sprite."""
-    dest = block.fields.get("DISTANCETOMENU")
-    dest_name = _field_val(dest) if dest else "_mouse_"
+    dest_name = rt.field(tgt, block, "DISTANCETOMENU") or "_mouse_"
     if dest_name == "_mouse_":
         dx = tgt.x - rt.mouse_x()
         dy = tgt.y - rt.mouse_y()
@@ -95,8 +85,7 @@ def sensing_distanceto(rt: Runtime, tgt: Target, block: Block) -> Any:
 def sensing_of(rt: Runtime, tgt: Target, block: Block) -> Any:
     """Attribute of a sprite or stage (x, y, direction, costume#, size, variable)."""
     prop = rt.val(tgt, block, "PROPERTY")
-    obj_menu = block.fields.get("OBJECT")
-    obj_name = _field_val(obj_menu) if obj_menu else ""
+    obj_name = rt.field(tgt, block, "OBJECT")
     obj = rt.get_target_by_name(obj_name) if obj_name else None
     if obj is None:
         obj = tgt
@@ -134,9 +123,9 @@ def sensing_mousey(rt: Runtime, tgt: Target, block: Block) -> Any:
 
 
 def sensing_setdragmode(rt: Runtime, tgt: Target, block: Block) -> None:
-    drag = block.fields.get("DRAG_MODE")
-    if drag:
-        tgt.draggable = _field_val(drag) == "draggable"
+    drag_mode = rt.field(tgt, block, "DRAG_MODE")
+    if drag_mode:
+        tgt.draggable = drag_mode == "draggable"
 
 
 def sensing_mousedown(rt: Runtime, tgt: Target, block: Block) -> Any:
@@ -145,8 +134,7 @@ def sensing_mousedown(rt: Runtime, tgt: Target, block: Block) -> Any:
 
 def sensing_current(rt: Runtime, tgt: Target, block: Block) -> Any:
     lt = time.localtime()
-    menu = block.fields.get("CURRENTMENU")
-    opt = _field_val(menu) if menu else ""
+    opt = rt.field(tgt, block, "CURRENTMENU")
     match opt:
         case "YEAR":
             return lt.tm_year

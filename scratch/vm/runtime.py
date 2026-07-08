@@ -76,6 +76,26 @@ def _input_value(block: Block, name: str) -> tuple[Any, bool]:
     return inp, False
 
 
+def _field_val(field: Any) -> str:
+    """Unwrap a Field to its string value (or ``""`` if None)."""
+    if field is None:
+        return ""
+    if hasattr(field, "value"):
+        return str(field.value)
+    return str(field)
+
+
+def _substack_val(inp: Any) -> str | None:
+    """Unwrap an Input to its sub-stack block ID (or ``None``)."""
+    if inp is None:
+        return None
+    if isinstance(inp, Input):
+        v = inp.value
+    else:
+        v = inp
+    return str(v) if v else None
+
+
 # ── Runtime ──────────────────────────────────────────────────────────────
 
 
@@ -270,6 +290,21 @@ class Runtime(Scheduler):
     def val(self, target: Target, block: Block, name: str) -> Any:
         value, is_shadow = _input_value(block, name)
         return self.resolve_input(target, value, is_shadow=is_shadow)
+
+    def field(self, target: Target, block: Block, name: str) -> str:
+        """Return the string value of a block field (dropdown / constant).
+
+        Returns ``""`` if the field doesn't exist.
+        """
+        return _field_val(block.fields.get(name))
+
+    def substack(self, target: Target, block: Block, name: str = "SUBSTACK") -> str | None:
+        """Return the block ID of a sub-stack input, or ``None``.
+
+        The default name ``"SUBSTACK"`` is the standard Scratch convention
+        for body inputs on control blocks (repeat, forever, if, …).
+        """
+        return _substack_val(block.inputs.get(name))
 
     # ── Input/IO accessors ───────────────────────────────────────────
 

@@ -12,8 +12,6 @@ if TYPE_CHECKING:
     from ..target import Target
     from ..types import Block
 
-from ._helpers import _field_val
-
 
 def procedures_definition(rt: Runtime, tgt: Target, block: Block) -> None:
     """Custom block definition — hat. The body runs normally via next block."""
@@ -94,7 +92,7 @@ def _get_param(rt: Runtime, arg_name: str) -> Any:
 
 def argument_reporter_string_number(rt: Runtime, tgt: Target, block: Block) -> Any:
     """Return the value of a custom block argument (string or number)."""
-    arg_name = _field_val(block.fields.get("VALUE")) if block.fields.get("VALUE") else ""
+    arg_name = rt.field(tgt, block, "VALUE")
     if arg_name:
         val = _get_param(rt, arg_name)
         if val is not None:
@@ -104,7 +102,7 @@ def argument_reporter_string_number(rt: Runtime, tgt: Target, block: Block) -> A
 
 def argument_reporter_boolean(rt: Runtime, tgt: Target, block: Block) -> Any:
     """Return the value of a custom block argument (boolean)."""
-    arg_name = _field_val(block.fields.get("VALUE")) if block.fields.get("VALUE") else ""
+    arg_name = rt.field(tgt, block, "VALUE")
     if arg_name:
         val = _get_param(rt, arg_name)
         if val is not None:

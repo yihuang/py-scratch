@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 
 from ..thread import YIELD
 from ..constants import SCRATCH_RIGHT, STAGE_RIGHT, STAGE_TOP
-from ._helpers import _field_val, _str, _target_xy
+from ._helpers import _str, _target_xy
 
 
 def motion_movesteps(rt: Runtime, tgt: Target, block: Block) -> None:
@@ -27,7 +27,7 @@ def motion_movesteps(rt: Runtime, tgt: Target, block: Block) -> None:
 
 
 def motion_goto(rt: Runtime, tgt: Target, block: Block) -> None:
-    target_name = _field_val(block.fields.get("TO"))
+    target_name = rt.field(tgt, block, "TO")
     if not target_name:
         target_name = _str(rt.val(tgt, block, "TO"))
     xy = _target_xy(rt, target_name)
@@ -80,7 +80,7 @@ def motion_pointindirection(rt: Runtime, tgt: Target, block: Block) -> None:
 
 
 def motion_pointtowards(rt: Runtime, tgt: Target, block: Block) -> None:
-    target_name = _field_val(block.fields.get("TOWARDS"))
+    target_name = rt.field(tgt, block, "TOWARDS")
     if not target_name:
         target_name = _str(rt.val(tgt, block, "TOWARDS"))
     xy = _target_xy(rt, target_name)
@@ -150,9 +150,9 @@ def motion_ifonedgebounce(rt: Runtime, tgt: Target, block: Block) -> None:
 
 
 def motion_setrotationstyle(rt: Runtime, tgt: Target, block: Block) -> None:
-    style = block.fields.get("STYLE")
+    style = rt.field(tgt, block, "STYLE")
     if style:
-        tgt.rotation_style = style.value
+        tgt.rotation_style = style
 
 
 def motion_xposition(rt: Runtime, tgt: Target, block: Block) -> Any:
@@ -193,7 +193,7 @@ def motion_glidesecstoxy(rt: Runtime, tgt: Target, block: Block) -> Any:
 
 def motion_glideto(rt: Runtime, tgt: Target, block: Block) -> Any:
     secs = rt.num(tgt, block, "SECS")
-    target_name = _field_val(block.fields.get("TO"))
+    target_name = rt.field(tgt, block, "TO")
     if not target_name:
         target_name = _str(rt.val(tgt, block, "TO"))
     xy = _target_xy(rt, target_name)

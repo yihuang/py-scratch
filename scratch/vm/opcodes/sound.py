@@ -23,13 +23,12 @@ from ..constants import (
 import pygame
 
 from ..thread import YIELD
-from ._helpers import _clamp_effect, _field_val, _find_sound, _ensure_sound_loaded, _str
+from ._helpers import _clamp_effect, _find_sound, _ensure_sound_loaded, _str
 
 
 def sound_sounds_menu(rt: Runtime, tgt: Target, block: Block) -> Any:
     """Menu block: sound name dropdown."""
-    name = _field_val(block.fields.get("SOUND_MENU")) if block.fields else ""
-    return name
+    return rt.field(tgt, block, "SOUND_MENU")
 
 
 def sound_play(rt: Runtime, tgt: Target, block: Block) -> None:
@@ -78,14 +77,14 @@ def sound_volume(rt: Runtime, tgt: Target, block: Block) -> Any:
 
 
 def sound_seteffectto(rt: Runtime, tgt: Target, block: Block) -> None:
-    effect = _field_val(block.fields.get("EFFECT")) if block.fields else ""
+    effect = rt.field(tgt, block, "EFFECT")
     value = rt.num(tgt, block, "VALUE")
     if effect in (SOUND_EFFECT_PITCH, SOUND_EFFECT_PAN):
         tgt.sound_effects[effect] = _clamp_effect(effect, value)
 
 
 def sound_changeeffectby(rt: Runtime, tgt: Target, block: Block) -> None:
-    effect = _field_val(block.fields.get("EFFECT")) if block.fields else ""
+    effect = rt.field(tgt, block, "EFFECT")
     delta = rt.num(tgt, block, "VALUE")
     if effect in (SOUND_EFFECT_PITCH, SOUND_EFFECT_PAN):
         tgt.sound_effects[effect] = _clamp_effect(

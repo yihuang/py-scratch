@@ -3,8 +3,8 @@ Data opcodes — variable and list operations.
 """
 
 from __future__ import annotations
+from scratch.vm.constants import LIST_INDEX_ALL_SENTINEL
 
-import random
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -13,10 +13,8 @@ if TYPE_CHECKING:
     from ..types import Block
 
 from ._helpers import (
-    _field_val,
-    _num,
     _scratch_compare,
-    _to_list_index,
+    to_list_index,
     LIST_ITEM_LIMIT,
 )
 
@@ -27,7 +25,7 @@ from ._helpers import (
 
 
 def data_setvariableto(rt: Runtime, tgt: Target, block: Block) -> None:
-    var_name = _field_val(block.fields.get("VARIABLE"))
+    var_name = rt.field(tgt, block, "VARIABLE")
     value = rt.val(tgt, block, "VALUE")
     if var_name:
         var = tgt.lookup_variable(var_name)
@@ -40,14 +38,14 @@ def data_setvariableto(rt: Runtime, tgt: Target, block: Block) -> None:
 
 
 def data_changevariableby(rt: Runtime, tgt: Target, block: Block) -> None:
-    var_name = _field_val(block.fields.get("VARIABLE"))
+    var_name = rt.field(tgt, block, "VARIABLE")
     delta = rt.num(tgt, block, "VALUE")
     if var_name:
         var = tgt.lookup_variable(var_name)
         if var is None and rt.stage:
             var = rt.stage.lookup_variable(var_name)
         if var:
-            var.value = _num(var.value) + delta
+            var.value = float(var.value) + delta
             if var.is_cloud:
                 rt.io_query("cloud", "request_update_variable", var.name, var.value)
 
@@ -61,14 +59,16 @@ def data_hidevariable(rt: Runtime, tgt: Target, block: Block) -> None:
 
 
 def data_variable(rt: Runtime, tgt: Target, block: Block) -> Any:
-    var_name = _field_val(block.fields.get("VARIABLE"))
-    if var_name:
-        var = tgt.lookup_variable(var_name)
-        if var is None and rt.stage:
-            var = rt.stage.lookup_variable(var_name)
-        if var:
-            return var.value
-    return 0
+    var_name = rt.field(tgt, block, "VARIABLE")
+    if not var_name:
+        return 0
+
+    var = tgt.lookup_variable(var_name)
+    if var is None and rt.stage:
+        var = rt.stage.lookup_variable(var_name)
+
+    if var:
+        return var.value
 
 
 # ═════════════════════════════════════════════════════════════════════════
@@ -77,7 +77,7 @@ def data_variable(rt: Runtime, tgt: Target, block: Block) -> Any:
 
 
 def data_addtolist(rt: Runtime, tgt: Target, block: Block) -> None:
-    list_name = _field_val(block.fields.get("LIST"))
+    list_name = rt.field(tgt, block, "LIST")
     item = rt.val(tgt, block, "ITEM")
     if list_name:
         lst = tgt.lookup_list(list_name)
@@ -88,71 +88,74 @@ def data_addtolist(rt: Runtime, tgt: Target, block: Block) -> None:
 
 
 def data_deleteoflist(rt: Runtime, tgt: Target, block: Block) -> None:
-    list_name = _field_val(block.fields.get("LIST"))
+    list_name = rt.field(tgt, block, "LIST")
     value = rt.val(tgt, block, "INDEX")
-    if list_name:
-        lst = tgt.lookup_list(list_name)
-        if lst is None and rt.stage:
-            lst = rt.stage.lookup_list(list_name)
-        if lst:
-            idx = _to_list_index(value, len(lst.contents))
-            if idx == "ALL":
-                lst.contents.clear()
-            elif isinstance(idx, int):
-                del lst.contents[idx - 1]
+    if not list_name:
+        return
+
+    lst = tgt.lookup_list(list_name)
+    if lst is None and rt.stage:
+        lst = rt.stage.lookup_list(list_name)
+
+    if not lst:
+        return
+
+    idx = to_list_index(value, len(lst.contents))
+    if idx == LIST_INDEX_ALL_SENTINEL:
+        lst.contents.clear()
+        return
+
+    if isinstance(idx, int) and idx > 0:
+        del lst.contents[idx - 1]
 
 
 def data_insertatlist(rt: Runtime, tgt: Target, block: Block) -> None:
-    list_name = _field_val(block.fields.get("LIST"))
+    list_name = rt.field(tgt, block, "LIST")
     item = rt.val(tgt, block, "ITEM")
     idx_val = rt.val(tgt, block, "INDEX")
-    if list_name:
-        lst = tgt.lookup_list(list_name)
-        if lst is None and rt.stage:
-            lst = rt.stage.lookup_list(list_name)
-        if lst:
-            length = len(lst.contents)
-            if length >= LIST_ITEM_LIMIT:
-                lst.contents.pop()
-                length = len(lst.contents)
-            if isinstance(idx_val, str):
-                v = idx_val.lower()
-                if v == "last":
-                    pos = length
-                elif v in ("random", "any"):
-                    pos = random.randint(0, length)
-                else:
-                    idx = _to_list_index(idx_val, length)
-                    if isinstance(idx, int):
-                        pos = min(idx - 1, length)
-                    else:
-                        return
-            else:
-                idx = _to_list_index(idx_val, length)
-                if isinstance(idx, int):
-                    pos = min(idx - 1, length)
-                else:
-                    return
+    if not list_name:
+        return None
 
-            lst.contents.insert(max(0, pos), item)
+    lst = tgt.lookup_list(list_name)
+    if lst is None and rt.stage:
+        lst = rt.stage.lookup_list(list_name)
+
+    if not lst:
+        return None
+
+    length = len(lst.contents)
+    if length >= LIST_ITEM_LIMIT:
+        lst.contents.pop()
+        length = len(lst.contents)
+
+    idx = to_list_index(idx_val, length + 1)
+    if idx == 0:
+        lst.contents.append(item)
+    elif isinstance(idx, int):
+        lst.contents.insert(idx - 1, item)
 
 
 def data_replaceitemoflist(rt: Runtime, tgt: Target, block: Block) -> None:
-    list_name = _field_val(block.fields.get("LIST"))
+    list_name = rt.field(tgt, block, "LIST")
     item = rt.val(tgt, block, "ITEM")
     value = rt.val(tgt, block, "INDEX")
-    if list_name:
-        lst = tgt.lookup_list(list_name)
-        if lst is None and rt.stage:
-            lst = rt.stage.lookup_list(list_name)
-        if lst:
-            idx = _to_list_index(value, len(lst.contents))
-            if isinstance(idx, int):
-                lst.contents[idx - 1] = item
+    if not list_name:
+        return
+
+    lst = tgt.lookup_list(list_name)
+    if lst is None and rt.stage:
+        lst = rt.stage.lookup_list(list_name)
+
+    if not lst:
+        return
+
+    idx = to_list_index(value, len(lst.contents))
+    if isinstance(idx, int) and idx > 0:
+        lst.contents[idx - 1] = item
 
 
 def data_deletealloflist(rt: Runtime, tgt: Target, block: Block) -> None:
-    list_name = _field_val(block.fields.get("LIST"))
+    list_name = rt.field(tgt, block, "LIST")
     if list_name:
         lst = tgt.lookup_list(list_name)
         if lst is None and rt.stage:
@@ -162,21 +165,21 @@ def data_deletealloflist(rt: Runtime, tgt: Target, block: Block) -> None:
 
 
 def data_itemoflist(rt: Runtime, tgt: Target, block: Block) -> Any:
-    list_name = _field_val(block.fields.get("LIST"))
+    list_name = rt.field(tgt, block, "LIST")
     value = rt.val(tgt, block, "INDEX")
     if list_name:
         lst = tgt.lookup_list(list_name)
         if lst is None and rt.stage:
             lst = rt.stage.lookup_list(list_name)
         if lst:
-            idx = _to_list_index(value, len(lst.contents))
-            if isinstance(idx, int):
+            idx = to_list_index(value, len(lst.contents))
+            if isinstance(idx, int) and idx > 0:
                 return lst.contents[idx - 1]
     return ""
 
 
 def data_lengthoflist(rt: Runtime, tgt: Target, block: Block) -> Any:
-    list_name = _field_val(block.fields.get("LIST"))
+    list_name = rt.field(tgt, block, "LIST")
     if list_name:
         lst = tgt.lookup_list(list_name)
         if lst is None and rt.stage:
@@ -187,7 +190,7 @@ def data_lengthoflist(rt: Runtime, tgt: Target, block: Block) -> Any:
 
 
 def data_listcontainsitem(rt: Runtime, tgt: Target, block: Block) -> Any:
-    list_name = _field_val(block.fields.get("LIST"))
+    list_name = rt.field(tgt, block, "LIST")
     item = rt.val(tgt, block, "ITEM")
     if list_name:
         lst = tgt.lookup_list(list_name)
@@ -199,7 +202,7 @@ def data_listcontainsitem(rt: Runtime, tgt: Target, block: Block) -> Any:
 
 
 def data_itemnumoflist(rt: Runtime, tgt: Target, block: Block) -> Any:
-    list_name = _field_val(block.fields.get("LIST"))
+    list_name = rt.field(tgt, block, "LIST")
     item = rt.val(tgt, block, "ITEM")
     if list_name:
         lst = tgt.lookup_list(list_name)
@@ -214,7 +217,7 @@ def data_itemnumoflist(rt: Runtime, tgt: Target, block: Block) -> Any:
 
 def data_listcontents(rt: Runtime, tgt: Target, block: Block) -> Any:
     """Reporter: return list contents as a space-separated string."""
-    list_name = _field_val(block.fields.get("LIST"))
+    list_name = rt.field(tgt, block, "LIST")
     if list_name:
         lst = tgt.lookup_list(list_name)
         if lst is None and rt.stage:

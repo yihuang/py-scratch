@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from ..types import Block
 
 from ..constants import MATH_TRIG_PRECISION
-from ._helpers import _field_val, _scratch_compare, _str
+from ._helpers import _scratch_compare, _str
 
 
 def operator_add(rt: Runtime, tgt: Target, block: Block) -> Any:
@@ -116,11 +116,11 @@ def operator_round(rt: Runtime, tgt: Target, block: Block) -> Any:
 
 
 def operator_mathop(rt: Runtime, tgt: Target, block: Block) -> Any:
-    op = block.fields.get("OPERATOR")
+    operator = rt.field(tgt, block, "OPERATOR")
     n = rt.num(tgt, block, "NUM")
-    if op is None:
+    if not operator:
         return 0
-    match _field_val(op):
+    match operator:
         case "abs":
             r = abs(n)
         case "floor":

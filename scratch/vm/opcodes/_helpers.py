@@ -326,7 +326,7 @@ def _clamp_effect(effect: str, value: float) -> float:
 LIST_ITEM_LIMIT = 200000
 
 
-def _to_list_index(value: Any, length: int) -> int | str | None:
+def to_list_index(value: Any, length: int) -> int | str:
     """Convert a Scratch list index value to a usable index.
 
     Returns:
@@ -339,13 +339,13 @@ def _to_list_index(value: Any, length: int) -> int | str | None:
         if v == LIST_INDEX_ALL:
             return LIST_INDEX_ALL_SENTINEL
         if v == LIST_INDEX_LAST:
-            return length if length > 0 else None
+            return length
         if v in (LIST_INDEX_RANDOM, LIST_INDEX_ANY):
             return random.randint(1, max(1, length))
     try:
         idx = int(round(float(value)))
     except (ValueError, TypeError):
-        return None
+        return 0
     if 1 <= idx <= length:
         return idx
-    return None
+    return 0

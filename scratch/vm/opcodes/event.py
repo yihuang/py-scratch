@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from ..types import Block
 
 from ..thread import YIELD
-from ._helpers import _field_val
+
 from ._helpers import _touching_object_check
 
 
@@ -42,8 +42,7 @@ def event_whenbackdropswitchesto(rt: Runtime, tgt: Target, block: Block) -> None
 
 def event_whentouchingobject(rt: Runtime, tgt: Target, block: Block) -> Any:
     """Edge-activated hat — returns True when touching the specified object."""
-    obj = block.fields.get("TOUCHINGOBJECTMENU")
-    obj_name = _field_val(obj) if obj else ""
+    obj_name = rt.field(tgt, block, "TOUCHINGOBJECTMENU")
     if obj_name == "":
         return False
 
@@ -53,8 +52,7 @@ def event_whentouchingobject(rt: Runtime, tgt: Target, block: Block) -> Any:
 
 def event_whengreaterthan(rt: Runtime, tgt: Target, block: Block) -> Any:
     """Edge-activated hat — returns True when timer/loudness > VALUE."""
-    option = block.fields.get("WHENGREATERTHANMENU")
-    opt = _field_val(option) if option else ""
+    opt = rt.field(tgt, block, "WHENGREATERTHANMENU")
     value = rt.num(tgt, block, "VALUE")
     if opt == "timer":
         result = rt.clock.now() > value

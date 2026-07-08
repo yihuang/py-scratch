@@ -14,7 +14,6 @@ if TYPE_CHECKING:
 from ..thread import Wait
 from ..constants import LOOKS_NEXTCOSTUME_OFFSET
 from ._helpers import (
-    _field_val,
     _format_bubble_text,
     _set_backdrop,
     _set_costume,
@@ -42,8 +41,7 @@ def looks_gotofrontback(rt: Runtime, tgt: Target, block: Block) -> None:
     """Go to front or back layer."""
     if tgt.is_stage:
         return
-    fb = block.fields.get("FRONT_BACK")
-    choice = _field_val(fb) if fb else "front"
+    choice = rt.field(tgt, block, "FRONT_BACK") or "front"
     if choice == "front":
         max_layer = max((o.layer_order for o in rt.sprite_targets()), default=0)
         tgt.layer_order = max_layer + 1
@@ -68,8 +66,7 @@ def looks_goforwardbackwardlayers(rt: Runtime, tgt: Target, block: Block) -> Non
     if tgt.is_stage:
         return
     num = rt.num_int(tgt, block, "NUM")
-    direction = block.fields.get("FORWARD_BACKWARD")
-    if direction and direction.value == "backward":
+    if rt.field(tgt, block, "FORWARD_BACKWARD") == "backward":
         num = -num
     tgt.layer_order += num
 
@@ -83,8 +80,7 @@ def looks_changesizeby(rt: Runtime, tgt: Target, block: Block) -> None:
 
 
 def looks_costumenumbername(rt: Runtime, tgt: Target, block: Block) -> Any:
-    numname = block.fields.get("NUMBER_NAME")
-    if numname and numname.value == "number":
+    if rt.field(tgt, block, "NUMBER_NAME") == "number":
         return tgt.costume_index + 1
     else:
         return tgt.current_costume_name
@@ -92,19 +88,16 @@ def looks_costumenumbername(rt: Runtime, tgt: Target, block: Block) -> Any:
 
 def looks_costume(rt: Runtime, tgt: Target, block: Block) -> Any:
     """Menu block: costume dropdown for ``looks_switchcostumeto``."""
-    name = _field_val(block.fields.get("COSTUME"))
-    return name
+    return rt.field(tgt, block, "COSTUME")
 
 
 def looks_backdrops(rt: Runtime, tgt: Target, block: Block) -> Any:
     """Menu block: backdrop dropdown for ``looks_switchbackdropto``."""
-    name = _field_val(block.fields.get("BACKDROP"))
-    return name
+    return rt.field(tgt, block, "BACKDROP")
 
 
 def looks_backdropnumbername(rt: Runtime, tgt: Target, block: Block) -> Any:
-    numname = block.fields.get("NUMBER_NAME")
-    if numname and numname.value == "number":
+    if rt.field(tgt, block, "NUMBER_NAME") == "number":
         return tgt.costume_index + 1
     else:
         return tgt.current_costume_name
@@ -167,7 +160,7 @@ def looks_nextbackdrop(rt: Runtime, tgt: Target, block: Block) -> None:
 
 
 def looks_changeeffectby(rt: Runtime, tgt: Target, block: Block) -> None:
-    effect = _field_val(block.fields.get("EFFECT")) if block.fields.get("EFFECT") else ""
+    effect = rt.field(tgt, block, "EFFECT")
     change = rt.num(tgt, block, "CHANGE")
     if effect:
         val = tgt.effects.get(effect, 0) + change
@@ -179,7 +172,7 @@ def looks_changeeffectby(rt: Runtime, tgt: Target, block: Block) -> None:
 
 
 def looks_seteffectto(rt: Runtime, tgt: Target, block: Block) -> None:
-    effect = _field_val(block.fields.get("EFFECT")) if block.fields.get("EFFECT") else ""
+    effect = rt.field(tgt, block, "EFFECT")
     value = rt.num(tgt, block, "VALUE")
     if effect:
         if effect == "ghost":
