@@ -11,6 +11,9 @@ if TYPE_CHECKING:
     from ..target import Target
     from ..types import Block
 
+import pygame
+
+from ..cast import to_string
 from ..constants import (
     DEFAULT_TEMPO_BPM,
     SOUND_EFFECT_PAN,
@@ -20,11 +23,8 @@ from ..constants import (
     VOLUME_MAX,
     VOLUME_MIN,
 )
-import pygame
-
 from ..thread import YIELD
-from ..cast import to_string
-from ._helpers import _clamp_effect, _find_sound, _ensure_sound_loaded
+from ._helpers import _clamp_effect, _ensure_sound_loaded, _find_sound
 
 
 def sound_sounds_menu(rt: Runtime, tgt: Target, block: Block) -> Any:

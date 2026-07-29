@@ -15,13 +15,14 @@ from __future__ import annotations
 import argparse
 import sys
 from pathlib import Path
-from scratch.sb3.transcriber import transcribe_to_dir
+
 import pygame
 
 from scratch.sb3 import load_assets, load_project
+from scratch.sb3.transcriber import transcribe_to_dir
+from scratch.vm import Block, Runtime, Target, make_block
 from scratch.vm.opcodes import OPCODE_MAP
 from scratch.vm.renderer import Renderer
-from scratch.vm import Block, Runtime, Target, make_block
 from scratch.vm.types import Costume, Input
 
 

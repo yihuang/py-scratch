@@ -8,17 +8,17 @@ from __future__ import annotations
 
 from typing import Any
 
-from ..vm.target import Target
-from ..vm.types import Block, Costume, Field, Input, Sound
 from ..vm.constants import (
     BLOCK_REF_FLAG,
     OBSOLETE_FLAG,
-    PrimitiveType,
-    SHADOW_FLAG,
     SERIALIZE_TEMPO,
     SERIALIZE_VIDEO_STATE,
     SERIALIZE_VIDEO_TRANSPARENCY,
+    SHADOW_FLAG,
+    PrimitiveType,
 )
+from ..vm.target import Target
+from ..vm.types import Block, Costume, Field, Input, Sound
 
 # Scratch compact primitive type codes for shadow defaults
 POSITIVE_NUMBER = 5

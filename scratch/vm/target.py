@@ -16,8 +16,8 @@ from .constants import (
     DEFAULT_LAYER_ORDER,
     DEFAULT_PEN_BRIGHTNESS,
     DEFAULT_PEN_COLOR,
-    DEFAULT_PEN_SIZE,
     DEFAULT_PEN_SATURATION,
+    DEFAULT_PEN_SIZE,
     DEFAULT_SIZE_PCT,
     DEFAULT_TEMPO_BPM,
     DEFAULT_VOLUME_PCT,
@@ -26,7 +26,6 @@ from .constants import (
     SOUND_EFFECT_PAN,
     SOUND_EFFECT_PITCH,
 )
-
 from .types import Block, Costume, Sound
 
 # ── Variable & List wrappers ─────────────────────────────────────────────

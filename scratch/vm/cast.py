@@ -25,7 +25,6 @@ import random
 import re
 from typing import Any
 
-
 # ── Sentinels ────────────────────────────────────────────────────────────
 
 LIST_INVALID: int = 0

@@ -1,25 +1,24 @@
 """Unit tests — scheduler, thread lifecycle, and every opcode category."""
 
 from __future__ import annotations
-from scratch.vm.runtime import _input_raw, _unwrap_shadow
-
-from itertools import count
-from typing import Any
 
 import datetime
 import json
 import math
+from itertools import count
+from typing import Any
 
-import pytest
 import pygame
+import pytest
+
 from scratch.sb3.parse import parse_block, parse_field, parse_input
-from scratch.sb3.serialize import serialize_field
-from scratch.sb3.serialize import serialize_input
-from scratch.vm import BroadcastMsg, ListVar, Runtime, Target, Variable, make_block
-from scratch.vm.opcodes import OPCODE_MAP
-from scratch.vm.types import Block, Costume, Field, Input, Mutation, Sound
 from scratch.sb3.serialize import build_project_json as _build_project_json
+from scratch.sb3.serialize import serialize_field, serialize_input
+from scratch.vm import BroadcastMsg, ListVar, Runtime, Target, Variable, make_block
 from scratch.vm.constants import PrimitiveType
+from scratch.vm.opcodes import OPCODE_MAP
+from scratch.vm.runtime import _input_raw, _unwrap_shadow
+from scratch.vm.types import Block, Costume, Field, Input, Mutation, Sound
 
 #  Helpers
 # ═══════════════════════════════════════════════════════════════════════

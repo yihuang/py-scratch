@@ -8,7 +8,6 @@ from scratch.vm.types import Field
 
 from .expr import Reporter, StackExpr, _resolve_inputs
 
-
 # ── Commands ──────────────────────────────────────────────────────────────
 
 

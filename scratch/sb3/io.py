@@ -23,10 +23,8 @@ import pygame
 
 from ..vm.runtime import Runtime
 from ..vm.types import Costume, Sound
-
 from .parse import parse_target
 from .serialize import build_project_json
-
 
 logger = logging.getLogger(__name__)
 

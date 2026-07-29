@@ -2,32 +2,30 @@
 
 from __future__ import annotations
 
-import json
 import io
+import json
 import struct
+import tempfile
 import zipfile
 import zlib
-import tempfile
 from pathlib import Path
 
-
 from scratch.sb3.transcriber import (
-    _safe_name,
-    _format_literal,
-    _resolve_variable_name,
-    _decompile_chain,
-    _decompile_block,
-    transcribe_to_dir,
-    _build_input_args,
-    _emit_variables,
-    _emit_lists,
-    _INPUT_PARAM_MAP,
     _FIELD_PARAM_MAP,
     _FIELD_POSITIONAL_ARGS,
+    _INPUT_PARAM_MAP,
+    _build_input_args,
+    _decompile_block,
+    _decompile_chain,
+    _emit_lists,
+    _emit_variables,
+    _format_literal,
+    _resolve_variable_name,
+    _safe_name,
+    transcribe_to_dir,
 )
-from scratch.vm.target import Target, Variable, ListVar
-from scratch.vm.types import Block, Input, Field, Mutation
-
+from scratch.vm.target import ListVar, Target, Variable
+from scratch.vm.types import Block, Field, Input, Mutation
 
 # ── Helpers ──────────────────────────────────────────────────────────────
 

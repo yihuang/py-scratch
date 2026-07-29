@@ -12,7 +12,8 @@ if TYPE_CHECKING:
     from ..runtime import Runtime
     from ..target import Target
 
-from ..types import Input
+import pygame
+
 from ..cast import to_string
 from ..constants import (
     BUBBLE_DECIMAL_THRESHOLD,
@@ -28,8 +29,7 @@ from ..constants import (
     STAGE_RIGHT,
     STAGE_TOP,
 )
-
-import pygame
+from ..types import Input
 
 
 def _field_val(field: Any) -> str:

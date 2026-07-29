@@ -13,8 +13,8 @@ if TYPE_CHECKING:
     from ..target import Target
     from ..types import Block
 
-from ..constants import MATH_TRIG_PRECISION
 from ..cast import compare, to_string
+from ..constants import MATH_TRIG_PRECISION
 
 
 def operator_add(rt: Runtime, tgt: Target, block: Block) -> Any:

@@ -12,9 +12,9 @@ if TYPE_CHECKING:
     from ..target import Target
     from ..types import Block
 
-from ..thread import YIELD
-from ..constants import SCRATCH_RIGHT, STAGE_RIGHT, STAGE_TOP
 from ..cast import to_string
+from ..constants import SCRATCH_RIGHT, STAGE_RIGHT, STAGE_TOP
+from ..thread import YIELD
 from ._helpers import _target_xy
 
 

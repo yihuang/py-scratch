@@ -14,7 +14,6 @@ from scratch.sb3.transcriber import transcribe_to_dir
 from scratch.vm.runtime import Runtime
 from scratch.vm.target import Target
 
-
 # ── Structural comparison helpers ──────────────────────────────────────────
 
 

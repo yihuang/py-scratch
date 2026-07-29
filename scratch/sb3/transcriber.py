@@ -19,17 +19,16 @@ This generates::
 
 from __future__ import annotations
 
-import re
 import json
-
+import re
 import zipfile
 from pathlib import Path
 from typing import Any
 
 from scratch.sb3.io import load_project
-from scratch.vm.target import Target
-from scratch.vm.runtime import Runtime
 from scratch.vm.constants import PrimitiveType
+from scratch.vm.runtime import Runtime
+from scratch.vm.target import Target
 from scratch.vm.types import Block, Input
 
 # ── Opcode → DSL mapping ─────────────────────────────────────────────────────

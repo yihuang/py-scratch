@@ -12,7 +12,7 @@ Layers:
 """
 
 from .runtime import Runtime
-from .scheduler import Scheduler, Clock
+from .scheduler import Clock, Scheduler
 from .target import BroadcastMsg, ListVar, Target, Variable
 from .thread import Thread, ThreadStatus
 from .types import Block, Costume, Field, Input, make_block

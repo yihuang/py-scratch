@@ -15,6 +15,7 @@ import json
 
 from scratch.vm.target import Target
 from scratch.vm.types import Block, Field, Input
+
 from .expr import Reporter, StackExpr
 
 

@@ -24,19 +24,10 @@ Build Scratch 3 projects programmatically using a composable expression API::
     project.save("game.sb3")
 """
 
-from .project import Project, ProjectTarget
-from . import control
-from . import data
-from . import events
-from . import looks
-from . import motion
-from . import operators
-from . import pen
-from . import procedures
-from . import sensing
-from . import sound
-from .expr import Reporter, StackExpr
+from . import control, data, events, looks, motion, operators, pen, procedures, sensing, sound
 from .builder import Script
+from .expr import Reporter, StackExpr
+from .project import Project, ProjectTarget
 
 __all__ = [
     "Project",

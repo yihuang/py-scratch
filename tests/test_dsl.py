@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 import io
+import json
 import zipfile
 
 import pytest
-
-import json
 
 from scratch.dsl import (
     Project,
@@ -27,7 +26,6 @@ from scratch.dsl.expr import Reporter
 from scratch.sb3.io import load_project
 from scratch.vm.target import Target
 from scratch.vm.types import Block
-
 
 # ═════════════════════════════════════════════════════════════════════════
 #  Unit — expression construction

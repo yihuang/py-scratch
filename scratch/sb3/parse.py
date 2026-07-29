@@ -9,14 +9,13 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from ..vm.target import BroadcastMsg, ListVar, Target, Variable
-from ..vm.types import Block, Costume, Field, Input, Mutation, Sound
 from ..vm.constants import (
     OBSOLETE_FLAG,
-    PrimitiveType,
     SHADOW_FLAG,
+    PrimitiveType,
 )
-
+from ..vm.target import BroadcastMsg, ListVar, Target, Variable
+from ..vm.types import Block, Costume, Field, Input, Mutation, Sound
 
 logger = logging.getLogger(__name__)
 

@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from scratch.vm.types import Field
 
-from .expr import Reporter, StackExpr, _resolve_inputs, POSITIVE_NUMBER, WHOLE_NUMBER
+from .expr import POSITIVE_NUMBER, WHOLE_NUMBER, Reporter, StackExpr, _resolve_inputs
 
 
 def repeat(times: int | float | Reporter = 10) -> StackExpr:

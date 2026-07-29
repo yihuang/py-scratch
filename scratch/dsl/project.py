@@ -37,10 +37,10 @@ from scratch.vm.runtime import Runtime
 from scratch.vm.target import ListVar, Target, Variable
 from scratch.vm.types import Costume, Sound
 
-from .builder import Script
-from .expr import Reporter, StackExpr
 from . import events as _events
 from . import procedures as _procedures
+from .builder import Script
+from .expr import Reporter, StackExpr
 
 
 class ProjectTarget:

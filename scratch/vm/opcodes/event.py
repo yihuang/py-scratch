@@ -12,7 +12,6 @@ if TYPE_CHECKING:
     from ..types import Block
 
 from ..thread import YIELD
-
 from ._helpers import _touching_object_check
 
 

@@ -11,8 +11,8 @@ if TYPE_CHECKING:
     from ..target import Target
     from ..types import Block
 
-from ..thread import ThreadStatus, Wait, YIELD
 from ..constants import STOP_ALL, STOP_OTHER_IN_SPRITE, STOP_OTHER_IN_STAGE, STOP_THIS_SCRIPT
+from ..thread import YIELD, ThreadStatus, Wait
 
 # ── Counter helpers (stored on the current thread) ─────────────────────
 

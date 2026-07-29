@@ -12,12 +12,12 @@ import math
 from collections.abc import Callable, Generator
 from typing import Any, Iterable, cast
 
+from .cloud import Cloud
+from .constants import CLICK_HIT_RADIUS, CLONE_START_HATS, PrimitiveType
+from .scheduler import Scheduler, SchedulerThread
 from .target import Target
 from .thread import Thread, ThreadStatus, Wait, YieldPass
-from .scheduler import Scheduler, SchedulerThread
-from .constants import CLICK_HIT_RADIUS, CLONE_START_HATS, PrimitiveType
 from .types import Block, Input
-from .cloud import Cloud
 
 # Type alias: an opcode handler is a generator that yields control signals
 # and (for reporters) ends by returning a value.

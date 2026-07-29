@@ -11,8 +11,8 @@ if TYPE_CHECKING:
     from ..target import Target
     from ..types import Block
 
-from ..thread import Wait
 from ..constants import LOOKS_NEXTCOSTUME_OFFSET
+from ..thread import Wait
 from ._helpers import (
     _format_bubble_text,
     _set_backdrop,

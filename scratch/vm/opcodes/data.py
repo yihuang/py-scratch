@@ -3,9 +3,10 @@ Data opcodes — variable and list operations.
 """
 
 from __future__ import annotations
-from scratch.vm.constants import LIST_INDEX_ALL_SENTINEL
 
 from typing import TYPE_CHECKING, Any
+
+from scratch.vm.constants import LIST_INDEX_ALL_SENTINEL
 
 if TYPE_CHECKING:
     from ..runtime import Runtime
@@ -14,7 +15,6 @@ if TYPE_CHECKING:
 
 from ..cast import compare, to_list_index
 from ._helpers import LIST_ITEM_LIMIT
-
 
 # ═════════════════════════════════════════════════════════════════════════
 #  Variables

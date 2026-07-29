@@ -13,6 +13,7 @@ if TYPE_CHECKING:
     from ..target import Target
     from ..types import Block
 
+from ..cast import to_string
 from ..constants import (
     DISTANCE_UNREACHABLE,
     DST_OFFSET_SECS,
@@ -20,7 +21,6 @@ from ..constants import (
     YEAR_2000_EPOCH,
 )
 from ..thread import YIELD
-from ..cast import to_string
 from ._helpers import _touching_object_check
 
 

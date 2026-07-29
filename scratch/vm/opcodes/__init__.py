@@ -12,6 +12,7 @@ into the :data:`OPCODE_MAP` registry.
 """
 
 from __future__ import annotations
+
 from scratch.vm.runtime import Handler
 
 __all__: list[str] = [
@@ -41,7 +42,25 @@ from .control import (
     control_wait_until,
     control_while,
 )
-
+from .data import (
+    data_addtolist,
+    data_changevariableby,
+    data_deletealloflist,
+    data_deleteoflist,
+    data_hidelist,
+    data_hidevariable,
+    data_insertatlist,
+    data_itemnumoflist,
+    data_itemoflist,
+    data_lengthoflist,
+    data_listcontainsitem,
+    data_listcontents,
+    data_replaceitemoflist,
+    data_setvariableto,
+    data_showlist,
+    data_showvariable,
+    data_variable,
+)
 from .event import (
     event_broadcast,
     event_broadcastandwait,
@@ -54,37 +73,6 @@ from .event import (
     event_whenthisspriteclicked,
     event_whentouchingobject,
 )
-
-from .motion import (
-    motion_align_scene,
-    motion_changexby,
-    motion_changeyby,
-    motion_direction,
-    motion_glideto,
-    motion_glideto_menu,
-    motion_glidesecstoxy,
-    motion_goto,
-    motion_gotoxy,
-    motion_gox,
-    motion_goy,
-    motion_ifonedgebounce,
-    motion_movesteps,
-    motion_pointindirection,
-    motion_pointtowards,
-    motion_scroll_right,
-    motion_scroll_up,
-    motion_setdirection,
-    motion_setrotationstyle,
-    motion_setx,
-    motion_sety,
-    motion_turnleft,
-    motion_turnright,
-    motion_xposition,
-    motion_xscroll,
-    motion_yposition,
-    motion_yscroll,
-)
-
 from .looks import (
     looks_backdropnumbername,
     looks_backdrops,
@@ -113,7 +101,35 @@ from .looks import (
     looks_think,
     looks_thinkforsecs,
 )
-
+from .motion import (
+    motion_align_scene,
+    motion_changexby,
+    motion_changeyby,
+    motion_direction,
+    motion_glidesecstoxy,
+    motion_glideto,
+    motion_glideto_menu,
+    motion_goto,
+    motion_gotoxy,
+    motion_gox,
+    motion_goy,
+    motion_ifonedgebounce,
+    motion_movesteps,
+    motion_pointindirection,
+    motion_pointtowards,
+    motion_scroll_right,
+    motion_scroll_up,
+    motion_setdirection,
+    motion_setrotationstyle,
+    motion_setx,
+    motion_sety,
+    motion_turnleft,
+    motion_turnright,
+    motion_xposition,
+    motion_xscroll,
+    motion_yposition,
+    motion_yscroll,
+)
 from .operators import (
     operator_add,
     operator_and,
@@ -134,27 +150,21 @@ from .operators import (
     operator_round,
     operator_subtract,
 )
-
-from .data import (
-    data_addtolist,
-    data_changevariableby,
-    data_deletealloflist,
-    data_deleteoflist,
-    data_hidelist,
-    data_hidevariable,
-    data_insertatlist,
-    data_itemnumoflist,
-    data_itemoflist,
-    data_lengthoflist,
-    data_listcontainsitem,
-    data_listcontents,
-    data_replaceitemoflist,
-    data_setvariableto,
-    data_showlist,
-    data_showvariable,
-    data_variable,
+from .pen import (
+    pen_change_pen_size_by,
+    pen_clear,
+    pen_pen_down,
+    pen_pen_up,
+    pen_set_pen_color_to_color,
+    pen_set_pen_size_to,
+    pen_stamp,
 )
-
+from .procedures import (
+    argument_reporter_boolean,
+    argument_reporter_string_number,
+    procedures_call,
+    procedures_definition,
+)
 from .sensing import (
     sensing_answer,
     sensing_askandwait,
@@ -178,7 +188,6 @@ from .sensing import (
     sensing_userid,
     sensing_username,
 )
-
 from .sound import (
     sound_changeeffectby,
     sound_changetempo,
@@ -193,23 +202,6 @@ from .sound import (
     sound_stopallsounds,
     sound_tempo,
     sound_volume,
-)
-
-from .pen import (
-    pen_change_pen_size_by,
-    pen_clear,
-    pen_pen_down,
-    pen_pen_up,
-    pen_set_pen_color_to_color,
-    pen_set_pen_size_to,
-    pen_stamp,
-)
-
-from .procedures import (
-    argument_reporter_boolean,
-    argument_reporter_string_number,
-    procedures_call,
-    procedures_definition,
 )
 
 # ═════════════════════════════════════════════════════════════════════════
