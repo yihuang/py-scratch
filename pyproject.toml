@@ -6,7 +6,7 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "pygame>=2.6.1",
-    "cairosvg>=2.7.1",
+    "resvg-py>=0.3.3",
 ]
 
 [project.scripts]
@@ -30,7 +30,7 @@ dev = [
 line-length = 100
 
 [tool.ruff.lint]
-extend-select = ["PLC0415"]
+extend-select = ["PLC0415", "I"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["F841"]
@@ -43,5 +43,5 @@ python_version = "3.13"
 strict = true
 
 [[tool.mypy.overrides]]
-module = ["cairosvg"]
+module = ["resvg_py"]
 ignore_missing_imports = true

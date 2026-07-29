@@ -8,16 +8,15 @@ import io
 import math
 import re
 from collections.abc import Callable
-import cairosvg
 from typing import Any
 
 import pygame
+import resvg_py
 
 from .constants import ROTATION_DONT_ROTATE, ROTATION_LEFT_RIGHT
 from .runtime import Runtime
 from .target import Target
 from .types import Costume
-
 
 # ── Constants ────────────────────────────────────────────────────────────
 
@@ -147,10 +146,12 @@ def _clamp_screen(v: float, limit: float) -> float:
 def _render_svg_data(data: bytes) -> pygame.Surface:
     """Render SVG bytes to a pygame surface.
 
-    Use **cairosvg** to handle embedded ``<image>`` data URIs.
+    Uses **resvg_py** (resvg Rust library) for fast, high-fidelity
+    SVG rasterization.
     """
     try:
-        png_data = cairosvg.svg2png(bytestring=data)
+        svg_text = data.decode("utf-8")
+        png_data = resvg_py.svg_to_bytes(svg_string=svg_text)
     except ValueError:
         # return placeholder for zero sized svg
         surf = pygame.Surface((1, 1), pygame.SRCALPHA)
