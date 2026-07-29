@@ -103,9 +103,8 @@ class ProjectTarget:
         filename: str | Path | None = None,
         *,
         path: str | Path | None = None,
+        data: bytes | pygame.Surface | None = None,
         data_format: str = "png",
-        asset_id: str = "",
-        md5ext: str = "",
         rotation_center_x: float | None = None,
         rotation_center_y: float | None = None,
     ) -> None:
@@ -113,46 +112,62 @@ class ProjectTarget:
 
         Usage::
 
-            # Simple: filename resolved against ``assets_dir`` (set on Project)
+            # From a file (resolved against ``assets_dir``)
             sprite.costume("Cat", "cat.svg")
 
-            # Explicit path (no assets_dir needed)
+            # From an explicit path
             sprite.costume("Cat", path="/path/to/cat.png")
 
-        If *filename* is given (positional), it is resolved against the
-        project's ``assets_dir`` when set.  If *path* is given (keyword),
-        it is used as-is.
+            # From raw image bytes (PNG, SVG, etc.)
+            with open("cat.png", "rb") as f:
+                sprite.costume("Cat", data=f.read())
+
+            # From a pygame Surface (converted to PNG)
+            surf = pygame.Surface((50, 50))
+            surf.fill((255, 0, 0))
+            sprite.costume("Dot", data=surf)
 
         For SVG files the rotation centre defaults to the viewBox centre;
         pass ``rotation_center_x`` / ``rotation_center_y`` to override.
         """
         src = path or filename
-        if src is None:
+        surface = None
+
+        if src is not None:
+            src_path = self._resolve_asset(src)
+            raw = src_path.read_bytes()
+            fmt = src_path.suffix.lstrip(".")
+        elif isinstance(data, pygame.Surface):
+            buf = io.BytesIO()
+            pygame.image.save(data, buf, "PNG")
+            raw = buf.getvalue()
+            fmt = "png"
+            # Store the surface for renderer use
+            surface = data
+        elif isinstance(data, bytes):
+            raw = data
+            fmt = data_format
+            surface = None
+        else:
+            # No source — create an empty placeholder
             self._costumes.append(
                 Costume(
                     name=name,
                     data_format=data_format,
                     rotation_center_x=rotation_center_x or 0,
                     rotation_center_y=rotation_center_y or 0,
-                    asset_id=asset_id,
-                    md5ext=md5ext,
                 )
             )
             return
 
-        src_path = self._resolve_asset(src)
-        data = src_path.read_bytes()
-        fmt = src_path.suffix.lstrip(".")
-        md5 = hashlib.md5(data).hexdigest()
-
+        md5 = hashlib.md5(raw).hexdigest()
         rc_x: float = rotation_center_x or 0
         rc_y: float = rotation_center_y or 0
 
         # For SVG, default rotation centre = centre of viewBox
         if fmt == "svg" and rotation_center_x is None:
-            # find rotation center in viewBox attribute, e.g. viewBox="0 0 480 360"
             m = re.search(
-                r'viewBox="-?[\d.]+\s+-?[\d.]+\s+([\d.]+)\s+([\d.]+)"', data.decode("utf-8")
+                r'viewBox="-?[\d.]+\s+-?[\d.]+\s+([\d.]+)\s+([\d.]+)"', raw.decode("utf-8")
             )
             if m:
                 vb_w = float(m.group(1))
@@ -160,15 +175,23 @@ class ProjectTarget:
                 rc_x = rc_x or (vb_w / 2)
                 rc_y = rc_y or (vb_h / 2)
 
+        # If a Surface was passed, try to decode it for renderer use
+        if surface is None and fmt == "png":
+            try:
+                surface = pygame.image.load(io.BytesIO(raw))
+            except Exception:
+                pass
+
         self._costumes.append(
             Costume(
                 name=name,
                 data_format=fmt,
-                data=data,
+                data=raw,
                 rotation_center_x=rc_x,
                 rotation_center_y=rc_y,
                 asset_id=md5,
                 md5ext=f"{md5}.{fmt}",
+                surface=surface,
             )
         )
 

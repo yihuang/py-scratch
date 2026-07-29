@@ -330,6 +330,58 @@ class TestRoundtripDSL:
         rt_rebuilt = _roundtrip(project, tmp_path)
         _assert_runtimes_equal(rt_orig, rt_rebuilt)
 
+    def test_number_literals(self, tmp_path: Path) -> None:
+        """Number literals should stay bare int/float after roundtrip,
+        not become quoted strings. This verifies the transcriber's compact
+        primitive type-code handling."""
+        project = Project("NumLitTest")
+        s = project.sprite("T")
+        s.var("x", 0)
+        s.var("y", "")
+
+        s.when_flag_clicked(
+            # int literal
+            data.set_variable("x", 42),
+            # float literal
+            data.set_variable("x", 3.14),
+            # string literal (should remain quoted)
+            data.set_variable("y", "hello"),
+            # a string that looks like a number
+            data.set_variable("y", "42"),
+            # wait with float duration
+            control.wait(0.5),
+            # repeat with int count
+            control.repeat(3)(
+                motion.move(1),
+            ),
+        )
+
+        rt_orig = project.build_runtime()
+        rt_rebuilt = _roundtrip(project, tmp_path)
+        _assert_runtimes_equal(rt_orig, rt_rebuilt)
+
+        # Now directly verify that block input values preserve int/str types.
+        # Find the data_setvariableto blocks in the rebuilt target.
+        rebuilt_tgt = rt_rebuilt.targets[1]  # sprite
+        for bid, block in rebuilt_tgt.blocks.items():
+            if block.opcode != "data_setvariableto":
+                continue
+            val_input = block.inputs.get("VALUE")
+            assert val_input is not None
+            # Resolve the input value through the runtime to get the actual
+            # value that would be assigned to the variable.
+            val = rt_rebuilt.resolve_input(rebuilt_tgt, val_input.value, is_shadow=val_input.shadow)
+            fld = block.fields.get("VARIABLE")
+            var_name = str(getattr(fld, "value", "")) if fld else ""
+            if var_name == "x":
+                assert isinstance(val, (int, float)), (
+                    f"'x' value should be int/float, got {type(val).__name__}: {val!r}"
+                )
+            elif var_name == "y":
+                assert isinstance(val, str), (
+                    f"'y' value should be str, got {type(val).__name__}: {val!r}"
+                )
+
     def test_complex_nested(self, tmp_path: Path) -> None:
         """Complex project: multiple sprites, variables, operators, and control flow."""
         project = Project("Complex")
@@ -424,6 +476,7 @@ EXAMPLES = [
     "pen_artist",
     "all_in_one",
     "procedures_demo",
+    "data_demo",
 ]
 
 

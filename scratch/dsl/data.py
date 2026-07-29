@@ -83,7 +83,7 @@ def add_to_list(list_: str, item: int | float | str | Reporter) -> StackExpr:
     )
 
 
-def delete_of_list(list_: str, index: int | float | Reporter = 1) -> StackExpr:
+def delete_of_list(list_: str, index: int | float | str | Reporter = 1) -> StackExpr:
     """``data_deleteoflist`` — delete *index* (1-based, "last", "all")."""
 
     ins, shadows = _resolve_inputs({"INDEX": index})
@@ -96,7 +96,7 @@ def delete_of_list(list_: str, index: int | float | Reporter = 1) -> StackExpr:
 
 
 def insert_at_list(
-    list_: str, item: int | float | str | Reporter, index: int | float | Reporter = 1
+    list_: str, item: int | float | str | Reporter, index: int | float | str | Reporter = 1
 ) -> StackExpr:
     """``data_insertatlist``."""
 
@@ -110,7 +110,7 @@ def insert_at_list(
 
 
 def replace_item_of_list(
-    list_: str, index: int | float | Reporter, item: int | float | str | Reporter
+    list_: str, index: int | float | str | Reporter, item: int | float | str | Reporter
 ) -> StackExpr:
     """``data_replaceitemoflist``."""
 
@@ -126,7 +126,7 @@ def replace_item_of_list(
 # ── List reporters ────────────────────────────────────────────────────────
 
 
-def item_of_list(list_: str, index: int | float | Reporter = 1) -> Reporter:
+def item_of_list(list_: str, index: int | float | str | Reporter = 1) -> Reporter:
     """``data_itemoflist`` — reporter."""
 
     ins, shadows = _resolve_inputs({"INDEX": index})

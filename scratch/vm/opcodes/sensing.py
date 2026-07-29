@@ -20,7 +20,7 @@ from ..constants import (
     YEAR_2000_EPOCH,
 )
 from ..thread import YIELD
-from ..cast import to_string 
+from ..cast import to_string
 from ._helpers import _touching_object_check
 
 

@@ -29,6 +29,7 @@ from typing import Any
 from scratch.sb3.io import load_project
 from scratch.vm.target import Target
 from scratch.vm.runtime import Runtime
+from scratch.vm.constants import PrimitiveType
 from scratch.vm.types import Block, Input
 
 # ── Opcode → DSL mapping ─────────────────────────────────────────────────────
@@ -1171,12 +1172,33 @@ def _format_input_value(tgt: Target, inp: Input, parent_block: Block) -> str:
     # Handle compact primitive arrays [type_code, actual_value, ...]
     if isinstance(value, (list, tuple)) and len(value) >= 2 and isinstance(value[0], int):
         type_code = value[0]
-        if type_code == 11:  # BROADCAST — [11, name, id]
-            name = value[1] if len(value) > 1 else ""
-            return _format_literal(name)
-        # Other compact primitives (4-10, 12-13): extract the value
-        ref = value[1]
-        value = ref
+        ref = value[1] if len(value) > 1 else ""
+        # Convert back to the correct Python type based on the type code.
+        # The serializer stores all values as strings (e.g. ``[4, "5"]``),
+        # so we must convert back or numbers will transcribe as ``"'5'"``.
+        if type_code == PrimitiveType.BROADCAST:  # 11
+            return _format_literal(ref)
+        if type_code in (
+            PrimitiveType.NUMBER,  # 4
+            PrimitiveType.POSITIVE_NUMBER,  # 5
+            PrimitiveType.WHOLE_NUMBER,  # 6
+            PrimitiveType.INTEGER,  # 7
+            PrimitiveType.ANGLE,  # 8
+            PrimitiveType.COLOR_PICKER,  # 9
+        ):
+            try:
+                n = float(ref)
+                value = int(n) if n == int(n) else n
+            except (ValueError, TypeError):
+                value = 0
+        elif type_code == PrimitiveType.TEXT:  # 10
+            value = ref
+        elif type_code == PrimitiveType.VARIABLE:  # 12
+            return f"data.variable('{ref}')"
+        elif type_code == PrimitiveType.LIST:  # 13
+            return f"data.list_contents('{ref}')"
+        else:
+            value = ref
 
     if inp.is_literal:
         return _format_literal(value)
